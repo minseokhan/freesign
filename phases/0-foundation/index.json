@@ -1,0 +1,11 @@
+{
+  "project": "FreeSign",
+  "phase": "0-foundation",
+  "steps": [
+    { "step": 0, "name": "project-scaffold", "status": "pending" },
+    { "step": 1, "name": "design-tokens", "status": "pending" },
+    { "step": 2, "name": "ui-primitives", "status": "pending" },
+    { "step": 3, "name": "supabase-clients", "status": "pending" },
+    { "step": 4, "name": "app-shell", "status": "pending" }
+  ]
+}

@@ -4,6 +4,11 @@ out/
 next-env.d.ts
 tsconfig.tsbuildinfo
 
+# env (시크릿) — .env.example 만 커밋
+.env
+.env.local
+.env*.local
+
 # python
 __pycache__/
 *.pyc

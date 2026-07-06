@@ -1,0 +1,13 @@
+{
+  "phases": [
+    { "dir": "0-foundation", "status": "pending" },
+    { "dir": "1-database", "status": "pending" },
+    { "dir": "2-domain-logic", "status": "pending" },
+    { "dir": "3-auth", "status": "pending" },
+    { "dir": "4-clients", "status": "pending" },
+    { "dir": "5-contracts", "status": "pending" },
+    { "dir": "6-invoices", "status": "pending" },
+    { "dir": "7-dashboard-reports", "status": "pending" },
+    { "dir": "8-e2e", "status": "pending" }
+  ]
+}
