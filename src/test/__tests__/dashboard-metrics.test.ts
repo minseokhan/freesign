@@ -181,13 +181,76 @@ describe("dashboard metrics functions", () => {
     ]);
   });
 
+  it("groups report revenue by client channel for the selected KST paid year", async () => {
+    const userA = await createUser(pool, "report-channel-a@example.test");
+    const userB = await createUser(pool, "report-channel-b@example.test");
+    const directClientId = await insertClient(userA, "Direct Client", "direct");
+    const linkedinClientId = await insertClient(userA, "LinkedIn Client", "linkedin");
+    const userBClientId = await insertClient(userB, "Hidden Client", "youtube");
+
+    await insertInvoice(userA, directClientId, {
+      netAmount: 100_000,
+      paymentStatus: "paid",
+      paidAtSql: "'2025-12-31 15:30:00+00'::timestamptz",
+    });
+    await insertInvoice(userA, directClientId, {
+      netAmount: 200_000,
+      paymentStatus: "paid",
+      paidAtSql: "'2026-06-01 00:00:00+00'::timestamptz",
+    });
+    await insertInvoice(userA, linkedinClientId, {
+      netAmount: 300_000,
+      paymentStatus: "paid",
+      paidAtSql: "'2026-12-31 14:59:59+00'::timestamptz",
+    });
+    await insertInvoice(userA, linkedinClientId, {
+      netAmount: 400_000,
+      paymentStatus: "paid",
+      paidAtSql: "'2026-12-31 15:00:00+00'::timestamptz",
+    });
+    await insertInvoice(userA, directClientId, {
+      netAmount: 500_000,
+      paymentStatus: "unpaid",
+    });
+    await insertInvoice(userA, directClientId, {
+      netAmount: 600_000,
+      paymentStatus: "paid",
+      paidAtSql: "'2026-07-01 00:00:00+00'::timestamptz",
+      deleted: true,
+    });
+    await insertInvoice(userB, userBClientId, {
+      netAmount: 900_000,
+      paymentStatus: "paid",
+      paidAtSql: "'2026-07-01 00:00:00+00'::timestamptz",
+    });
+
+    const result = await runAs<{
+      channel: string;
+      revenue: string;
+      total_revenue: string;
+    }>(
+      pool,
+      userA,
+      "select * from get_report_channel_revenue(2026) order by channel",
+    );
+
+    expect(result.rows).toEqual([
+      { channel: "direct", revenue: "300000", total_revenue: "600000" },
+      { channel: "linkedin", revenue: "300000", total_revenue: "600000" },
+    ]);
+  });
+
   it("declares dashboard functions as security invoker", async () => {
     const result = await pool.query<{ proname: string; prosecdef: boolean }>(
       `
         select proname, prosecdef
         from pg_proc
         where pronamespace = 'public'::regnamespace
-          and proname in ('get_dashboard_totals', 'get_dashboard_channel_revenue')
+          and proname in (
+            'get_dashboard_totals',
+            'get_dashboard_channel_revenue',
+            'get_report_channel_revenue'
+          )
         order by proname
       `,
     );
@@ -195,6 +258,7 @@ describe("dashboard metrics functions", () => {
     expect(result.rows).toEqual([
       { proname: "get_dashboard_channel_revenue", prosecdef: false },
       { proname: "get_dashboard_totals", prosecdef: false },
+      { proname: "get_report_channel_revenue", prosecdef: false },
     ]);
   });
 });
