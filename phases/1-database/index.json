@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "schema-migrations",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T16:53:21+0900",
+      "summary": "Added initial Supabase schema migration for enums, six tables, constraints, and updated_at triggers with integration coverage.",
+      "completed_at": "2026-07-07T16:56:42+0900"
     },
     {
       "step": 2,
