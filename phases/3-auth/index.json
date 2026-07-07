@@ -7,7 +7,8 @@
       "name": "oauth-login",
       "status": "completed",
       "started_at": "2026-07-07T19:37:43+0900",
-      "summary": "Added /login Google OAuth entry and /auth/callback code exchange with mocked callback tests; real Google provider setup remains external/manual."
+      "summary": "Added /login Google OAuth entry and /auth/callback code exchange with mocked callback tests; real Google provider setup remains external/manual.",
+      "completed_at": "2026-07-07T19:41:58+0900"
     },
     {
       "step": 1,
