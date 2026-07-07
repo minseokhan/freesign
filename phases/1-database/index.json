@@ -1,0 +1,13 @@
+{
+  "project": "FreeSign",
+  "phase": "1-database",
+  "steps": [
+    { "step": 0, "name": "pg-test-harness", "status": "pending" },
+    { "step": 1, "name": "schema-migrations", "status": "pending" },
+    { "step": 2, "name": "rls-policies", "status": "pending" },
+    { "step": 3, "name": "indexes", "status": "pending" },
+    { "step": 4, "name": "generated-types", "status": "pending" },
+    { "step": 5, "name": "query-helpers", "status": "pending" },
+    { "step": 6, "name": "demo-seed", "status": "pending" }
+  ]
+}
