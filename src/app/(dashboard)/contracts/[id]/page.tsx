@@ -140,18 +140,6 @@ function DetailItem({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function PlaceholderButton({ children }: { children: string }) {
-  return (
-    <button
-      type="button"
-      disabled
-      className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-surface-muted px-lg py-sm text-sm font-medium text-text-disabled"
-    >
-      {children}
-    </button>
-  );
-}
-
 function PdfLink({ contractId }: { contractId: string }) {
   return (
     <Link
@@ -433,7 +421,12 @@ export default async function ContractDetailPage({
               </form>
             ))
           )}
-          <PlaceholderButton>하위 인보이스</PlaceholderButton>
+          <Link
+            href={`/invoices/new?contract=${contract.id}`}
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          >
+            인보이스 발행
+          </Link>
         </div>
       </Card>
 
