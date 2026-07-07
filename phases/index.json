@@ -27,7 +27,8 @@
     },
     {
       "dir": "5-contracts",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-07-07T23:50:54+0900"
     },
     {
       "dir": "6-invoices",

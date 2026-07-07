@@ -152,6 +152,18 @@ function PlaceholderButton({ children }: { children: string }) {
   );
 }
 
+function PdfLink({ contractId }: { contractId: string }) {
+  return (
+    <Link
+      href={`/api/contracts/${contractId}/pdf`}
+      target="_blank"
+      className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+    >
+      PDF
+    </Link>
+  );
+}
+
 const transitionLabels: Partial<Record<ContractStatus, string>> = {
   active: "진행 시작",
   done: "완료 처리",
@@ -255,7 +267,7 @@ export default async function ContractDetailPage({
               조항 편집
             </Link>
           ) : null}
-          <PlaceholderButton>PDF</PlaceholderButton>
+          <PdfLink contractId={contract.id} />
         </div>
       </div>
 
