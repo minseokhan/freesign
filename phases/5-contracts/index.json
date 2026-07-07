@@ -7,7 +7,8 @@
       "name": "contract-read",
       "status": "completed",
       "started_at": "2026-07-07T22:56:12+0900",
-      "summary": "계약 목록과 상세 RSC 읽기 화면, 상태 배지, 이력 타임라인 표시를 구현"
+      "summary": "계약 목록과 상세 RSC 읽기 화면, 상태 배지, 이력 타임라인 표시를 구현",
+      "completed_at": "2026-07-07T23:01:29+0900"
     },
     {
       "step": 1,
