@@ -1,0 +1,34 @@
+{
+  "project": "FreeSign",
+  "phase": "2-domain-logic",
+  "steps": [
+    {
+      "step": 0,
+      "name": "tax",
+      "status": "completed",
+      "started_at": "2026-07-07T18:01:42+0900",
+      "summary": "Added src/lib/tax.ts calcWithholding with WithholdingType/WithholdingBreakdown and TDD coverage in src/lib/__tests__/tax.test.ts."
+    },
+    {
+      "step": 1,
+      "name": "metrics",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "ai-draft",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "signature-provider",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "payment-provider",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-07T18:01:42+0900"
+}
