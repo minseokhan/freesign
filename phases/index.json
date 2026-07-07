@@ -7,7 +7,8 @@
     },
     {
       "dir": "1-database",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-07-07T17:29:59+0900"
     },
     {
       "dir": "2-domain-logic",
