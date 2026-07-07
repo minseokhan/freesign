@@ -7,6 +7,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
+    globalSetup: ["./src/test/pg-global-setup.ts"],
     setupFiles: ["./vitest.setup.ts"]
   },
   resolve: {

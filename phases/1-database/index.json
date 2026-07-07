@@ -2,12 +2,43 @@
   "project": "FreeSign",
   "phase": "1-database",
   "steps": [
-    { "step": 0, "name": "pg-test-harness", "status": "pending" },
-    { "step": 1, "name": "schema-migrations", "status": "pending" },
-    { "step": 2, "name": "rls-policies", "status": "pending" },
-    { "step": 3, "name": "indexes", "status": "pending" },
-    { "step": 4, "name": "generated-types", "status": "pending" },
-    { "step": 5, "name": "query-helpers", "status": "pending" },
-    { "step": 6, "name": "demo-seed", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "pg-test-harness",
+      "status": "completed",
+      "started_at": "2026-07-07T16:47:21+0900",
+      "summary": "Added src/test/pg.ts embedded Postgres harness with applyMigrations, grantSupabaseRoles, createUser, runAs, runAsAnon, and withRollback plus Vitest global setup and smoke tests."
+    },
+    {
+      "step": 1,
+      "name": "schema-migrations",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "rls-policies",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "indexes",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "generated-types",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "query-helpers",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "demo-seed",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-07T16:47:21+0900"
 }
