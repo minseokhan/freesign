@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { createInvoice } from "../actions";
+import { createInvoice, setInvoicePayment } from "../actions";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -52,6 +52,15 @@ function createInsertTableMock(id = "invoice-1") {
   const insert = vi.fn().mockReturnValue({ select, single });
 
   return { insert, select, single };
+}
+
+function createUpdateTableMock(id = "invoice-1") {
+  const eq = vi.fn().mockReturnThis();
+  const select = vi.fn().mockReturnThis();
+  const single = vi.fn().mockResolvedValue({ data: { id }, error: null });
+  const update = vi.fn().mockReturnValue({ eq, select, single });
+
+  return { update, eq, select, single };
 }
 
 function createEventInsertTableMock() {
@@ -215,5 +224,185 @@ describe("invoice server actions", () => {
     });
     expect(assertOwned).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("marks an unpaid invoice as paid with server time and appends an event after update", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-15T03:04:05.000Z"));
+
+    try {
+      const calls: string[] = [];
+      const invoiceQuery = createMaybeSingleQuery({
+        id: "invoice-1",
+        payment_status: "unpaid",
+      });
+      const updateTable = createUpdateTableMock();
+      updateTable.update.mockImplementation((payload) => {
+        calls.push("invoices.update");
+
+        expect(payload).toEqual({
+          payment_status: "paid",
+          paid_at: "2026-08-15T03:04:05.000Z",
+          payment_method: "계좌이체",
+        });
+
+        return {
+          eq: updateTable.eq,
+          select: updateTable.select,
+          single: updateTable.single,
+        };
+      });
+      const eventInsertTable = createEventInsertTableMock();
+      eventInsertTable.insert.mockImplementation((payload) => {
+        calls.push("invoice_events.insert");
+
+        expect(payload).toEqual({
+          user_id: user.id,
+          invoice_id: "invoice-1",
+          actor: user.id,
+          from_status: "unpaid",
+          to_status: "paid",
+          event_type: "invoice.payment_changed",
+          meta: {
+            payment_method: "계좌이체",
+          },
+        });
+
+        return Promise.resolve({ error: null });
+      });
+      const supabase = {
+        from: vi.fn((table: string) => {
+          if (table === "invoice_events") return eventInsertTable;
+
+          return supabase.from.mock.calls.filter(([name]) => name === "invoices")
+            .length === 1
+            ? invoiceQuery
+            : updateTable;
+        }),
+      };
+      vi.mocked(createSupabaseClient).mockResolvedValue(
+        supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+      );
+
+      const result = await setInvoicePayment("invoice-1", "paid", {
+        payment_method: "계좌이체",
+        paid_at: "2000-01-01T00:00:00.000Z",
+        payment_status: "unpaid",
+      });
+
+      expect(result).toEqual({ ok: true, id: "invoice-1" });
+      expect(calls).toEqual(["invoices.update", "invoice_events.insert"]);
+      expect(updateTable.eq).toHaveBeenCalledWith("id", "invoice-1");
+      expect(revalidatePath).toHaveBeenCalledWith("/invoices");
+      expect(revalidatePath).toHaveBeenCalledWith("/invoices/invoice-1");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("rolls a paid invoice back to unpaid and clears payment fields", async () => {
+    const invoiceQuery = createMaybeSingleQuery({
+      id: "invoice-1",
+      payment_status: "paid",
+    });
+    const updateTable = createUpdateTableMock();
+    const eventInsertTable = createEventInsertTableMock();
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "invoice_events") return eventInsertTable;
+
+        return supabase.from.mock.calls.filter(([name]) => name === "invoices")
+          .length === 1
+          ? invoiceQuery
+          : updateTable;
+      }),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await setInvoicePayment("invoice-1", "unpaid", {
+      payment_method: "ignored",
+    });
+
+    expect(result).toEqual({ ok: true, id: "invoice-1" });
+    expect(updateTable.update).toHaveBeenCalledWith({
+      payment_status: "unpaid",
+      paid_at: null,
+      payment_method: null,
+    });
+    expect(eventInsertTable.insert).toHaveBeenCalledWith({
+      user_id: user.id,
+      invoice_id: "invoice-1",
+      actor: user.id,
+      from_status: "paid",
+      to_status: "unpaid",
+      event_type: "invoice.payment_changed",
+      meta: {
+        payment_method: null,
+      },
+    });
+  });
+
+  it("rejects draft or invalid invoice payment transitions before writing", async () => {
+    const invoiceQuery = createMaybeSingleQuery({
+      id: "invoice-1",
+      payment_status: "draft",
+    });
+    const updateTable = createUpdateTableMock();
+    const eventInsertTable = createEventInsertTableMock();
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "invoice_events") return eventInsertTable;
+
+        return supabase.from.mock.calls.filter(([name]) => name === "invoices")
+          .length === 1
+          ? invoiceQuery
+          : updateTable;
+      }),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    await expect(setInvoicePayment("invoice-1", "draft")).resolves.toEqual({
+      ok: false,
+      error: "허용되지 않는 정산 상태입니다.",
+    });
+    await expect(setInvoicePayment("invoice-1", "paid")).resolves.toEqual({
+      ok: false,
+      error: "허용되지 않는 정산 상태 전이입니다.",
+    });
+    expect(updateTable.update).not.toHaveBeenCalled();
+    expect(eventInsertTable.insert).not.toHaveBeenCalled();
+  });
+
+  it("does not append duplicate events for no-op payment changes", async () => {
+    const invoiceQuery = createMaybeSingleQuery({
+      id: "invoice-1",
+      payment_status: "paid",
+    });
+    const updateTable = createUpdateTableMock();
+    const eventInsertTable = createEventInsertTableMock();
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "invoice_events") return eventInsertTable;
+
+        return supabase.from.mock.calls.filter(([name]) => name === "invoices")
+          .length === 1
+          ? invoiceQuery
+          : updateTable;
+      }),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await setInvoicePayment("invoice-1", "paid");
+
+    expect(result).toEqual({ ok: true, id: "invoice-1" });
+    expect(updateTable.update).not.toHaveBeenCalled();
+    expect(eventInsertTable.insert).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalledWith("/invoices/invoice-1");
   });
 });

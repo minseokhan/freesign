@@ -14,8 +14,15 @@ import {
 import type { Database } from "@/types/database";
 
 type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"];
+type InvoiceUpdate = Database["public"]["Tables"]["invoices"]["Update"];
 type InvoiceEventInsert =
   Database["public"]["Tables"]["invoice_events"]["Insert"];
+type InvoicePaymentStatus = Database["public"]["Enums"]["payment_status"];
+
+const invoicePaymentTransitionSchema = z.enum(["paid", "unpaid"]);
+const invoicePaymentInputSchema = z.object({
+  payment_method: z.string().trim().max(50).optional(),
+});
 
 export type InvoiceActionResult =
   | { ok: true; id: string }
@@ -131,6 +138,110 @@ export async function createInvoice(
   revalidatePath("/invoices");
   revalidatePath(`/contracts/${parsed.contract_id}`);
   revalidatePath(`/invoices/${data.id}`);
+
+  return { ok: true, id: data.id };
+}
+
+export async function setInvoicePayment(
+  id: string,
+  toStatus: unknown,
+  input?: unknown,
+): Promise<InvoiceActionResult> {
+  const user = await requireUser();
+
+  if (!id.trim()) {
+    return { ok: false, error: "인보이스를 찾을 수 없습니다." };
+  }
+
+  const parsedStatus = invoicePaymentTransitionSchema.safeParse(toStatus);
+
+  if (!parsedStatus.success) {
+    return { ok: false, error: "허용되지 않는 정산 상태입니다." };
+  }
+
+  const parsedInput = invoicePaymentInputSchema.safeParse(input ?? {});
+
+  if (!parsedInput.success) {
+    return { ok: false, error: "입력값을 확인해 주세요." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data: invoice, error: invoiceError } = await notDeleted(
+    supabase
+      .from("invoices")
+      .select("id,payment_status")
+      .eq("id", id),
+  ).maybeSingle();
+
+  if (invoiceError) {
+    return dbError(invoiceError);
+  }
+
+  if (!invoice) {
+    return { ok: false, error: "인보이스를 찾을 수 없습니다." };
+  }
+
+  const fromStatus = invoice.payment_status as InvoicePaymentStatus;
+  const nextStatus = parsedStatus.data;
+
+  if (fromStatus === nextStatus) {
+    return { ok: true, id };
+  }
+
+  const allowed =
+    (fromStatus === "unpaid" && nextStatus === "paid") ||
+    (fromStatus === "paid" && nextStatus === "unpaid");
+
+  if (!allowed) {
+    return {
+      ok: false,
+      error: "허용되지 않는 정산 상태 전이입니다.",
+    };
+  }
+
+  const paymentMethod =
+    nextStatus === "paid"
+      ? (parsedInput.data.payment_method?.trim() || null)
+      : null;
+  const payload = {
+    payment_status: nextStatus,
+    paid_at: nextStatus === "paid" ? new Date().toISOString() : null,
+    payment_method: paymentMethod,
+  } satisfies InvoiceUpdate;
+
+  const { data, error } = await supabase
+    .from("invoices")
+    .update(payload)
+    .eq("id", id)
+    .select("id")
+    .single();
+
+  if (error) {
+    return dbError(error);
+  }
+
+  const eventPayload = {
+    user_id: user.id,
+    invoice_id: id,
+    actor: user.id,
+    from_status: fromStatus,
+    to_status: nextStatus,
+    event_type: "invoice.payment_changed",
+    meta: {
+      payment_method: paymentMethod,
+    },
+  } satisfies InvoiceEventInsert;
+
+  const { error: eventError } = await supabase
+    .from("invoice_events")
+    .insert(eventPayload);
+
+  if (eventError) {
+    return dbError(eventError);
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${id}`);
 
   return { ok: true, id: data.id };
 }

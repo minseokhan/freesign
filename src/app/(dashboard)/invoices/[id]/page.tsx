@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { InvoicePaymentToggle } from "@/components/invoice-payment-toggle";
 import { PaymentStatusBadge } from "@/components/payment-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -122,7 +123,10 @@ function DetailItem({ label, value }: { label: string; value: string | null }) {
 }
 
 function getEventDescription(event: InvoiceEventRow) {
-  if (event.event_type === "invoice.status_changed") {
+  if (
+    event.event_type === "invoice.status_changed" ||
+    event.event_type === "invoice.payment_changed"
+  ) {
     return "정산 상태 변경";
   }
 
@@ -213,7 +217,10 @@ export default async function InvoiceDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-sm">
-          <Button disabled>정산 상태 변경</Button>
+          <InvoicePaymentToggle
+            invoiceId={invoice.id}
+            status={invoice.payment_status}
+          />
           <Button variant="secondary" disabled>
             PDF
           </Button>
