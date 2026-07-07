@@ -25,7 +25,7 @@
       "status": "completed",
       "started_at": "2026-07-08T03:17:37+0900",
       "summary": "GitHub Actions CI에서 lint/build/test와 시크릿 게이트된 Playwright e2e 잡을 분리 구성했다.",
-      "completed_at": "2026-07-08T03:19:42+0900"
+      "completed_at": "2026-07-08T03:21:42+0900"
     },
     {
       "step": 3,
