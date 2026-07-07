@@ -1,7 +1,9 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { ContractStatusBadge } from "@/components/contract-status-badge";
+import { SignaturePad } from "@/components/signature-pad";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -27,6 +29,7 @@ type ContractRow = Pick<
   | "contract_pdf_url"
   | "signature_image_path"
   | "doc_hash"
+  | "signature_meta"
   | "created_at"
 > & {
   client: {
@@ -46,11 +49,20 @@ type ContractClause = {
   needs_review: boolean;
 };
 
+type SignatureMeta = {
+  signer: string;
+  signed_at: string;
+  ip: string;
+  ua: string;
+};
+
 type ContractDetailPageProps = {
   params: Promise<{
     id: string;
   }>;
 };
+
+const SIGNATURE_BUCKET = "contract-artifacts";
 
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat("ko-KR", {
@@ -103,6 +115,18 @@ function normalizeClauses(clauses: Json): ContractClause[] {
   }));
 }
 
+function isSignatureMeta(value: Json): value is SignatureMeta {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof value.signer === "string" &&
+    typeof value.signed_at === "string" &&
+    typeof value.ip === "string" &&
+    typeof value.ua === "string"
+  );
+}
+
 function DetailItem({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
@@ -144,6 +168,10 @@ function getTransitionButtonClassName(status: ContractStatus) {
 }
 
 function getEventDescription(event: ContractEventRow) {
+  if (event.event_type === "signed") {
+    return "간이 서명 완료";
+  }
+
   if (event.event_type === "contract.status_changed") {
     return "계약 상태 변경";
   }
@@ -161,7 +189,7 @@ export default async function ContractDetailPage({
     supabase
       .from("contracts")
       .select(
-        "id,title,scope,amount,start_date,end_date,status,clauses,contract_pdf_url,signature_image_path,doc_hash,created_at,client:clients(name)",
+        "id,title,scope,amount,start_date,end_date,status,clauses,contract_pdf_url,signature_image_path,doc_hash,signature_meta,created_at,client:clients(name)",
       )
       .eq("id", id),
   ).maybeSingle();
@@ -188,6 +216,12 @@ export default async function ContractDetailPage({
 
   const events = (eventData ?? []) as ContractEventRow[];
   const clauses = normalizeClauses(contract.clauses);
+  const signatureMeta = isSignatureMeta(contract.signature_meta)
+    ? contract.signature_meta
+    : null;
+  const signatureImageUrl = contract.signature_image_path
+    ? await createSignatureImageUrl(supabase, contract.signature_image_path)
+    : null;
   const statusTransitions = getAvailableContractStatusTransitions(
     contract.status,
   ).filter((status) => status !== "signed");
@@ -222,7 +256,6 @@ export default async function ContractDetailPage({
             </Link>
           ) : null}
           <PlaceholderButton>PDF</PlaceholderButton>
-          <PlaceholderButton>서명</PlaceholderButton>
         </div>
       </div>
 
@@ -313,6 +346,50 @@ export default async function ContractDetailPage({
 
       <Card>
         <div className="border-b border-surface-border pb-lg">
+          <h3 className="text-lg font-semibold text-text-primary">서명</h3>
+          <p className="mt-xs text-sm leading-relaxed text-text-muted">
+            v1 간이 서명은 private Storage에 저장하고, 문서 해시는 Provider로
+            산출합니다.
+          </p>
+        </div>
+        {contract.status === "draft" ? (
+          <div className="mt-xl">
+            <SignaturePad contractId={contract.id} />
+          </div>
+        ) : signatureImageUrl ? (
+          <div className="mt-xl space-y-lg">
+            <Image
+              src={signatureImageUrl}
+              alt="저장된 계약 서명"
+              width={720}
+              height={240}
+              unoptimized
+              className="h-auto w-full rounded-sm border border-surface-border bg-white"
+            />
+            <dl className="grid gap-lg sm:grid-cols-2">
+              <DetailItem label="서명자" value={signatureMeta?.signer ?? null} />
+              <DetailItem
+                label="서명 시각"
+                value={
+                  signatureMeta ? formatDate(signatureMeta.signed_at) : null
+                }
+              />
+            </dl>
+            <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
+              v1 간이 서명은 법적 효력이 없는 기록용 서명입니다. 서명 후
+              조항은 읽기 전용이며, 수정하려면 초안으로 되돌린 뒤 다시
+              서명해야 합니다.
+            </div>
+          </div>
+        ) : (
+          <p className="mt-xl text-sm leading-relaxed text-text-muted">
+            저장된 서명 이미지가 없습니다.
+          </p>
+        )}
+      </Card>
+
+      <Card>
+        <div className="border-b border-surface-border pb-lg">
           <h3 className="text-lg font-semibold text-text-primary">
             다음 단계
           </h3>
@@ -389,4 +466,15 @@ export default async function ContractDetailPage({
       </Card>
     </div>
   );
+}
+
+async function createSignatureImageUrl(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  key: string,
+) {
+  const { data } = await supabase.storage
+    .from(SIGNATURE_BUCKET)
+    .createSignedUrl(key, 300);
+
+  return data?.signedUrl ?? null;
 }

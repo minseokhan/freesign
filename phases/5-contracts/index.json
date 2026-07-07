@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "signature",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T23:37:00+0900",
+      "summary": "캔버스 서명 route, private Storage 업로드, Provider 문서 해시, signed URL 표시와 보안 순서 테스트를 구현",
+      "completed_at": "2026-07-07T23:42:20+0900"
     },
     {
       "step": 5,
