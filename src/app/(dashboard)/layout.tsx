@@ -1,8 +1,17 @@
 import type { ReactNode } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { requireUser } from "@/lib/auth";
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export const dynamic = "force-dynamic";
+
+export default async function DashboardLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  await requireUser();
+
   return (
     <div className="min-h-screen bg-surface-page md:flex">
       <AppSidebar />

@@ -1,14 +1,18 @@
 import { redirect } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase/server";
 
-export const dynamic = "force-dynamic";
-
-export default async function HomePage() {
+export async function requireUser(): Promise<User> {
   const supabase = await createClient();
   const {
     data: { user },
+    error,
   } = await supabase.auth.getUser();
 
-  redirect(user ? "/dashboard" : "/login");
+  if (error || !user) {
+    redirect("/login");
+  }
+
+  return user;
 }
