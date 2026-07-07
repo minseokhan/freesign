@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "ui-primitives",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T15:35:45+0900",
+      "summary": "cn 헬퍼와 Button, Card, Badge, Input UI 프리미티브를 UI_GUIDE 토큰 기반으로 추가했다.",
+      "completed_at": "2026-07-07T15:37:52+0900"
     },
     {
       "step": 3,
