@@ -7,7 +7,8 @@
       "name": "project-scaffold",
       "status": "completed",
       "started_at": "2026-07-07T15:28:08+0900",
-      "summary": "Next.js 15 App Router scaffold, strict TypeScript, ESLint/Prettier, Vitest jsdom setup, and smoke test added."
+      "summary": "Next.js 15 App Router scaffold, strict TypeScript, ESLint/Prettier, Vitest jsdom setup, and smoke test added.",
+      "completed_at": "2026-07-07T15:32:03+0900"
     },
     {
       "step": 1,
