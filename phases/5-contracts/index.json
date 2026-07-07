@@ -1,0 +1,39 @@
+{
+  "project": "FreeSign",
+  "phase": "5-contracts",
+  "steps": [
+    {
+      "step": 0,
+      "name": "contract-read",
+      "status": "completed",
+      "started_at": "2026-07-07T22:56:12+0900",
+      "summary": "계약 목록과 상세 RSC 읽기 화면, 상태 배지, 이력 타임라인 표시를 구현"
+    },
+    {
+      "step": 1,
+      "name": "contract-create-ai",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "contract-edit-confirm",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "contract-status",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "signature",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "contract-pdf",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-07T22:56:12+0900"
+}
