@@ -1,8 +1,8 @@
 import Link from "next/link";
 
 import { ChannelBadge } from "@/components/channel-badge";
+import { DemoDataButton } from "@/components/demo-data-button";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { notDeleted } from "@/lib/db";
 import {
@@ -87,6 +87,7 @@ export default async function DashboardPage() {
     totalsResult,
     channelRevenueResult,
     unpaidInvoicesResult,
+    demoClientResult,
   ] = await Promise.all([
     rpc.rpc("get_dashboard_totals"),
     rpc.rpc("get_dashboard_channel_revenue"),
@@ -98,6 +99,12 @@ export default async function DashboardPage() {
     )
       .order("due_date", { ascending: true })
       .limit(12),
+    supabase
+      .from("clients")
+      .select("id")
+      .eq("is_demo", true)
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   if (totalsResult.error) {
@@ -110,6 +117,10 @@ export default async function DashboardPage() {
 
   if (unpaidInvoicesResult.error) {
     throw unpaidInvoicesResult.error;
+  }
+
+  if (demoClientResult.error) {
+    throw demoClientResult.error;
   }
 
   const totals = totalsResult.data?.[0];
@@ -140,6 +151,7 @@ export default async function DashboardPage() {
     );
   const hasDashboardData =
     outstandingAmount > 0 || monthlyRevenue > 0 || channelRevenueRows.length > 0;
+  const hasDemoData = demoClientResult.data !== null;
 
   if (!hasDashboardData) {
     return (
@@ -156,7 +168,7 @@ export default async function DashboardPage() {
             한 화면에서 확인할 수 있습니다.
           </p>
         </div>
-        <Button disabled>데모 데이터 채우기</Button>
+        <DemoDataButton hasDemoData={hasDemoData} />
       </Card>
     );
   }
@@ -172,7 +184,7 @@ export default async function DashboardPage() {
             미수금, 입금 수익, 지급기한을 정산 흐름 기준으로 확인합니다.
           </p>
         </div>
-        <Button disabled>데모 데이터 채우기</Button>
+        <DemoDataButton hasDemoData={hasDemoData} />
       </div>
 
       <section

@@ -57,44 +57,48 @@ describe("RLS policies", () => {
     );
 
     expect(policyResult.rows).toEqual([
-      { tablename: "clients", commands: ["INSERT", "SELECT", "UPDATE"] },
-      { tablename: "contract_events", commands: ["INSERT", "SELECT"] },
-      { tablename: "contracts", commands: ["INSERT", "SELECT", "UPDATE"] },
-      { tablename: "invoice_events", commands: ["INSERT", "SELECT"] },
-      { tablename: "invoices", commands: ["INSERT", "SELECT", "UPDATE"] },
+      { tablename: "clients", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
+      { tablename: "contract_events", commands: ["DELETE", "INSERT", "SELECT"] },
+      { tablename: "contracts", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
+      { tablename: "invoice_events", commands: ["DELETE", "INSERT", "SELECT"] },
+      { tablename: "invoices", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "profiles", commands: ["INSERT", "SELECT", "UPDATE"] },
     ]);
   });
 
-  async function insertClientAs(userId: string, name = `Client ${crypto.randomUUID()}`) {
+  async function insertClientAs(
+    userId: string,
+    name = `Client ${crypto.randomUUID()}`,
+    isDemo = false,
+  ) {
     const result = await runAs<{ id: string }>(
       pool,
       userId,
       `
-        insert into clients (user_id, name, channel)
-        values ($1, $2, 'direct')
+        insert into clients (user_id, name, channel, is_demo)
+        values ($1, $2, 'direct', $3)
         returning id
       `,
-      [userId, name],
+      [userId, name, isDemo],
     );
 
     return result.rows[0].id;
   }
 
-  async function insertContractAs(userId: string, clientId: string) {
+  async function insertContractAs(userId: string, clientId: string, isDemo = false) {
     const result = await runAs<{ id: string }>(
       pool,
       userId,
       `
         insert into contracts (
-          user_id, client_id, title, scope, amount, start_date, end_date
+          user_id, client_id, title, scope, amount, start_date, end_date, is_demo
         )
         values (
-          $1, $2, 'RLS contract', 'RLS scope', 100000, '2026-07-01', '2026-07-31'
+          $1, $2, 'RLS contract', 'RLS scope', 100000, '2026-07-01', '2026-07-31', $3
         )
         returning id
       `,
-      [userId, clientId],
+      [userId, clientId, isDemo],
     );
 
     return result.rows[0].id;
@@ -153,7 +157,7 @@ describe("RLS policies", () => {
     ).rejects.toThrow(/row-level security|violates/i);
   });
 
-  it("keeps contract events append-only for authenticated users", async () => {
+  it("keeps non-demo contract events append-only for authenticated users", async () => {
     const clientId = await insertClientAs(userA, "Event client");
     const contractId = await insertContractAs(userA, clientId);
     const eventResult = await runAs<{ id: string }>(
@@ -193,6 +197,56 @@ describe("RLS policies", () => {
       [eventId],
     );
     expect(visibleResult.rows).toEqual([{ event_type: "created" }]);
+  });
+
+  it("allows authenticated users to hard-delete only their demo rows", async () => {
+    const realClientId = await insertClientAs(userA, "Real client", false);
+    const demoClientId = await insertClientAs(userA, "Demo client", true);
+    const demoContractId = await insertContractAs(userA, demoClientId, true);
+    const demoEventResult = await runAs<{ id: string }>(
+      pool,
+      userA,
+      `
+        insert into contract_events (
+          user_id, contract_id, actor, from_status, to_status, event_type
+        )
+        values ($1, $2, 'user', null, 'signed', 'demo')
+        returning id
+      `,
+      [userA, demoContractId],
+    );
+
+    const blockedRealDelete = await runAs(
+      pool,
+      userA,
+      "delete from clients where id = $1",
+      [realClientId],
+    );
+    expect(blockedRealDelete.rowCount).toBe(0);
+
+    const eventDelete = await runAs(
+      pool,
+      userA,
+      "delete from contract_events where id = $1",
+      [demoEventResult.rows[0].id],
+    );
+    expect(eventDelete.rowCount).toBe(1);
+
+    const contractDelete = await runAs(
+      pool,
+      userA,
+      "delete from contracts where id = $1",
+      [demoContractId],
+    );
+    expect(contractDelete.rowCount).toBe(1);
+
+    const clientDelete = await runAs(
+      pool,
+      userA,
+      "delete from clients where id = $1",
+      [demoClientId],
+    );
+    expect(clientDelete.rowCount).toBe(1);
   });
 
   it("blocks anonymous reads with no visible rows", async () => {
