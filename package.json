@@ -8,7 +8,8 @@
     "db:gen-types": "node scripts/gen-types.mjs",
     "db:seed": "node --experimental-strip-types scripts/seed.mjs",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@playwright/test": "^1.61.1",
     "@supabase/postgres-meta": "^0.96.6",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",

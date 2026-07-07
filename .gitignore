@@ -17,3 +17,8 @@ __pycache__/
 # phase execution outputs
 phases/**/phase*-output.json
 phases/**/step*-output.json
+
+# playwright
+playwright-report/
+test-results/
+e2e/.auth/
