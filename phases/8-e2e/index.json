@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "e2e-flows",
-      "status": "pending"
+      "status": "blocked",
+      "started_at": "2026-07-08T03:10:27+0900",
+      "blocked_reason": "E2E_TEST_EMAIL/E2E_TEST_PASSWORD 테스트 계정 환경변수 부재로 dev 테스트 로그인 기반 전체 npx playwright test 실행 불가 — 해피패스 스펙 작성 및 --list 컴파일 검증은 완료",
+      "blocked_at": "2026-07-08T03:14:39+0900"
     },
     {
       "step": 2,
