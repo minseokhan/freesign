@@ -7,7 +7,8 @@
       "name": "invoice-read",
       "status": "completed",
       "started_at": "2026-07-08T02:02:18+0900",
-      "summary": "인보이스 목록/상세 RSC 읽기 화면과 정산 상태 배지를 추가했다."
+      "summary": "인보이스 목록/상세 RSC 읽기 화면과 정산 상태 배지를 추가했다.",
+      "completed_at": "2026-07-08T02:07:23+0900"
     },
     {
       "step": 1,
