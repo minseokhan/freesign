@@ -1,0 +1,24 @@
+{
+  "project": "FreeSign",
+  "phase": "7-dashboard-reports",
+  "steps": [
+    {
+      "step": 0,
+      "name": "dashboard",
+      "status": "completed",
+      "started_at": "2026-07-08T02:32:58+0900",
+      "summary": "SQL RPC 기반 대시보드 KPI/채널 수익 집계와 RSC 대시보드 UI를 구현"
+    },
+    {
+      "step": 1,
+      "name": "reports-csv",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "demo-data",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-08T02:32:58+0900"
+}
