@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "metrics",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T18:06:28+0900",
+      "summary": "Added pure metrics formatting, KST due-status derivation, and channel revenue sorting with TDD coverage.",
+      "completed_at": "2026-07-07T18:08:59+0900"
     },
     {
       "step": 2,
