@@ -16,7 +16,7 @@
       "status": "completed",
       "started_at": "2026-07-08T02:07:23+0900",
       "summary": "계약 기반 인보이스 발행 Server Action, allowlist 검증, 원천징수 스냅샷 폼을 추가했다.",
-      "completed_at": "2026-07-08T02:11:30+0900"
+      "completed_at": "2026-07-08T02:12:19+0900"
     },
     {
       "step": 2,
