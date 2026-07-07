@@ -6,7 +6,11 @@ import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { generateContractDraft } from "@/services/ai/contract-draft";
 
-import { createContractDraft, updateContractClauses } from "../actions";
+import {
+  createContractDraft,
+  transitionContractStatus,
+  updateContractClauses,
+} from "../actions";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -73,6 +77,16 @@ function createUpdateTableMock(id = "contract-1") {
   const update = vi.fn().mockReturnValue({ eq, select, single });
 
   return { update, eq, select, single };
+}
+
+function createContractStatusReadQuery(status: string) {
+  return createMaybeSingleQuery({ id: "contract-1", status });
+}
+
+function createEventInsertTableMock() {
+  const insert = vi.fn().mockResolvedValue({ error: null });
+
+  return { insert };
 }
 
 const validClauses = [
@@ -351,5 +365,127 @@ describe("contract draft server actions", () => {
       error: "계약을 찾을 수 없습니다.",
     });
     expect(updateTable.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid contract status transitions before writing", async () => {
+    const contractQuery = createContractStatusReadQuery("draft");
+    const updateTable = createUpdateTableMock();
+    const eventTable = createEventInsertTableMock();
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "contract_events") return eventTable;
+
+        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
+          .length === 1
+          ? contractQuery
+          : updateTable;
+      }),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await transitionContractStatus("contract-1", "done");
+
+    expect(result).toEqual({
+      ok: false,
+      error: "허용되지 않는 계약 상태 전이입니다.",
+    });
+    expect(updateTable.update).not.toHaveBeenCalled();
+    expect(eventTable.insert).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalledWith("/contracts/contract-1");
+  });
+
+  it("updates the contract status before appending a transition event", async () => {
+    const calls: string[] = [];
+    const contractQuery = createContractStatusReadQuery("signed");
+    const updateTable = createUpdateTableMock();
+    updateTable.update.mockImplementation((payload) => {
+      calls.push("contracts.update");
+
+      expect(payload).toEqual({ status: "active" });
+
+      return {
+        eq: updateTable.eq,
+        select: updateTable.select,
+        single: updateTable.single,
+      };
+    });
+    const eventTable = createEventInsertTableMock();
+    eventTable.insert.mockImplementation((payload) => {
+      calls.push("contract_events.insert");
+
+      expect(payload).toEqual({
+        user_id: user.id,
+        contract_id: "contract-1",
+        actor: user.id,
+        from_status: "signed",
+        to_status: "active",
+        event_type: "contract.status_changed",
+        meta: {
+          reset_signature_artifacts: false,
+        },
+      });
+
+      return Promise.resolve({ error: null });
+    });
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "contract_events") return eventTable;
+
+        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
+          .length === 1
+          ? contractQuery
+          : updateTable;
+      }),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await transitionContractStatus("contract-1", "active");
+
+    expect(result).toEqual({ ok: true, id: "contract-1" });
+    expect(calls).toEqual(["contracts.update", "contract_events.insert"]);
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts");
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts/contract-1");
+  });
+
+  it("clears signature artifacts when rolling a signed contract back to draft", async () => {
+    const contractQuery = createContractStatusReadQuery("signed");
+    const updateTable = createUpdateTableMock();
+    const eventTable = createEventInsertTableMock();
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "contract_events") return eventTable;
+
+        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
+          .length === 1
+          ? contractQuery
+          : updateTable;
+      }),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await transitionContractStatus("contract-1", "draft");
+
+    expect(result).toEqual({ ok: true, id: "contract-1" });
+    expect(updateTable.update).toHaveBeenCalledWith({
+      status: "draft",
+      signature_meta: null,
+      doc_hash: null,
+      signature_image_path: null,
+    });
+    expect(eventTable.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from_status: "signed",
+        to_status: "draft",
+        meta: {
+          reset_signature_artifacts: true,
+        },
+      }),
+    );
   });
 });

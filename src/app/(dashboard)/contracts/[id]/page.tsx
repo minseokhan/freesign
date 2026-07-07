@@ -4,9 +4,15 @@ import { notFound } from "next/navigation";
 import { ContractStatusBadge } from "@/components/contract-status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import {
+  getAvailableContractStatusTransitions,
+  type ContractStatus,
+} from "@/lib/contract-status";
 import { notDeleted } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/types/database";
+
+import { transitionContractStatus } from "../actions";
 
 type ContractRow = Pick<
   Database["public"]["Tables"]["contracts"]["Row"],
@@ -122,6 +128,29 @@ function PlaceholderButton({ children }: { children: string }) {
   );
 }
 
+const transitionLabels: Partial<Record<ContractStatus, string>> = {
+  active: "진행 시작",
+  done: "완료 처리",
+  draft: "초안으로 되돌리기",
+  canceled: "계약 취소",
+};
+
+function getTransitionButtonClassName(status: ContractStatus) {
+  if (status === "canceled" || status === "draft") {
+    return "inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2";
+  }
+
+  return "inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2";
+}
+
+function getEventDescription(event: ContractEventRow) {
+  if (event.event_type === "contract.status_changed") {
+    return "계약 상태 변경";
+  }
+
+  return event.event_type;
+}
+
 export default async function ContractDetailPage({
   params,
 }: ContractDetailPageProps) {
@@ -159,6 +188,9 @@ export default async function ContractDetailPage({
 
   const events = (eventData ?? []) as ContractEventRow[];
   const clauses = normalizeClauses(contract.clauses);
+  const statusTransitions = getAvailableContractStatusTransitions(
+    contract.status,
+  ).filter((status) => status !== "signed");
 
   return (
     <div className="mx-auto max-w-3xl space-y-xl">
@@ -285,11 +317,33 @@ export default async function ContractDetailPage({
             다음 단계
           </h3>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            서명, PDF, 상태 전이, 하위 인보이스는 이후 단계에서 연결됩니다.
+            현재 계약 상태에서 가능한 다음 작업만 표시됩니다.
           </p>
         </div>
         <div className="mt-xl grid gap-md sm:grid-cols-2">
-          <PlaceholderButton>상태 변경</PlaceholderButton>
+          {statusTransitions.length === 0 ? (
+            <p className="text-sm leading-relaxed text-text-muted">
+              현재 상태에서 변경할 수 있는 상태가 없습니다.
+            </p>
+          ) : (
+            statusTransitions.map((status) => (
+              <form
+                key={status}
+                action={async () => {
+                  "use server";
+
+                  await transitionContractStatus(contract.id, status);
+                }}
+              >
+                <button
+                  type="submit"
+                  className={getTransitionButtonClassName(status)}
+                >
+                  {transitionLabels[status] ?? "상태 변경"}
+                </button>
+              </form>
+            ))
+          )}
           <PlaceholderButton>하위 인보이스</PlaceholderButton>
         </div>
       </Card>
@@ -326,7 +380,7 @@ export default async function ContractDetailPage({
                   </time>
                 </div>
                 <p className="mt-xs text-sm leading-relaxed text-text-body">
-                  {event.event_type} · {event.actor}
+                  {getEventDescription(event)} · {event.actor}
                 </p>
               </li>
             ))}

@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireUser } from "@/lib/auth";
+import {
+  CONTRACT_STATUSES,
+  getContractStatusTransition,
+  type ContractStatus,
+} from "@/lib/contract-status";
 import { toContractClauses } from "@/lib/contracts/draft";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -18,7 +23,10 @@ import type { Database, Json } from "@/types/database";
 
 type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
 type ContractUpdate = Database["public"]["Tables"]["contracts"]["Update"];
+type ContractEventInsert =
+  Database["public"]["Tables"]["contract_events"]["Insert"];
 type ContractActionField = keyof ContractDraftInput | keyof ContractClausesInput;
+const contractStatusInputSchema = z.enum(CONTRACT_STATUSES);
 
 export type ContractActionResult =
   | { ok: true; id: string }
@@ -238,6 +246,97 @@ export async function updateContractClauses(
   if (error) {
     return dbError(error);
   }
+
+  revalidatePath("/contracts");
+  revalidatePath(`/contracts/${id}`);
+
+  return { ok: true, id: data.id };
+}
+
+export async function transitionContractStatus(
+  id: string,
+  toStatus: unknown,
+): Promise<ContractActionResult> {
+  const user = await requireUser();
+
+  if (!id.trim()) {
+    return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  const parsedStatus = contractStatusInputSchema.safeParse(toStatus);
+
+  if (!parsedStatus.success) {
+    return { ok: false, error: "허용되지 않는 계약 상태입니다." };
+  }
+
+  if (parsedStatus.data === "signed") {
+    return {
+      ok: false,
+      error: "서명 완료 전이는 서명 절차에서만 처리할 수 있습니다.",
+    };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data: contract, error: contractError } = await supabase
+    .from("contracts")
+    .select("id,status")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (contractError) {
+    return dbError(contractError);
+  }
+
+  if (!contract) {
+    return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  const fromStatus = contract.status as ContractStatus;
+  const transition = getContractStatusTransition(fromStatus, parsedStatus.data);
+
+  if (!transition.allowed) {
+    return {
+      ok: false,
+      error: "허용되지 않는 계약 상태 전이입니다.",
+    };
+  }
+
+  const payload = {
+    status: parsedStatus.data,
+    ...(transition.resetSignatureArtifacts
+      ? {
+          signature_meta: null,
+          doc_hash: null,
+          signature_image_path: null,
+        }
+      : {}),
+  } satisfies ContractUpdate;
+
+  const { data, error } = await supabase
+    .from("contracts")
+    .update(payload)
+    .eq("id", id)
+    .select("id")
+    .single();
+
+  if (error) {
+    return dbError(error);
+  }
+
+  const eventPayload = {
+    user_id: user.id,
+    contract_id: id,
+    actor: user.id,
+    from_status: fromStatus,
+    to_status: parsedStatus.data,
+    event_type: "contract.status_changed",
+    meta: {
+      reset_signature_artifacts: transition.resetSignatureArtifacts,
+    },
+  } satisfies ContractEventInsert;
+
+  await supabase.from("contract_events").insert(eventPayload);
 
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${id}`);
