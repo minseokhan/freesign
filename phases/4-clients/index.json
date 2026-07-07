@@ -1,0 +1,24 @@
+{
+  "project": "FreeSign",
+  "phase": "4-clients",
+  "steps": [
+    {
+      "step": 0,
+      "name": "client-read",
+      "status": "completed",
+      "started_at": "2026-07-07T20:52:58+0900",
+      "summary": "RSC Supabase 직접 조회 기반 클라이언트 목록/상세와 채널 배지를 구현"
+    },
+    {
+      "step": 1,
+      "name": "client-actions",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "client-form",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-07T20:52:58+0900"
+}
