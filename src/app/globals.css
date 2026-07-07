@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    font-variant-numeric: tabular-nums;
+  }
+
+  html {
+    @apply bg-surface-page;
+  }
+
+  body {
+    @apply min-h-screen bg-surface-page font-sans text-text-body antialiased;
+  }
+
+  ::selection {
+    @apply bg-brand-point text-text-primary;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

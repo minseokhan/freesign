@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "design-tokens",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T15:32:03+0900",
+      "summary": "Tailwind CSS 설정, UI_GUIDE 디자인 토큰, globals.css, Pretendard fontFamily 배선을 추가했다.",
+      "completed_at": "2026-07-07T15:34:00+0900"
     },
     {
       "step": 2,
