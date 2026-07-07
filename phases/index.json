@@ -12,7 +12,8 @@
     },
     {
       "dir": "2-domain-logic",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-07-07T18:23:16+0900"
     },
     {
       "dir": "3-auth",
