@@ -1,0 +1,63 @@
+import {
+  parsePublicEnv,
+  parseServerEnv,
+  publicEnvSchema,
+  serverEnvSchema,
+} from "@/lib/env";
+
+const validEnv = {
+  NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "anon-key",
+  NEXT_PUBLIC_SITE_URL: "http://localhost:3000",
+  SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+  ANTHROPIC_API_KEY: "anthropic-key",
+};
+
+describe("env runtime validation", () => {
+  it("parses valid public env values", () => {
+    expect(parsePublicEnv(validEnv)).toEqual({
+      NEXT_PUBLIC_SUPABASE_URL: validEnv.NEXT_PUBLIC_SUPABASE_URL,
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: validEnv.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      NEXT_PUBLIC_SITE_URL: validEnv.NEXT_PUBLIC_SITE_URL,
+    });
+  });
+
+  it("keeps service role and Claude keys out of the public schema", () => {
+    expect(Object.keys(publicEnvSchema.shape)).not.toContain(
+      "SUPABASE_SERVICE_ROLE_KEY",
+    );
+    expect(Object.keys(publicEnvSchema.shape)).not.toContain("ANTHROPIC_API_KEY");
+  });
+
+  it("parses server-only env values separately", () => {
+    expect(parseServerEnv(validEnv)).toEqual({
+      SUPABASE_SERVICE_ROLE_KEY: validEnv.SUPABASE_SERVICE_ROLE_KEY,
+      ANTHROPIC_API_KEY: validEnv.ANTHROPIC_API_KEY,
+    });
+    expect(Object.keys(serverEnvSchema.shape)).not.toContain(
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    );
+  });
+
+  it("throws a clear error for missing required env values", () => {
+    expect(() =>
+      parsePublicEnv({
+        NEXT_PUBLIC_SUPABASE_URL: validEnv.NEXT_PUBLIC_SUPABASE_URL,
+        NEXT_PUBLIC_SITE_URL: validEnv.NEXT_PUBLIC_SITE_URL,
+      }),
+    ).toThrow(
+      "Invalid public environment variables: NEXT_PUBLIC_SUPABASE_ANON_KEY",
+    );
+  });
+
+  it("throws a clear error for invalid URL values", () => {
+    expect(() =>
+      parsePublicEnv({
+        ...validEnv,
+        NEXT_PUBLIC_SUPABASE_URL: "not-a-url",
+      }),
+    ).toThrow(
+      "Invalid public environment variables: NEXT_PUBLIC_SUPABASE_URL",
+    );
+  });
+});
