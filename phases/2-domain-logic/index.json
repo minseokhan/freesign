@@ -7,7 +7,8 @@
       "name": "tax",
       "status": "completed",
       "started_at": "2026-07-07T18:01:42+0900",
-      "summary": "Added src/lib/tax.ts calcWithholding with WithholdingType/WithholdingBreakdown and TDD coverage in src/lib/__tests__/tax.test.ts."
+      "summary": "Added src/lib/tax.ts calcWithholding with WithholdingType/WithholdingBreakdown and TDD coverage in src/lib/__tests__/tax.test.ts.",
+      "completed_at": "2026-07-07T18:06:28+0900"
     },
     {
       "step": 1,
