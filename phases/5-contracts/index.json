@@ -32,7 +32,7 @@
       "status": "completed",
       "started_at": "2026-07-07T23:32:10+0900",
       "summary": "계약 상태 전이 규칙, Server Action 이벤트 로깅, 상세 전이 버튼을 구현",
-      "completed_at": "2026-07-07T23:36:08+0900"
+      "completed_at": "2026-07-07T23:37:00+0900"
     },
     {
       "step": 4,
