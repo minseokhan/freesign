@@ -3,7 +3,16 @@ import { redirect } from "next/navigation";
 import { getPublicEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
-export default function LoginPage() {
+type LoginPageProps = {
+  searchParams?: Promise<{
+    error?: string;
+  }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const resolvedSearchParams = await searchParams;
+  const hasOAuthError = resolvedSearchParams?.error === "oauth";
+
   async function signInWithGoogle() {
     "use server";
 
@@ -57,6 +66,14 @@ export default function LoginPage() {
             Google로 계속하기
           </button>
         </form>
+        {hasOAuthError ? (
+          <p
+            role="alert"
+            className="mt-4 rounded-[10px] border border-red-200 bg-red-50 px-3 py-2 text-sm leading-relaxed text-red-700"
+          >
+            Google 로그인을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.
+          </p>
+        ) : null}
       </section>
     </main>
   );

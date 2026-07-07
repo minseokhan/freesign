@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
+import { ContractStatusTransitionButton } from "@/components/contract-status-transition-button";
 import { ContractStatusBadge } from "@/components/contract-status-badge";
 import { SignaturePad } from "@/components/signature-pad";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +14,6 @@ import {
 import { notDeleted } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/types/database";
-
-import { transitionContractStatus } from "../actions";
 
 type ContractRow = Pick<
   Database["public"]["Tables"]["contracts"]["Row"],
@@ -158,14 +157,6 @@ const transitionLabels: Partial<Record<ContractStatus, string>> = {
   draft: "초안으로 되돌리기",
   canceled: "계약 취소",
 };
-
-function getTransitionButtonClassName(status: ContractStatus) {
-  if (status === "canceled" || status === "draft") {
-    return "inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2";
-  }
-
-  return "inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2";
-}
 
 function getEventDescription(event: ContractEventRow) {
   if (event.event_type === "signed") {
@@ -404,21 +395,17 @@ export default async function ContractDetailPage({
             </p>
           ) : (
             statusTransitions.map((status) => (
-              <form
+              <ContractStatusTransitionButton
                 key={status}
-                action={async () => {
-                  "use server";
-
-                  await transitionContractStatus(contract.id, status);
-                }}
-              >
-                <button
-                  type="submit"
-                  className={getTransitionButtonClassName(status)}
-                >
-                  {transitionLabels[status] ?? "상태 변경"}
-                </button>
-              </form>
+                contractId={contract.id}
+                status={status}
+                label={transitionLabels[status] ?? "상태 변경"}
+                variant={
+                  status === "canceled" || status === "draft"
+                    ? "danger"
+                    : "primary"
+                }
+              />
             ))
           )}
           <Link
