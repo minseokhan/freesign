@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "app-shell",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T15:42:37+0900",
+      "summary": "app-shell·사이드내비·플레이스홀더 라우트·상태파일을 추가했다.",
+      "completed_at": "2026-07-07T15:48:12+0900"
     }
   ],
   "created_at": "2026-07-07T15:28:08+0900"
