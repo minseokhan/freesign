@@ -16,7 +16,7 @@
       "status": "completed",
       "started_at": "2026-07-07T23:01:29+0900",
       "summary": "AI 초안 API 라우트, draft 저장 Server Action, 계약 생성 폼과 fallback/소유권 테스트를 구현",
-      "completed_at": "2026-07-07T23:09:30+0900"
+      "completed_at": "2026-07-07T23:10:09+0900"
     },
     {
       "step": 2,
