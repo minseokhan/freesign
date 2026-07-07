@@ -3,24 +3,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { getServerEnv } from "@/lib/env";
+import { REQUIRED_CONTRACT_CLAUSES } from "@/lib/validation/contract";
+
+export { REQUIRED_CONTRACT_CLAUSES };
 
 export const ANTHROPIC_CONTRACT_MODEL = "claude-sonnet-5";
 const CONTRACT_DRAFT_TOOL_NAME = "return_contract_draft";
 const DEFAULT_RETRY_COUNT = 2;
 const DEFAULT_BACKOFF_MS = 150;
-
-export const REQUIRED_CONTRACT_CLAUSES = [
-  "당사자",
-  "용역 범위",
-  "계약 기간",
-  "대금 및 지급",
-  "검수 및 수정",
-  "자료 제공 및 협조",
-  "비밀유지",
-  "지식재산권",
-  "해지",
-  "분쟁 해결",
-] as const;
 
 export interface ContractDraftInput {
   freelancerName: string;

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { contractDraftInputSchema } from "@/lib/validation/contract";
+import {
+  contractClausesSchema,
+  contractDraftInputSchema,
+} from "@/lib/validation/contract";
+import { REQUIRED_CONTRACT_CLAUSES } from "@/services/ai/contract-draft";
 
 const validContractInput = {
   client_id: "11111111-1111-4111-8111-111111111111",
@@ -54,5 +58,44 @@ describe("contractDraftInputSchema", () => {
     expect(parsed).not.toHaveProperty("signature_meta");
     expect(parsed).not.toHaveProperty("contract_pdf_url");
     expect(parsed).not.toHaveProperty("is_demo");
+  });
+});
+
+const validClauses = REQUIRED_CONTRACT_CLAUSES.map((title) => ({
+  title,
+  body: `${title} 조항 본문입니다.`,
+  plain_summary: `${title} 조항 요약입니다.`,
+  needs_review: title === "대금 및 지급",
+}));
+
+describe("contractClausesSchema", () => {
+  it("accepts valid contract clauses with every required clause", () => {
+    expect(contractClausesSchema.parse(validClauses)).toEqual(validClauses);
+  });
+
+  it("rejects clauses missing a required title", () => {
+    const missingRequiredClause = validClauses.filter(
+      (clause) => clause.title !== "비밀유지",
+    );
+
+    expect(() => contractClausesSchema.parse(missingRequiredClause)).toThrow();
+  });
+
+  it("rejects a non-boolean needs_review flag", () => {
+    expect(() =>
+      contractClausesSchema.parse([
+        ...validClauses.slice(0, -1),
+        { ...validClauses.at(-1), needs_review: "true" },
+      ]),
+    ).toThrow();
+  });
+
+  it("rejects an empty clause body", () => {
+    expect(() =>
+      contractClausesSchema.parse([
+        { ...validClauses[0], body: " " },
+        ...validClauses.slice(1),
+      ]),
+    ).toThrow();
   });
 });

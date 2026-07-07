@@ -181,6 +181,14 @@ export default async function ContractDetailPage({
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-sm">
+          {contract.status === "draft" ? (
+            <Link
+              href={`/contracts/${contract.id}/edit`}
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+            >
+              조항 편집
+            </Link>
+          ) : null}
           <PlaceholderButton>PDF</PlaceholderButton>
           <PlaceholderButton>서명</PlaceholderButton>
         </div>

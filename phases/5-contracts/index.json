@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "contract-edit-confirm",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T23:10:09+0900",
+      "summary": "조항 zod 검증, draft 전용 조항 편집 Server Action, 조항 편집 UI를 구현",
+      "completed_at": "2026-07-07T23:14:58+0900"
     },
     {
       "step": 3,

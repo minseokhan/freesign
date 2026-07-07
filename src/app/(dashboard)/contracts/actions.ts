@@ -8,7 +8,9 @@ import { toContractClauses } from "@/lib/contracts/draft";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
+  contractClausesInputSchema,
   contractDraftInputSchema,
+  type ContractClausesInput,
   type ContractDraftInput,
 } from "@/lib/validation/contract";
 import { generateContractDraft } from "@/services/ai/contract-draft";
@@ -16,13 +18,14 @@ import type { Database, Json } from "@/types/database";
 
 type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
 type ContractUpdate = Database["public"]["Tables"]["contracts"]["Update"];
+type ContractActionField = keyof ContractDraftInput | keyof ContractClausesInput;
 
 export type ContractActionResult =
   | { ok: true; id: string }
   | {
       ok: false;
       error: string;
-      fieldErrors?: Partial<Record<keyof ContractDraftInput, string[]>>;
+      fieldErrors?: Partial<Record<ContractActionField, string[]>>;
     };
 
 function validationError(error: z.ZodError): ContractActionResult {
@@ -44,6 +47,18 @@ function parseContractInput(
   input: unknown,
 ): ContractDraftInput | ContractActionResult {
   const result = contractDraftInputSchema.safeParse(input);
+
+  if (!result.success) {
+    return validationError(result.error);
+  }
+
+  return result.data;
+}
+
+function parseClausesInput(
+  input: unknown,
+): ContractClausesInput | ContractActionResult {
+  const result = contractClausesInputSchema.safeParse(input);
 
   if (!result.success) {
     return validationError(result.error);
@@ -166,6 +181,66 @@ export async function createContractDraft(
   }
 
   revalidatePath("/contracts");
+
+  return { ok: true, id: data.id };
+}
+
+export async function updateContractClauses(
+  id: string,
+  input: unknown,
+): Promise<ContractActionResult> {
+  await requireUser();
+
+  if (!id.trim()) {
+    return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  const parsed = parseClausesInput(input);
+
+  if ("ok" in parsed) {
+    return parsed;
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data: contract, error: contractError } = await supabase
+    .from("contracts")
+    .select("id,status")
+    .eq("id", id)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (contractError) {
+    return dbError(contractError);
+  }
+
+  if (!contract) {
+    return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  if (contract.status !== "draft") {
+    return {
+      ok: false,
+      error: "초안 상태의 계약만 조항을 편집할 수 있습니다.",
+    };
+  }
+
+  const payload = {
+    clauses: parsed.clauses as Json,
+  } satisfies ContractUpdate;
+
+  const { data, error } = await supabase
+    .from("contracts")
+    .update(payload)
+    .eq("id", id)
+    .select("id")
+    .single();
+
+  if (error) {
+    return dbError(error);
+  }
+
+  revalidatePath("/contracts");
+  revalidatePath(`/contracts/${id}`);
 
   return { ok: true, id: data.id };
 }

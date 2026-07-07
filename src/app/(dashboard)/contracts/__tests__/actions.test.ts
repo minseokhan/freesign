@@ -6,7 +6,7 @@ import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { generateContractDraft } from "@/services/ai/contract-draft";
 
-import { createContractDraft } from "../actions";
+import { createContractDraft, updateContractClauses } from "../actions";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -74,6 +74,24 @@ function createUpdateTableMock(id = "contract-1") {
 
   return { update, eq, select, single };
 }
+
+const validClauses = [
+  "당사자",
+  "용역 범위",
+  "계약 기간",
+  "대금 및 지급",
+  "검수 및 수정",
+  "자료 제공 및 협조",
+  "비밀유지",
+  "지식재산권",
+  "해지",
+  "분쟁 해결",
+].map((title) => ({
+  title,
+  body: `${title} 조항 본문입니다.`,
+  plain_summary: `${title} 조항 요약입니다.`,
+  needs_review: false,
+}));
 
 describe("contract draft server actions", () => {
   beforeEach(() => {
@@ -243,5 +261,95 @@ describe("contract draft server actions", () => {
         status: "draft",
       }),
     );
+  });
+
+  it("updates clauses only for an owned draft contract", async () => {
+    const contractQuery = createMaybeSingleQuery({ id: "contract-1", status: "draft" });
+    const updateTable = createUpdateTableMock();
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === "contracts" &&
+        supabase.from.mock.calls.filter(([name]) => name === "contracts")
+          .length === 1
+          ? contractQuery
+          : updateTable,
+      ),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await updateContractClauses("contract-1", {
+      clauses: validClauses,
+      user_id: "attacker-user",
+      status: "signed",
+      doc_hash: "spoofed",
+    });
+
+    expect(result).toEqual({ ok: true, id: "contract-1" });
+    expect(contractQuery.select).toHaveBeenCalledWith("id,status");
+    expect(contractQuery.eq).toHaveBeenCalledWith("id", "contract-1");
+    expect(contractQuery.is).toHaveBeenCalledWith("deleted_at", null);
+    expect(updateTable.update).toHaveBeenCalledWith({ clauses: validClauses });
+    expect(updateTable.update.mock.calls[0][0]).not.toHaveProperty("user_id");
+    expect(updateTable.update.mock.calls[0][0]).not.toHaveProperty("status");
+    expect(updateTable.update.mock.calls[0][0]).not.toHaveProperty("doc_hash");
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts");
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts/contract-1");
+  });
+
+  it("rejects clause edits after the contract leaves draft status", async () => {
+    const contractQuery = createMaybeSingleQuery({ id: "contract-1", status: "signed" });
+    const updateTable = createUpdateTableMock();
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === "contracts" &&
+        supabase.from.mock.calls.filter(([name]) => name === "contracts")
+          .length === 1
+          ? contractQuery
+          : updateTable,
+      ),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await updateContractClauses("contract-1", {
+      clauses: validClauses,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "초안 상태의 계약만 조항을 편집할 수 있습니다.",
+    });
+    expect(updateTable.update).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalledWith("/contracts/contract-1");
+  });
+
+  it("rejects clause edits when the contract is not owned by the user", async () => {
+    const contractQuery = createMaybeSingleQuery(null);
+    const updateTable = createUpdateTableMock();
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === "contracts" &&
+        supabase.from.mock.calls.filter(([name]) => name === "contracts")
+          .length === 1
+          ? contractQuery
+          : updateTable,
+      ),
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await updateContractClauses("contract-1", {
+      clauses: validClauses,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: "계약을 찾을 수 없습니다.",
+    });
+    expect(updateTable.update).not.toHaveBeenCalled();
   });
 });
