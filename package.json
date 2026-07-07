@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "db:gen-types": "node scripts/gen-types.mjs",
+    "db:seed": "node --experimental-strip-types scripts/seed.mjs",
     "lint": "eslint",
     "test": "vitest run"
   },
