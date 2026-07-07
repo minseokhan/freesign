@@ -24,7 +24,7 @@
       "status": "completed",
       "started_at": "2026-07-08T02:12:19+0900",
       "summary": "인보이스 정산 상태 토글 Server Action과 낙관적 UI, 이벤트 append 테스트를 추가했다.",
-      "completed_at": "2026-07-08T02:15:30+0900"
+      "completed_at": "2026-07-08T02:17:24+0900"
     },
     {
       "step": 3,
