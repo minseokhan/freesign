@@ -7,7 +7,8 @@
       "name": "client-read",
       "status": "completed",
       "started_at": "2026-07-07T20:52:58+0900",
-      "summary": "RSC Supabase 직접 조회 기반 클라이언트 목록/상세와 채널 배지를 구현"
+      "summary": "RSC Supabase 직접 조회 기반 클라이언트 목록/상세와 채널 배지를 구현",
+      "completed_at": "2026-07-07T20:57:42+0900"
     },
     {
       "step": 1,
