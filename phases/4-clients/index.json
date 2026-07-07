@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "client-form",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-07T21:02:58+0900",
+      "summary": "react-hook-form 기반 클라이언트 생성/수정 폼과 삭제 액션 배선을 구현",
+      "completed_at": "2026-07-07T21:08:13+0900"
     }
   ],
   "created_at": "2026-07-07T20:52:58+0900"

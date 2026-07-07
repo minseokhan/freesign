@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ChannelBadge } from "@/components/channel-badge";
+import { ClientDeleteButton } from "@/components/client-delete-button";
 import { Card } from "@/components/ui/card";
 import { notDeleted } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
@@ -24,13 +25,7 @@ type ClientDetailPageProps = {
   }>;
 };
 
-function DetailItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string | null;
-}) {
+function DetailItem({ label, value }: { label: string; value: string | null }) {
   return (
     <div>
       <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -44,7 +39,7 @@ function DetailItem({
 }
 
 export default async function ClientDetailPage({
-  params,
+  params
 }: ClientDetailPageProps) {
   const { id } = await params;
   const supabase = await createClient();
@@ -53,7 +48,7 @@ export default async function ClientDetailPage({
     supabase
       .from("clients")
       .select("id,name,channel,contact_email,contact_phone,memo,created_at")
-      .eq("id", id),
+      .eq("id", id)
   ).maybeSingle();
 
   if (error) {
@@ -83,14 +78,14 @@ export default async function ClientDetailPage({
             <ChannelBadge channel={client.channel} />
           </div>
         </div>
-        <div className="flex gap-sm">
-          <button
-            type="button"
-            disabled
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body opacity-50"
+        <div className="flex flex-wrap items-start gap-sm">
+          <Link
+            href={`/clients/${client.id}/edit`}
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
           >
             수정
-          </button>
+          </Link>
+          <ClientDeleteButton clientId={client.id} />
         </div>
       </div>
 

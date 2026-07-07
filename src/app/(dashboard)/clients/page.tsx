@@ -4,7 +4,7 @@ import {
   CLIENT_CHANNELS,
   CHANNEL_OPTIONS,
   ChannelBadge,
-  type ClientChannel,
+  type ClientChannel
 } from "@/components/channel-badge";
 import { Card } from "@/components/ui/card";
 import { notDeleted } from "@/lib/db";
@@ -47,7 +47,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   let query = notDeleted(
     supabase
       .from("clients")
-      .select("id,name,channel,contact_email,contact_phone,created_at"),
+      .select("id,name,channel,contact_email,contact_phone,created_at")
   );
 
   if (selectedChannel) {
@@ -55,7 +55,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   }
 
   const { data, error } = await query.order("created_at", {
-    ascending: false,
+    ascending: false
   });
 
   if (error) {
@@ -86,7 +86,9 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       <nav aria-label="클라이언트 채널 필터" className="flex flex-wrap gap-sm">
         {CHANNEL_OPTIONS.map((option) => {
           const href =
-            option.value === "all" ? "/clients" : `/clients?channel=${option.value}`;
+            option.value === "all"
+              ? "/clients"
+              : `/clients?channel=${option.value}`;
           const isActive =
             option.value === "all"
               ? selectedChannel === null
@@ -101,7 +103,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
                 isActive
                   ? "border-blue-200 bg-brand-point text-brand-primary"
-                  : "border-surface-border bg-white text-text-body hover:bg-surface-muted",
+                  : "border-surface-border bg-white text-text-body hover:bg-surface-muted"
               )}
               aria-current={isActive ? "page" : undefined}
             >
@@ -113,7 +115,10 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
       {clients.length === 0 ? (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
-          <div aria-hidden="true" className="text-3xl font-semibold text-blue-600">
+          <div
+            aria-hidden="true"
+            className="text-3xl font-semibold text-blue-600"
+          >
             FS
           </div>
           <div>
@@ -121,8 +126,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               아직 클라이언트가 없어요
             </h3>
             <p className="mt-sm max-w-md text-sm leading-relaxed text-text-muted">
-              계약과 인보이스를 연결할 클라이언트를 먼저 등록하세요. 등록
-              화면은 다음 단계에서 연결됩니다.
+              계약과 인보이스를 연결할 클라이언트를 먼저 등록하세요. 등록 후에는
+              채널별로 목록을 빠르게 필터링할 수 있습니다.
             </p>
           </div>
           <Link
