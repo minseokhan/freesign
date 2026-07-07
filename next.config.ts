@@ -8,6 +8,12 @@ const nextConfig: NextConfig = {
       "./node_modules/fontkit/**/*",
       "./node_modules/@swc/helpers/**/*",
     ],
+    "/api/invoices/[id]/pdf": [
+      "./public/fonts/Pretendard-Regular.ttf",
+      "./node_modules/@react-pdf/**/*",
+      "./node_modules/fontkit/**/*",
+      "./node_modules/@swc/helpers/**/*",
+    ],
   },
 };
 

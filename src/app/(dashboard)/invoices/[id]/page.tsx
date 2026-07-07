@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 
 import { InvoicePaymentToggle } from "@/components/invoice-payment-toggle";
 import { PaymentStatusBadge } from "@/components/payment-status-badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { notDeleted } from "@/lib/db";
 import { deriveDueStatus, formatKRW } from "@/lib/metrics";
@@ -221,9 +220,13 @@ export default async function InvoiceDetailPage({
             invoiceId={invoice.id}
             status={invoice.payment_status}
           />
-          <Button variant="secondary" disabled>
+          <Link
+            href={`/api/invoices/${invoice.id}/pdf`}
+            target="_blank"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          >
             PDF
-          </Button>
+          </Link>
         </div>
       </div>
 
