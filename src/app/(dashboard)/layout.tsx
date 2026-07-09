@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { UserMenu } from "@/components/user-menu";
 import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,17 @@ export default async function DashboardLayout({
 }: {
   children: ReactNode;
 }) {
-  await requireUser();
+  const user = await requireUser();
+  const metadata = user.user_metadata ?? {};
+  const displayName =
+    (metadata.full_name as string | undefined) ??
+    (metadata.name as string | undefined) ??
+    user.email ??
+    "사용자";
+  const avatarUrl =
+    (metadata.avatar_url as string | undefined) ??
+    (metadata.picture as string | undefined) ??
+    null;
 
   return (
     <div className="min-h-screen bg-surface-page md:flex">
@@ -26,9 +37,10 @@ export default async function DashboardLayout({
                 정산 워크스페이스
               </h1>
             </div>
-            <div
-              aria-hidden="true"
-              className="hidden min-h-11 min-w-28 rounded-md border border-dashed border-surface-border md:block"
+            <UserMenu
+              name={displayName}
+              email={user.email ?? ""}
+              avatarUrl={avatarUrl}
             />
           </div>
         </header>
