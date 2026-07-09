@@ -44,6 +44,10 @@
       "dir": "8-e2e",
       "status": "blocked",
       "blocked_at": "2026-07-08T03:15:30+0900"
+    },
+    {
+      "dir": "9-contract-import",
+      "status": "pending"
     }
   ]
 }

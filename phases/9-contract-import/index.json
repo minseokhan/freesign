@@ -1,0 +1,13 @@
+{
+  "project": "FreeSign",
+  "phase": "9-contract-import",
+  "steps": [
+    { "step": 0, "name": "db-migration", "status": "pending" },
+    { "step": 1, "name": "ai-import-service", "status": "pending" },
+    { "step": 2, "name": "parse-api", "status": "pending" },
+    { "step": 3, "name": "import-action", "status": "pending" },
+    { "step": 4, "name": "import-ui", "status": "pending" },
+    { "step": 5, "name": "entrypoint", "status": "pending" },
+    { "step": 6, "name": "docs-update", "status": "pending" }
+  ]
+}
