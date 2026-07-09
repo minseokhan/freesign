@@ -33,12 +33,6 @@ function parseChannelFilter(channel: string | undefined): ClientChannel | null {
     : null;
 }
 
-function getContactSummary(client: ClientRow) {
-  const contacts = [client.contact_email, client.contact_phone].filter(Boolean);
-
-  return contacts.length > 0 ? contacts.join(" · ") : "연락처 없음";
-}
-
 export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const resolvedSearchParams = await searchParams;
   const selectedChannel = parseChannelFilter(resolvedSearchParams?.channel);
@@ -140,7 +134,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       ) : (
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+            <table className="w-full min-w-[820px] border-collapse text-left text-sm">
               <thead className="bg-surface-muted text-xs font-medium uppercase tracking-wide text-text-muted">
                 <tr>
                   <th scope="col" className="px-xl py-md">
@@ -148,6 +142,9 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   </th>
                   <th scope="col" className="px-xl py-md">
                     채널
+                  </th>
+                  <th scope="col" className="px-xl py-md">
+                    이메일
                   </th>
                   <th scope="col" className="px-xl py-md">
                     연락처
@@ -175,7 +172,10 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                       <ChannelBadge channel={client.channel} />
                     </td>
                     <td className="px-xl py-lg text-text-body">
-                      {getContactSummary(client)}
+                      {client.contact_email || "—"}
+                    </td>
+                    <td className="px-xl py-lg text-text-body">
+                      {client.contact_phone || "—"}
                     </td>
                     <td className="px-xl py-lg text-right">
                       <Link
