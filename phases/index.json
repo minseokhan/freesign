@@ -47,7 +47,8 @@
     },
     {
       "dir": "9-contract-import",
-      "status": "pending"
+      "status": "completed",
+      "completed_at": "2026-07-10T04:57:00+0900"
     }
   ]
 }
