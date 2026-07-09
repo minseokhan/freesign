@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "ai-import-service",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-10T04:32:50+0900",
+      "summary": "PDF 계약서 AI 추출 서비스와 10개 표준 조항 정규화 함수 및 테스트 추가",
+      "completed_at": "2026-07-10T04:36:12+0900"
     },
     {
       "step": 2,

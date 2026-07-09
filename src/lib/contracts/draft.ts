@@ -2,6 +2,7 @@ import {
   REQUIRED_CONTRACT_CLAUSES,
   type ContractDraft,
 } from "@/services/ai/contract-draft";
+import type { ContractClauseInput } from "@/lib/validation/contract";
 
 export type ContractClauseDraft = {
   title: string;
@@ -38,6 +39,42 @@ export function toContractDraftPreview(
   };
 }
 
+export function normalizeImportedClauses(raw: unknown): ContractClauseInput[] {
+  const candidates = Array.isArray(raw) ? raw : [];
+
+  return REQUIRED_CONTRACT_CLAUSES.map((title) => {
+    const matched = candidates.find(
+      (candidate) =>
+        isRecord(candidate) &&
+        typeof candidate.title === "string" &&
+        candidate.title.trim() === title,
+    );
+
+    if (!isRecord(matched)) {
+      return buildNeedsReviewClause(title);
+    }
+
+    const body =
+      typeof matched.body === "string" ? matched.body.trim() : "";
+    const plainSummary =
+      typeof matched.plain_summary === "string"
+        ? matched.plain_summary.trim()
+        : "";
+    const hasEmptyText = body.length === 0 || plainSummary.length === 0;
+
+    return {
+      title,
+      body: body || "[검토 필요]",
+      plain_summary: plainSummary || "[검토 필요]",
+      needs_review:
+        matched.needs_review === true ||
+        hasEmptyText ||
+        body.includes("[검토 필요]") ||
+        plainSummary.includes("[검토 필요]"),
+    };
+  });
+}
+
 function extractClauseBody(body: string, title: string) {
   const escapedTitle = escapeRegExp(title);
   const pattern = new RegExp(
@@ -54,4 +91,17 @@ function extractClauseBody(body: string, title: string) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function buildNeedsReviewClause(title: string): ContractClauseInput {
+  return {
+    title,
+    body: "[검토 필요]",
+    plain_summary: "[검토 필요]",
+    needs_review: true,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
