@@ -7,6 +7,7 @@ import {
   type ContractStatus,
 } from "@/components/contract-status-badge";
 import { Card } from "@/components/ui/card";
+import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
 import { notDeleted } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
@@ -101,12 +102,20 @@ export default async function ContractsPage({
             계약 기간, 금액, 상태를 한 화면에서 확인합니다.
           </p>
         </div>
-        <Link
-          href="/contracts/new"
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-        >
-          계약 만들기
-        </Link>
+        <div className="flex flex-col gap-sm sm:flex-row">
+          <Link
+            href="/contracts/new"
+            className={cn(buttonBaseClass, buttonVariants.primary)}
+          >
+            새 계약 작성
+          </Link>
+          <Link
+            href="/contracts/import"
+            className={cn(buttonBaseClass, buttonVariants.secondary)}
+          >
+            기존 계약 불러오기
+          </Link>
+        </div>
       </div>
 
       <nav aria-label="계약 상태 필터" className="flex flex-wrap gap-sm">
@@ -156,12 +165,20 @@ export default async function ContractsPage({
               시작점으로 관리할 수 있습니다.
             </p>
           </div>
-          <Link
-            href="/contracts/new"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            계약 만들기
-          </Link>
+          <div className="flex flex-col gap-sm sm:flex-row">
+            <Link
+              href="/contracts/new"
+              className={cn(buttonBaseClass, buttonVariants.primary)}
+            >
+              새 계약 작성
+            </Link>
+            <Link
+              href="/contracts/import"
+              className={cn(buttonBaseClass, buttonVariants.secondary)}
+            >
+              기존 계약 불러오기
+            </Link>
+          </div>
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">

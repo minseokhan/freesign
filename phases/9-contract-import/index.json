@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "entrypoint",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-10T04:52:01+0900",
+      "summary": "계약 목록 헤더와 빈 상태에 새 계약 작성 및 기존 계약 불러오기 진입점 분기 추가",
+      "completed_at": "2026-07-10T04:53:30+0900"
     },
     {
       "step": 6,
