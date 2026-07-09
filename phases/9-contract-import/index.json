@@ -37,7 +37,10 @@
     {
       "step": 4,
       "name": "import-ui",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-10T04:46:20+0900",
+      "summary": "기존 계약 PDF 불러오기 페이지와 2단계 업로드·검토 UI 및 테스트 추가",
+      "completed_at": "2026-07-10T04:51:01+0900"
     },
     {
       "step": 5,
