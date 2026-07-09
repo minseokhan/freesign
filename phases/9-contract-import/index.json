@@ -2,12 +2,43 @@
   "project": "FreeSign",
   "phase": "9-contract-import",
   "steps": [
-    { "step": 0, "name": "db-migration", "status": "pending" },
-    { "step": 1, "name": "ai-import-service", "status": "pending" },
-    { "step": 2, "name": "parse-api", "status": "pending" },
-    { "step": 3, "name": "import-action", "status": "pending" },
-    { "step": 4, "name": "import-ui", "status": "pending" },
-    { "step": 5, "name": "entrypoint", "status": "pending" },
-    { "step": 6, "name": "docs-update", "status": "pending" }
-  ]
+    {
+      "step": 0,
+      "name": "db-migration",
+      "status": "completed",
+      "started_at": "2026-07-10T04:28:58+0900",
+      "summary": "contracts.source_pdf_url 컬럼 마이그레이션과 생성 타입 Row/Insert/Update 반영"
+    },
+    {
+      "step": 1,
+      "name": "ai-import-service",
+      "status": "pending"
+    },
+    {
+      "step": 2,
+      "name": "parse-api",
+      "status": "pending"
+    },
+    {
+      "step": 3,
+      "name": "import-action",
+      "status": "pending"
+    },
+    {
+      "step": 4,
+      "name": "import-ui",
+      "status": "pending"
+    },
+    {
+      "step": 5,
+      "name": "entrypoint",
+      "status": "pending"
+    },
+    {
+      "step": 6,
+      "name": "docs-update",
+      "status": "pending"
+    }
+  ],
+  "created_at": "2026-07-10T04:28:58+0900"
 }

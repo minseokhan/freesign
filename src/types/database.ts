@@ -101,6 +101,7 @@ export type Database = {
           clauses: Json
           client_id: string
           contract_pdf_url: string | null
+          source_pdf_url: string | null
           created_at: string
           deleted_at: string | null
           doc_hash: string | null
@@ -121,6 +122,7 @@ export type Database = {
           clauses?: Json
           client_id: string
           contract_pdf_url?: string | null
+          source_pdf_url?: string | null
           created_at?: string
           deleted_at?: string | null
           doc_hash?: string | null
@@ -141,6 +143,7 @@ export type Database = {
           clauses?: Json
           client_id?: string
           contract_pdf_url?: string | null
+          source_pdf_url?: string | null
           created_at?: string
           deleted_at?: string | null
           doc_hash?: string | null

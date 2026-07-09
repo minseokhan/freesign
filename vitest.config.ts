@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
-    exclude: [...configDefaults.exclude, "e2e/**"],
+    exclude: [...configDefaults.exclude, "e2e/**", "**/e2e/**", ".claude/**"],
     globals: true,
     globalSetup: ["./src/test/pg-global-setup.ts"],
     setupFiles: ["./vitest.setup.ts"]
