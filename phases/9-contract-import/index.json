@@ -29,7 +29,10 @@
     {
       "step": 3,
       "name": "import-action",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-10T04:41:17+0900",
+      "summary": "기존 계약 PDF 저장 Server Action과 allowlist 검증·소유권·이벤트 보안 테스트 추가",
+      "completed_at": "2026-07-10T04:44:24+0900"
     },
     {
       "step": 4,

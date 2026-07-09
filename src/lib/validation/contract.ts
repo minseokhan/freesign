@@ -64,5 +64,21 @@ export const contractClausesInputSchema = z.object({
   clauses: contractClausesSchema,
 });
 
+export const contractImportInputSchema = z
+  .object({
+    client_id: z.string().uuid(),
+    title: z.string().trim().min(1),
+    scope: z.string().trim().min(1),
+    amount: z.coerce.number().int().positive(),
+    start_date: dateSchema,
+    end_date: dateSchema,
+    clauses: contractClausesSchema,
+  })
+  .refine((value) => value.end_date >= value.start_date, {
+    message: "종료일은 시작일보다 빠를 수 없습니다.",
+    path: ["end_date"],
+  });
+
 export type ContractClauseInput = z.infer<typeof contractClauseSchema>;
 export type ContractClausesInput = z.infer<typeof contractClausesInputSchema>;
+export type ContractImportInput = z.infer<typeof contractImportInputSchema>;

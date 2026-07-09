@@ -15,17 +15,25 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
   contractClausesInputSchema,
   contractDraftInputSchema,
+  contractImportInputSchema,
   type ContractClausesInput,
   type ContractDraftInput,
+  type ContractImportInput,
 } from "@/lib/validation/contract";
 import { generateContractDraft } from "@/services/ai/contract-draft";
 import type { Database, Json } from "@/types/database";
+
+const CONTRACT_ARTIFACTS_BUCKET = "contract-artifacts";
+const MAX_SOURCE_PDF_SIZE_BYTES = 5 * 1024 * 1024;
 
 type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
 type ContractUpdate = Database["public"]["Tables"]["contracts"]["Update"];
 type ContractEventInsert =
   Database["public"]["Tables"]["contract_events"]["Insert"];
-type ContractActionField = keyof ContractDraftInput | keyof ContractClausesInput;
+type ContractActionField =
+  | keyof ContractDraftInput
+  | keyof ContractClausesInput
+  | keyof ContractImportInput;
 const contractStatusInputSchema = z.enum(CONTRACT_STATUSES);
 
 export type ContractActionResult =
@@ -73,6 +81,41 @@ function parseClausesInput(
   }
 
   return result.data;
+}
+
+function parseImportedContractPayload(
+  formData: FormData,
+): ContractImportInput | ContractActionResult {
+  const payload = formData.get("payload");
+
+  if (typeof payload !== "string") {
+    return { ok: false, error: "입력값을 확인해 주세요." };
+  }
+
+  let parsedPayload: unknown;
+
+  try {
+    parsedPayload = JSON.parse(payload);
+  } catch {
+    return { ok: false, error: "입력값을 확인해 주세요." };
+  }
+
+  const result = contractImportInputSchema.safeParse(parsedPayload);
+
+  if (!result.success) {
+    return validationError(result.error);
+  }
+
+  return result.data;
+}
+
+function isValidSourcePdf(value: FormDataEntryValue | null): value is File {
+  return (
+    typeof File !== "undefined" &&
+    value instanceof File &&
+    value.type === "application/pdf" &&
+    value.size <= MAX_SOURCE_PDF_SIZE_BYTES
+  );
 }
 
 export async function createContractDraft(
@@ -191,6 +234,95 @@ export async function createContractDraft(
   revalidatePath("/contracts");
 
   return { ok: true, id: data.id };
+}
+
+export async function createImportedContract(
+  formData: FormData,
+): Promise<ContractActionResult> {
+  const user = await requireUser();
+  const parsed = parseImportedContractPayload(formData);
+
+  if ("ok" in parsed) {
+    return parsed;
+  }
+
+  const supabase = await createSupabaseClient();
+  const owned = await assertOwned(supabase, "clients", parsed.client_id);
+
+  if (!owned) {
+    return { ok: false, error: "클라이언트를 찾을 수 없습니다." };
+  }
+
+  const insertPayload = {
+    user_id: user.id,
+    client_id: parsed.client_id,
+    title: parsed.title,
+    scope: parsed.scope,
+    amount: parsed.amount,
+    start_date: parsed.start_date,
+    end_date: parsed.end_date,
+    status: "draft",
+    clauses: parsed.clauses as Json,
+  } satisfies ContractInsert;
+
+  const { data, error } = await supabase
+    .from("contracts")
+    .insert(insertPayload)
+    .select("id")
+    .single();
+
+  if (error) {
+    return dbError(error);
+  }
+
+  const contractId = data.id;
+  const sourcePdf = formData.get("file");
+
+  if (isValidSourcePdf(sourcePdf)) {
+    const sourcePdfKey = `${user.id}/${contractId}/source.pdf`;
+    const buffer = Buffer.from(await sourcePdf.arrayBuffer());
+    const { error: uploadError } = await supabase.storage
+      .from(CONTRACT_ARTIFACTS_BUCKET)
+      .upload(sourcePdfKey, buffer, {
+        contentType: "application/pdf",
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Failed to upload imported contract source PDF", {
+        contractId,
+        error: uploadError.message,
+      });
+    } else {
+      const { error: updateError } = await supabase
+        .from("contracts")
+        .update({ source_pdf_url: sourcePdfKey } satisfies ContractUpdate)
+        .eq("id", contractId);
+
+      if (updateError) {
+        console.error("Failed to store imported contract source PDF key", {
+          contractId,
+          error: updateError.message,
+        });
+      }
+    }
+  }
+
+  const eventPayload = {
+    user_id: user.id,
+    contract_id: contractId,
+    actor: user.id,
+    from_status: null,
+    to_status: "draft",
+    event_type: "contract.imported",
+    meta: { source: "pdf_import" },
+  } satisfies ContractEventInsert;
+
+  await supabase.from("contract_events").insert(eventPayload);
+
+  revalidatePath("/contracts");
+
+  return { ok: true, id: contractId };
 }
 
 export async function updateContractClauses(

@@ -8,6 +8,7 @@ import { generateContractDraft } from "@/services/ai/contract-draft";
 
 import {
   createContractDraft,
+  createImportedContract,
   transitionContractStatus,
   updateContractClauses,
 } from "../actions";
@@ -87,6 +88,21 @@ function createEventInsertTableMock() {
   const insert = vi.fn().mockResolvedValue({ error: null });
 
   return { insert };
+}
+
+function createImportedContractFormData(
+  payload: Record<string, unknown>,
+  file?: File,
+) {
+  const formData = new FormData();
+
+  formData.set("payload", JSON.stringify(payload));
+
+  if (file) {
+    formData.set("file", file);
+  }
+
+  return formData;
 }
 
 const validClauses = [
@@ -487,5 +503,223 @@ describe("contract draft server actions", () => {
         },
       }),
     );
+  });
+
+  it.each([
+    ["빈 제목", { title: " " }],
+    ["음수 금액", { amount: -1 }],
+    ["종료일이 시작일보다 빠른 기간", { end_date: "2026-07-31" }],
+    ["누락된 필수 조항", { clauses: validClauses.slice(0, 9) }],
+  ])("rejects imported contract validation for %s", async (_case, override) => {
+    const insertTable = createInsertTableMock();
+    vi.mocked(createSupabaseClient).mockResolvedValue({
+      from: vi.fn().mockReturnValue(insertTable),
+      storage: {
+        from: vi.fn(),
+      },
+    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>);
+
+    const result = await createImportedContract(
+      createImportedContractFormData({
+        ...validInput,
+        title: "기존 계약서",
+        clauses: validClauses,
+        ...override,
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    expect(assertOwned).not.toHaveBeenCalled();
+    expect(insertTable.insert).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("rejects imported contracts for a client_id not owned by the user", async () => {
+    vi.mocked(assertOwned).mockResolvedValue(false);
+    const insertTable = createInsertTableMock();
+    vi.mocked(createSupabaseClient).mockResolvedValue({
+      from: vi.fn().mockReturnValue(insertTable),
+      storage: {
+        from: vi.fn(),
+      },
+    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>);
+
+    const result = await createImportedContract(
+      createImportedContractFormData({
+        ...validInput,
+        title: "기존 계약서",
+        clauses: validClauses,
+      }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      error: "클라이언트를 찾을 수 없습니다.",
+    });
+    expect(insertTable.insert).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("creates an imported draft with server-owned fields and stores only the source PDF key", async () => {
+    const calls: string[] = [];
+    const contractsInsert = createInsertTableMock("imported-contract-1");
+    contractsInsert.insert.mockImplementation((payload) => {
+      calls.push("contracts.insert");
+
+      expect(payload).toEqual({
+        user_id: user.id,
+        client_id: validInput.client_id,
+        title: "기존 계약서",
+        scope: validInput.scope,
+        amount: validInput.amount,
+        start_date: validInput.start_date,
+        end_date: validInput.end_date,
+        status: "draft",
+        clauses: validClauses,
+      });
+      expect(payload).not.toHaveProperty("source_pdf_url");
+      expect(payload).not.toHaveProperty("doc_hash");
+
+      return {
+        select: contractsInsert.select,
+        single: contractsInsert.single,
+      };
+    });
+    const contractsUpdate = {
+      update: vi.fn((payload) => {
+        calls.push("contracts.update_source_pdf");
+        expect(payload).toEqual({
+          source_pdf_url: `${user.id}/imported-contract-1/source.pdf`,
+        });
+
+        return {
+          eq: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }),
+    };
+    const eventTable = createEventInsertTableMock();
+    eventTable.insert.mockImplementation((payload) => {
+      calls.push("contract_events.insert");
+
+      expect(payload).toEqual({
+        user_id: user.id,
+        contract_id: "imported-contract-1",
+        actor: user.id,
+        from_status: null,
+        to_status: "draft",
+        event_type: "contract.imported",
+        meta: { source: "pdf_import" },
+      });
+
+      return Promise.resolve({ error: null });
+    });
+    const storageUpload = vi.fn().mockImplementation((key) => {
+      calls.push("storage.upload");
+      expect(key).toBe(`${user.id}/imported-contract-1/source.pdf`);
+
+      return Promise.resolve({ error: null });
+    });
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "contract_events") return eventTable;
+
+        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
+          .length === 1
+          ? contractsInsert
+          : contractsUpdate;
+      }),
+      storage: {
+        from: vi.fn().mockReturnValue({ upload: storageUpload }),
+      },
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const sourceFile = new File(["%PDF-1.7"], "source.pdf", {
+      type: "application/pdf",
+    });
+    Object.defineProperty(sourceFile, "arrayBuffer", {
+      value: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.7").buffer),
+    });
+
+    const result = await createImportedContract(
+      createImportedContractFormData(
+        {
+          ...validInput,
+          title: "기존 계약서",
+          clauses: validClauses,
+          user_id: "attacker-user",
+          status: "signed",
+          source_pdf_url: "https://attacker.example/source.pdf",
+          doc_hash: "spoofed",
+        },
+        sourceFile,
+      ),
+    );
+
+    expect(result).toEqual({ ok: true, id: "imported-contract-1" });
+    expect(assertOwned).toHaveBeenCalledWith(
+      supabase,
+      "clients",
+      validInput.client_id,
+    );
+    expect(supabase.storage.from).toHaveBeenCalledWith("contract-artifacts");
+    expect(storageUpload).toHaveBeenCalledWith(
+      `${user.id}/imported-contract-1/source.pdf`,
+      expect.any(Buffer),
+      { contentType: "application/pdf", upsert: true },
+    );
+    expect(calls).toEqual([
+      "contracts.insert",
+      "storage.upload",
+      "contracts.update_source_pdf",
+      "contract_events.insert",
+    ]);
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts");
+  });
+
+  it("creates an imported draft without uploading when the source PDF is missing", async () => {
+    const calls: string[] = [];
+    const contractsInsert = createInsertTableMock("imported-contract-1");
+    contractsInsert.insert.mockImplementation(() => {
+      calls.push("contracts.insert");
+
+      return {
+        select: contractsInsert.select,
+        single: contractsInsert.single,
+      };
+    });
+    const eventTable = createEventInsertTableMock();
+    eventTable.insert.mockImplementation(() => {
+      calls.push("contract_events.insert");
+
+      return Promise.resolve({ error: null });
+    });
+    const storageFrom = vi.fn();
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === "contract_events" ? eventTable : contractsInsert,
+      ),
+      storage: {
+        from: storageFrom,
+      },
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await createImportedContract(
+      createImportedContractFormData({
+        ...validInput,
+        title: "기존 계약서",
+        clauses: validClauses,
+      }),
+    );
+
+    expect(result).toEqual({ ok: true, id: "imported-contract-1" });
+    expect(storageFrom).not.toHaveBeenCalled();
+    expect(calls).toEqual(["contracts.insert", "contract_events.insert"]);
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts");
   });
 });
