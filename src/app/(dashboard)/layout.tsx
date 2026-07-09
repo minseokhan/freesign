@@ -14,9 +14,9 @@ export default async function DashboardLayout({
   const user = await requireUser();
   const metadata = user.user_metadata ?? {};
   const displayName =
-    (metadata.full_name as string | undefined) ??
-    (metadata.name as string | undefined) ??
-    user.email ??
+    (metadata.full_name as string | undefined)?.trim() ||
+    (metadata.name as string | undefined)?.trim() ||
+    user.email ||
     "사용자";
   const avatarUrl =
     (metadata.avatar_url as string | undefined) ??

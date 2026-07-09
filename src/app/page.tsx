@@ -4,7 +4,9 @@ import { DashboardPreview } from "@/components/landing/dashboard-preview";
 import { FeatureSection } from "@/components/landing/feature-section";
 import { FlowWalkthrough } from "@/components/landing/flow-walkthrough";
 import { LandingHeader } from "@/components/landing/landing-header";
+import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +44,7 @@ export default async function HomePage() {
             <div className="mt-xl flex flex-wrap items-center gap-md">
               <Link
                 href={cta.href}
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-xl py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+                className={cn(buttonBaseClass, buttonVariants.primary)}
               >
                 {cta.label}
               </Link>
@@ -89,7 +91,7 @@ export default async function HomePage() {
             </p>
             <Link
               href={cta.href}
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-xl py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+              className={cn(buttonBaseClass, buttonVariants.primary)}
             >
               {cta.label}
             </Link>

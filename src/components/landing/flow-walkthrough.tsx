@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -128,6 +128,36 @@ const STEPS: Step[] = [
 export function FlowWalkthrough() {
   const [active, setActive] = useState(0);
   const activeStep = STEPS[active]!;
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function focusTab(index: number) {
+    setActive(index);
+    tabRefs.current[index]?.focus();
+  }
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    const last = STEPS.length - 1;
+    switch (event.key) {
+      case "ArrowRight":
+      case "ArrowDown":
+        event.preventDefault();
+        focusTab(active === last ? 0 : active + 1);
+        break;
+      case "ArrowLeft":
+      case "ArrowUp":
+        event.preventDefault();
+        focusTab(active === 0 ? last : active - 1);
+        break;
+      case "Home":
+        event.preventDefault();
+        focusTab(0);
+        break;
+      case "End":
+        event.preventDefault();
+        focusTab(last);
+        break;
+    }
+  }
 
   return (
     <div className="space-y-xl">
@@ -143,10 +173,17 @@ export function FlowWalkthrough() {
           return (
             <button
               key={step.key}
+              ref={(node) => {
+                tabRefs.current[index] = node;
+              }}
               type="button"
               role="tab"
+              id={`flow-tab-${step.key}`}
               aria-selected={isActive}
+              aria-controls={`flow-panel-${step.key}`}
+              tabIndex={isActive ? 0 : -1}
               onClick={() => setActive(index)}
+              onKeyDown={handleTabKeyDown}
               className={cn(
                 "flex min-h-11 items-center gap-sm rounded-full border px-lg py-sm text-sm font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
@@ -174,7 +211,13 @@ export function FlowWalkthrough() {
         })}
       </div>
 
-      <div className="grid gap-xl md:grid-cols-2 md:items-center">
+      <div
+        role="tabpanel"
+        id={`flow-panel-${activeStep.key}`}
+        aria-labelledby={`flow-tab-${activeStep.key}`}
+        tabIndex={0}
+        className="grid gap-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2 md:grid-cols-2 md:items-center"
+      >
         <div>
           <h3 className="text-xl font-semibold tracking-tight text-text-primary">
             {activeStep.title}

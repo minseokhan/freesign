@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import { Logo } from "@/components/logo";
+import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 type LandingHeaderProps = {
   isAuthenticated: boolean;
@@ -22,7 +24,7 @@ export function LandingHeader({ isAuthenticated }: LandingHeaderProps) {
         </Link>
         <Link
           href={cta.href}
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          className={cn(buttonBaseClass, buttonVariants.primary)}
         >
           {cta.label}
         </Link>

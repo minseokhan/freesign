@@ -32,4 +32,11 @@ describe("signOut action", () => {
     expect(mocks.signOut).toHaveBeenCalledOnce();
     expect(mocks.redirect).toHaveBeenCalledWith("/");
   });
+
+  it("throws and does not redirect when sign-out fails", async () => {
+    mocks.signOut.mockResolvedValue({ error: { message: "network error" } });
+
+    await expect(signOut()).rejects.toThrow("로그아웃에 실패했습니다");
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  });
 });

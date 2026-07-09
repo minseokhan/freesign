@@ -2,7 +2,13 @@ import type { ButtonHTMLAttributes } from "react";
 
 import { cn } from "@/lib/utils";
 
-const buttonVariants = {
+export const buttonBaseClass = cn(
+  "inline-flex min-h-11 items-center justify-center rounded-md px-lg py-sm text-sm font-medium transition-colors",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
+  "disabled:pointer-events-none disabled:opacity-50",
+);
+
+export const buttonVariants = {
   primary:
     "bg-brand-primary text-white hover:bg-brand-hover active:bg-blue-800",
   secondary:
@@ -26,13 +32,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={cn(
-        "inline-flex min-h-11 items-center justify-center rounded-md px-lg py-sm text-sm font-medium transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
-        "disabled:pointer-events-none disabled:opacity-50",
-        buttonVariants[variant],
-        className,
-      )}
+      className={cn(buttonBaseClass, buttonVariants[variant], className)}
       {...props}
     />
   );

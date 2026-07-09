@@ -13,12 +13,17 @@ type UserMenuProps = {
 
 function getInitial(name: string, email: string) {
   const source = name.trim() || email.trim();
-  return source ? source[0]!.toUpperCase() : "?";
+  if (!source) {
+    return "?";
+  }
+  return Array.from(source)[0]!.toUpperCase();
 }
 
 export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
   const [open, setOpen] = useState(false);
+  const [avatarFailed, setAvatarFailed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const showAvatar = Boolean(avatarUrl) && !avatarFailed;
 
   useEffect(() => {
     if (!open) {
@@ -50,6 +55,7 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        aria-label={name}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
@@ -58,12 +64,13 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
           "hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
         )}
       >
-        {avatarUrl ? (
+        {showAvatar ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={avatarUrl}
+            src={avatarUrl!}
             alt=""
             referrerPolicy="no-referrer"
+            onError={() => setAvatarFailed(true)}
             className="size-8 rounded-full object-cover"
           />
         ) : (
@@ -78,25 +85,24 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
       </button>
 
       {open ? (
-        <div
-          role="menu"
-          className="absolute right-0 z-20 mt-sm w-56 rounded-lg border border-surface-border bg-white p-1 shadow-overlay"
-        >
+        <div className="absolute right-0 z-20 mt-sm w-56 rounded-lg border border-surface-border bg-white p-1 shadow-overlay">
           <div className="border-b border-surface-border px-md py-sm">
             <p className="truncate text-sm font-medium text-text-primary">
               {name}
             </p>
             <p className="truncate text-xs text-text-muted">{email}</p>
           </div>
-          <form action={signOut} className="p-1">
-            <button
-              type="submit"
-              role="menuitem"
-              className="flex min-h-11 w-full items-center rounded-md px-md py-sm text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
-            >
-              로그아웃
-            </button>
-          </form>
+          <div role="menu" aria-label="계정 메뉴" className="p-1">
+            <form action={signOut}>
+              <button
+                type="submit"
+                role="menuitem"
+                className="flex min-h-11 w-full items-center rounded-md px-md py-sm text-left text-sm font-medium text-red-600 transition-colors hover:bg-red-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring"
+              >
+                로그아웃
+              </button>
+            </form>
+          </div>
         </div>
       ) : null}
     </div>
