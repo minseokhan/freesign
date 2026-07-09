@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -26,9 +27,9 @@ export function AppSidebar() {
       <div className="flex h-full flex-col gap-xl px-lg py-xl">
         <Link
           href="/dashboard"
-          className="text-lg font-semibold tracking-tight text-text-primary"
+          className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
         >
-          FreeSign
+          <Logo className="h-6" />
         </Link>
         <nav aria-label="대시보드 내비게이션" className="flex flex-col gap-xs">
           {navItems.map((item) => {
