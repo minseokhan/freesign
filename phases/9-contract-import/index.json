@@ -7,7 +7,8 @@
       "name": "db-migration",
       "status": "completed",
       "started_at": "2026-07-10T04:28:58+0900",
-      "summary": "contracts.source_pdf_url 컬럼 마이그레이션과 생성 타입 Row/Insert/Update 반영"
+      "summary": "contracts.source_pdf_url 컬럼 마이그레이션과 생성 타입 Row/Insert/Update 반영",
+      "completed_at": "2026-07-10T04:32:50+0900"
     },
     {
       "step": 1,
