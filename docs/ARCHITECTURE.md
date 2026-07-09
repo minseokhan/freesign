@@ -4,7 +4,7 @@
 - **Next.js 15** (App Router, RSC + Server Actions) + **TypeScript strict**
 - **Tailwind CSS + shadcn/ui**
 - **Supabase**: Auth(Google OAuth) + Postgres + Storage. `@supabase/ssr`(쿠키 기반 서버/클라 클라이언트) + `middleware.ts` 토큰 갱신 + 생성 타입. 서버 인가는 `getUser()`(`getSession()` 아님). RLS로 `user_id` 스코프.
-- **Claude API** (`@anthropic-ai/sdk`, tool-use/JSON) — 계약서 초안(문구 다듬기 + 평문 요약)
+- **Claude API** (`@anthropic-ai/sdk`, tool-use/JSON) — 계약서 초안(문구 다듬기 + 평문 요약) 및 기존 계약 PDF 조항 추출
 - **@react-pdf/renderer** — 계약서·인보이스 PDF. route `runtime='nodejs'` + `outputFileTracingIncludes`로 폰트/wasm 포함 + `maxDuration`. Pretendard 한글 전영역 임베드
 - **폼·검증**: react-hook-form + **zod**(입력·jsonb·env 런타임 검증)
 - **테스트**: Vitest(단위·통합) + Playwright(E2E) + GitHub Actions CI + Prettier / ESLint flat config
@@ -36,12 +36,14 @@ src/
 /clients              클라이언트 목록(채널 태그 배지·필터)
 /clients/[id]         클라이언트 상세 + 하위 계약 목록
 /contracts            계약 목록
-/contracts/new        AI 초안 생성 플로우 (구조화 입력 → 초안 → 편집 → 확정)
+/contracts/new        AI 초안 생성 플로우(시나리오 A: 구조화 입력 → 초안 → 편집 → 확정)
+/contracts/import     기존 계약 PDF 불러오기(시나리오 B: 업로드 → Claude 추출 → 검토 → draft 저장)
 /contracts/[id]       계약 상세 — 조항·평문요약·PDF·서명·하위 인보이스·이력 타임라인
 /invoices             인보이스 목록(상태 필터)
 /invoices/[id]        인보이스 상세 — 원천징수 내역·정산 상태 토글·PDF·상태 이력
 /reports              채널별 수익 리포트 + 연도 필터 + CSV 내보내기
 /settings             프로필·기본 원천징수율·계좌정보
+/api/contracts/import/parse  업로드 PDF를 Claude로 파싱해 추출 결과 미리보기 반환(저장 없음, nodejs 런타임)
 ```
 
 ## 데이터 모델 (Postgres, RLS 활성)
@@ -60,6 +62,7 @@ contracts
   status(enum: draft|signed|active|done|canceled),
   clauses(jsonb),           -- 확정 조항: [{title, body, plain_summary, needs_review}] · zod 검증
   contract_pdf_url?,        -- 서명 PDF 경로(private Storage key만 저장)
+  source_pdf_url?,          -- 발주처 원본 PDF 경로(private Storage key, contract_pdf_url과 분리)
   signature_image_path?,    -- 서명 PNG 경로(private Storage key)
   doc_hash?(text),          -- 1급 컬럼 · canonical clauses JSON SHA-256 · 예시적 무결성(법적효력 v2)
   signature_meta?(jsonb),   -- {signer, signed_at, ip, ua} · IP/UA는 서버 라우트에서만 기록
@@ -100,7 +103,7 @@ profiles
 ## 패턴 (렌더링·데이터 접근)
 - **읽기**: RLS 스코프된 **Server Component에서 직접 Supabase 조회**. 읽기를 내부 `/api` fetch로 우회하지 않는다(안티패턴).
 - **쓰기(뮤테이션)**: **Server Actions에서만**. `revalidatePath`로 갱신, 토글류는 `useOptimistic`.
-- **시크릿·외부 API**(Claude·서명 해시·PDF·CSV): `app/api/` 라우트 핸들러 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지.
+- **시크릿·외부 API**(Claude·서명 해시·PDF·CSV): `app/api/` 라우트 핸들러 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지. Claude PDF 추출(`contract-import.ts`)도 서버 전용 모듈과 `/api/contracts/import/parse` 라우트에서만 호출한다.
 - **인터랙션이 필요한 곳만 Client Component**(캔버스 서명·상태 토글·폼). 나머지는 RSC 기본.
 
 ## 데이터 흐름

@@ -9,7 +9,7 @@
 - TypeScript strict mode
 - Tailwind CSS + shadcn/ui
 - Supabase (Auth: Google OAuth · Postgres · Storage) — `@supabase/ssr` + 생성 타입, RLS로 `user_id` 스코프
-- Claude API (`@anthropic-ai/sdk`) — 계약서 초안
+- Claude API (`@anthropic-ai/sdk`) — 계약서 초안 및 기존 계약 PDF 조항 추출(시나리오 B)
 - @react-pdf/renderer — 계약서·인보이스 PDF (Node 런타임)
 - react-hook-form + zod, Vitest + Playwright
 
@@ -17,7 +17,7 @@
 - CRITICAL: **읽기는 RSC에서 Supabase 직접 조회**(RLS 스코프), **쓰기는 Server Actions에서만**(`revalidatePath`로 갱신). 읽기를 내부 `/api` fetch로 우회하지 말 것.
 - CRITICAL: **시크릿·외부 API**(Claude·서명 해시·PDF·CSV·`service_role`)는 `app/api/` 라우트 핸들러 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지. `service_role` 키는 요청 경로에서 절대 금지(CLI 시드에서만).
 - CRITICAL: **모든 사용자 데이터는 RLS `USING` + `WITH CHECK (user_id = (select auth.uid()))` 둘 다** 스코프. Server Action은 **client 입력 전용 zod allowlist**(도메인 필드만)만 받고, `user_id`는 항상 `getUser()`에서, 서버 소유 필드(`status`·`paid_at`·`doc_hash`·`signature_meta`·`is_demo`·금액 스냅샷·pdf 경로)는 client 입력 금지. **FK 참조**(invoice→contract/client)는 Server Action에서 소유권 재조회 검증 후 insert(FK는 RLS 우회).
-- CRITICAL: 전자서명·결제는 `services/`의 **v1 전용 Provider 인터페이스** 뒤로만 접근. AI 계약서 결과는 항상 "초안"으로 취급·면책 노출, AI는 필수 게이트가 아닌 보강(실패 시 골격 폴백).
+- CRITICAL: 전자서명·결제는 `services/`의 **v1 전용 Provider 인터페이스** 뒤로만 접근. AI 계약서 초안·PDF 추출 결과는 항상 비권위적 검토 보조로 취급·면책 노출, AI는 필수 게이트가 아닌 보강(실패 시 골격/수기 입력 폴백).
 - 상태 전이(계약 status·인보이스 결제)는 **append-only 이벤트 로그에 함께 기록**(도메인 UPDATE 후 이벤트 INSERT, 순차). status 변경을 쓰기 순서 앞쪽에 두지 말 것(부분 실패 시 미완 방지).
 - `deleted_at IS NULL` 필터는 RLS가 아니라 **공용 쿼리 헬퍼**에서(복원·감사·CSV 보존). Storage는 private 버킷 + `{user_id}/...` 경로, DB엔 key만 저장·읽기는 단기 signed URL.
 - 서버 인가는 `getUser()`(`getSession()` 아님). middleware는 토큰 갱신 전용(보안 경계 아님).
