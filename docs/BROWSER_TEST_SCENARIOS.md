@@ -110,13 +110,22 @@ agent-browser state save auth.json                              # 세션 저장(
 - **경로**: `/contracts/{id}`
 - **절차**: (서명 가능 상태 계약에서) 캔버스 서명 → 저장 → PDF
 - **기대**: 서명 시 서명자·시각·문서 해시 기록. 상태 전이 append-only 이벤트. 계약 PDF 다운로드(한글 임베드).
-- `[검증]` 서명완료 상세: **문서 해시**·서명완료 상태·append-only 이력·면책 표시 ✅. **계약 PDF** ✅ (`/api/contracts/{id}/pdf` → 200, application/pdf, 2p). **라이브 캔버스 서명은 미실행** — 데모 계약이 이미 서명완료라 서명 액션 미표시. S4에서 native click으로 새 draft 계약을 만들 수 있으므로, 그 draft에서 캔버스 서명 플로우 재검증 가능(다음 회차 TODO).
+- **캔버스 서명 자동화**: `agent-browser mouse move/down/up`으로 실제 획을 그린다(합성 PointerEvent는 `setPointerCapture`에서 throw). 캔버스 rect를 eval로 구해 중심 좌표에 드래그 → 그린 뒤 `canvas.getContext('2d').getImageData`로 non-blank 픽셀 확인. "서명 완료" 버튼은 form 밖 `type=button`이므로 **native click** 필요(#7).
+  ```bash
+  RECT=$(agent-browser eval "(()=>{const r=document.getElementById('signature-canvas').getBoundingClientRect();return Math.round(r.x)+' '+Math.round(r.y)+' '+Math.round(r.width)+' '+Math.round(r.height)})()" | tr -d '"'); read RX RY RW RH <<< "$RECT"; CY=$((RY+RH/2))
+  agent-browser mouse move $((RX+80)) $CY; agent-browser mouse down
+  for dx in 200 320 440 560; do agent-browser mouse move $((RX+dx)) $((CY-30)); done
+  agent-browser mouse up
+  agent-browser eval "[...document.querySelectorAll('button')].find(b=>b.innerText.trim()==='서명 완료')?.click()"
+  ```
+- `[검증]` ✅ **라이브 캔버스 서명 완료**: 새 draft 계약에 마우스 드래그로 서명 → `POST /api/contracts/{id}/sign 200` → 상태 draft→signed. DB 확인: `doc_hash`(SHA-256 64자), `signature_meta`={signer, ip, ua, signed_at} 기록(서버소유 필드). **draft→signed** append-only 이벤트. 서명 이미지가 화면에 렌더. **서명 PDF** ✅ (4p·43KB — 미서명 2p보다 서명 포함으로 증가). 서명완료 상세: 문서해시·서명자·서명시각·면책 표시.
 
 ### S6. 인보이스 발행 + 원천징수 3.3% (인증)
 - **경로**: `/invoices/new` (생성) / `/invoices/{id}` (확인)
 - **절차**: 계약 선택 → 청구액 → 원천징수 3.3% 토글 → 지급기한(eval) → 저장 → PDF
 - **기대**: 3.3% 선택 시 **원천징수·실지급 자동 표시**(예: 300만 → 99,000 / 2,901,000). "참고용 계산" 면책. 발행 시점 금액 스냅샷(재계산 안 함). 인보이스 PDF.
-- `[검증]` 기존 데모 인보이스 상세로 검증: 청구 ₩3,000,000 / **원천징수 ₩99,000** / **실수령 ₩2,901,000** ✅, 참고용 면책·스냅샷 표기·append-only 이력 ✅. **인보이스 PDF** ✅ (`/api/invoices/{id}/pdf` → 200, 1p). 신규 인보이스 폼 생성은 미검증(날짜는 eval, 저장 버튼이 form 밖 `type=button`이면 S4처럼 native click 우회 필요할 수 있음 — 다음 회차 TODO).
+- **신규 발행 진입**: 서명완료 계약 상세의 "인보이스 발행" 링크 → `/invoices/new?contract={id}` (계약에서 금액·발행일·지급기한 **프리필** → date 입력 이슈 없음, RHF defaultValues로 초기화). "발행" 버튼은 native click 권장(#7).
+- `[검증]` ✅ **라이브 발행 완료**: 폼 실시간 미리보기 원천징수 ₩99,000 / 실수령 ₩2,901,000, "서버에서 재계산·발행시점 고정" 면책 → "발행" native click → `POST /invoices/new 200` → `/invoices/{id}`. DB 확인: `withholding_type=wt_3_3`, `withholding_amount=99000`, `net_amount=2901000`(서버 계산 스냅샷), `payment_status=unpaid`(신규 미수), `is_demo=false`, 계약 FK 연결. **인보이스 PDF** ✅ (`/api/invoices/{id}/pdf` → 200, 1p). 기존 데모 인보이스 상세도 동일 값 검증 완료.
 
 ### S7. 정산 추적: 입금완료 ↔ 미수 토글 (인증)
 - **경로**: `/invoices/{id}`
