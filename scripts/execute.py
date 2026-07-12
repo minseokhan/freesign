@@ -24,10 +24,25 @@ ROOT = Path(__file__).resolve().parent.parent
 
 @contextlib.contextmanager
 def progress_indicator(label: str):
-    """터미널 진행 표시기. with 문으로 사용하며 .elapsed 로 경과 시간을 읽는다."""
+    """터미널 진행 표시기. with 문으로 사용하며 .elapsed 로 경과 시간을 읽는다.
+
+    비-TTY(로그 리다이렉트 등)에서는 `\\r` 애니메이션 프레임이 파일을 가득 채워
+    실제 로그를 못 읽게 하므로, 시작 한 줄만 출력하고 애니메이션은 생략한다.
+    """
+    t0 = time.monotonic()
+    info = types.SimpleNamespace(elapsed=0.0)
+
+    if not sys.stderr.isatty():
+        sys.stderr.write(f"▶ {label}\n")
+        sys.stderr.flush()
+        try:
+            yield info
+        finally:
+            info.elapsed = time.monotonic() - t0
+        return
+
     frames = "◐◓◑◒"
     stop = threading.Event()
-    t0 = time.monotonic()
 
     def _animate():
         idx = 0
@@ -41,7 +56,6 @@ def progress_indicator(label: str):
 
     th = threading.Thread(target=_animate, daemon=True)
     th.start()
-    info = types.SimpleNamespace(elapsed=0.0)
     try:
         yield info
     finally:
@@ -58,13 +72,15 @@ class StepExecutor:
     CHORE_MSG = "chore({phase}): step {num} output"
     TZ = timezone(timedelta(hours=9))
 
-    def __init__(self, phase_dir_name: str, *, auto_push: bool = False):
+    def __init__(self, phase_dir_name: str, *, auto_push: bool = False,
+                 allow_dirty: bool = False):
         self._root = str(ROOT)
         self._phases_dir = ROOT / "phases"
         self._phase_dir = self._phases_dir / phase_dir_name
         self._phase_dir_name = phase_dir_name
         self._top_index_file = self._phases_dir / "index.json"
         self._auto_push = auto_push
+        self._allow_dirty = allow_dirty
 
         if not self._phase_dir.is_dir():
             print(f"ERROR: {self._phase_dir} not found")
@@ -82,7 +98,9 @@ class StepExecutor:
 
     def run(self):
         self._print_header()
+        self._reset_stale_in_progress()
         self._check_blockers()
+        self._check_clean_tree()
         self._checkout_branch()
         guardrails = self._load_guardrails()
         self._ensure_created_at()
@@ -132,6 +150,54 @@ class StepExecutor:
             sys.exit(1)
 
         print(f"  Branch: {branch}")
+
+    def _check_clean_tree(self):
+        """phase 스캐폴드와 무관한 미커밋 변경이 있으면 중단한다.
+
+        _commit_step 의 `git add -A` 는 step 산출물뿐 아니라 실행 시작 시점에
+        이미 워킹트리에 있던 무관한 WIP 까지 step 커밋에 쓸어담는다. 그래서
+        phases/ 하위(하네스 자체 파일)를 제외한 미커밋 변경이 남아 있으면
+        경고 후 멈춘다. 의도적으로 함께 커밋하려면 --allow-dirty 로 우회한다.
+        """
+        r = self._run_git("status", "--porcelain")
+        if r.returncode != 0:
+            return
+
+        unrelated = [
+            line for line in r.stdout.splitlines()
+            if line.strip() and not line[3:].startswith("phases/")
+        ]
+        if not unrelated:
+            return
+
+        print("\n  ⚠ 워킹트리에 phase 와 무관한 미커밋 변경이 있습니다:")
+        for line in unrelated[:20]:
+            print(f"    {line}")
+        if len(unrelated) > 20:
+            print(f"    ... 외 {len(unrelated) - 20}건")
+
+        if self._allow_dirty:
+            print("  --allow-dirty 지정됨: 위 변경들도 step 커밋에 포함될 수 있습니다.")
+            return
+
+        print("  이 변경들은 step 커밋에 섞여 들어갑니다. commit 또는 stash 후 다시 실행하세요.")
+        print("  (의도적으로 함께 커밋하려면 --allow-dirty)")
+        sys.exit(1)
+
+    def _reset_stale_in_progress(self):
+        """이전 실행이 step 도중 죽어 'in_progress' 로 남은 status 를 pending 으로 되돌린다.
+
+        pending 탐색기가 in_progress step 을 건너뛰어 순서가 어긋나거나 미완 step 을
+        완료로 오인하는 것을 방지한다(재개 안전).
+        """
+        index = self._read_json(self._index_file)
+        changed = False
+        for s in index["steps"]:
+            if s.get("status") == "in_progress":
+                s["status"] = "pending"
+                changed = True
+        if changed:
+            self._write_json(self._index_file, index)
 
     def _commit_step(self, step_num: int, step_name: str):
         output_rel = f"phases/{self._phase_dir_name}/step{step_num}-output.json"
@@ -305,6 +371,12 @@ class StepExecutor:
             if attempt > 1:
                 tag += f" [retry {attempt}/{self.MAX_RETRIES}]"
 
+            # 실행 중임을 index 에 노출해 외부 모니터가 추론 없이 현재 step 을 안다.
+            for s in index["steps"]:
+                if s["step"] == step_num:
+                    s["status"] = "in_progress"
+            self._write_json(self._index_file, index)
+
             with progress_indicator(tag) as pi:
                 self._invoke_codex(step, preamble)
                 elapsed = int(pi.elapsed)
@@ -408,9 +480,14 @@ def main():
     parser = argparse.ArgumentParser(description="Harness Step Executor")
     parser.add_argument("phase_dir", help="Phase directory name (e.g. 0-mvp)")
     parser.add_argument("--push", action="store_true", help="Push branch after completion")
+    parser.add_argument(
+        "--allow-dirty",
+        action="store_true",
+        help="phase 와 무관한 미커밋 변경이 있어도 중단하지 않고 진행 (step 커밋에 섞일 수 있음)",
+    )
     args = parser.parse_args()
 
-    StepExecutor(args.phase_dir, auto_push=args.push).run()
+    StepExecutor(args.phase_dir, auto_push=args.push, allow_dirty=args.allow_dirty).run()
 
 
 if __name__ == "__main__":
