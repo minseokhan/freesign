@@ -188,7 +188,7 @@ export async function createContractDraft(
   }
 
   const payload = {
-    title: draft.title,
+    title: parsed.title,
     scope: parsed.scope,
     amount: parsed.amount,
     start_date: parsed.start_date,

@@ -7,6 +7,7 @@ import {
 import { REQUIRED_CONTRACT_CLAUSES } from "@/services/ai/contract-draft";
 
 const validContractInput = {
+  title: "블루스튜디오 브랜드 랜딩 계약",
   client_id: "11111111-1111-4111-8111-111111111111",
   scope: "브랜드 랜딩 페이지 디자인과 반응형 퍼블리싱",
   amount: 3_000_000,

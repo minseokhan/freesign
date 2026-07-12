@@ -23,6 +23,7 @@ const optionalDateSchema = z.preprocess(
 
 export const contractDraftInputSchema = z
   .object({
+    title: z.string().trim().min(1).max(120),
     client_id: z.string().uuid(),
     scope: z.string().trim().min(1),
     amount: z.coerce.number().int().positive(),

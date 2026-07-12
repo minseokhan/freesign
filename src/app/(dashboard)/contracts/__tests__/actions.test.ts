@@ -46,6 +46,7 @@ vi.mock("@/services/ai/contract-draft", async (importOriginal) => {
 
 const user = { id: "user-123", email: "freelancer@example.test" };
 const validInput = {
+  title: "블루스튜디오 브랜드 랜딩 계약",
   client_id: "11111111-1111-4111-8111-111111111111",
   scope: "브랜드 랜딩 페이지 디자인과 반응형 퍼블리싱",
   amount: 3_000_000,
@@ -231,7 +232,7 @@ describe("contract draft server actions", () => {
     expect(result).toEqual({ ok: true, id: "contract-1" });
     expect(updateTable.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "블루스튜디오 용역계약서 초안",
+        title: validInput.title,
         clauses: expect.any(Array),
         status: "draft",
       }),
@@ -287,7 +288,7 @@ describe("contract draft server actions", () => {
     expect(result).toEqual({ ok: true, id: "contract-skeleton" });
     expect(insertTable.insert).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: "골격 초안",
+        title: validInput.title,
         status: "draft",
       }),
     );

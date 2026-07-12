@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import { z } from "zod";
 
 import {
@@ -45,18 +45,34 @@ function firstError(
   return fieldErrors?.[field]?.[0];
 }
 
+function formatAmountDisplay(value: unknown) {
+  if (value === "" || value === null || value === undefined) {
+    return "";
+  }
+
+  const numeric = typeof value === "number" ? value : Number(value);
+
+  if (Number.isNaN(numeric)) {
+    return typeof value === "string" ? value : "";
+  }
+
+  return new Intl.NumberFormat("ko-KR").format(numeric);
+}
+
 export function ContractForm({ clients }: ContractFormProps) {
   const router = useRouter();
   const [draft, setDraft] = useState<ContractDraftPreview | null>(null);
   const [isGenerating, startGenerating] = useTransition();
   const [isSaving, startSaving] = useTransition();
   const {
+    control,
     formState: { errors },
     handleSubmit,
     register,
     setError,
   } = useForm<ContractFormInput, unknown, ContractDraftInput>({
     defaultValues: {
+      title: "",
       client_id: clients[0]?.id ?? "",
       scope: "",
       amount: "" as unknown as number,
@@ -177,7 +193,7 @@ export function ContractForm({ clients }: ContractFormProps) {
         </ol>
       </nav>
 
-      <Card>
+      <Card className={cn(draft && "hidden")}>
         <form className="space-y-xl" onSubmit={generateDraft} noValidate>
           <div className="border-b border-surface-border pb-lg">
             <h3 className="text-lg font-semibold text-text-primary">
@@ -195,6 +211,13 @@ export function ContractForm({ clients }: ContractFormProps) {
           ) : null}
 
           <div className="grid gap-lg">
+            <Input
+              label="계약 제목"
+              placeholder="예: 블루스튜디오 브랜드 랜딩 계약"
+              error={errors.title?.message}
+              {...register("title")}
+            />
+
             <div className="grid gap-sm">
               <label
                 htmlFor="contract-client"
@@ -256,17 +279,28 @@ export function ContractForm({ clients }: ContractFormProps) {
               ) : null}
             </div>
 
-            <Input
-              label="계약 금액"
-              type="number"
-              min={1}
-              step={1}
-              placeholder="3000000"
-              error={errors.amount?.message}
-              {...register("amount", { valueAsNumber: true })}
+            <Controller
+              control={control}
+              name="amount"
+              render={({ field }) => (
+                <Input
+                  label="계약 금액"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="3,000,000"
+                  error={errors.amount?.message}
+                  name={field.name}
+                  onBlur={field.onBlur}
+                  value={formatAmountDisplay(field.value)}
+                  onChange={(event) => {
+                    const digits = event.target.value.replace(/[^\d]/g, "");
+                    field.onChange(digits === "" ? "" : Number(digits));
+                  }}
+                />
+              )}
             />
 
-            <div className="grid gap-lg sm:grid-cols-2">
+            <div className="grid gap-lg sm:grid-cols-2 sm:items-start">
               <Input
                 label="시작일"
                 type="date"

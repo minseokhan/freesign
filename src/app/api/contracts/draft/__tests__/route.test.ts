@@ -66,6 +66,7 @@ describe("POST /api/contracts/draft", () => {
       new Request("http://localhost/api/contracts/draft", {
         method: "POST",
         body: JSON.stringify({
+          title: "블루스튜디오 브랜드 랜딩 계약",
           client_id: "11111111-1111-4111-8111-111111111111",
           scope: "브랜드 랜딩 페이지 디자인",
           amount: 3_000_000,
@@ -109,6 +110,7 @@ describe("POST /api/contracts/draft", () => {
       new Request("http://localhost/api/contracts/draft", {
         method: "POST",
         body: JSON.stringify({
+          title: "블루스튜디오 브랜드 랜딩 계약",
           client_id: "11111111-1111-4111-8111-111111111111",
           scope: "브랜드 랜딩 페이지 디자인",
           amount: 3_000_000,

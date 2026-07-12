@@ -69,6 +69,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    draft: toContractDraftPreview(draft),
+    draft: toContractDraftPreview({ ...draft, title: parsed.data.title }),
   });
 }
