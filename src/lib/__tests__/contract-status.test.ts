@@ -28,14 +28,15 @@ describe("contract status transitions", () => {
     expect(canTransitionContractStatus("canceled", "draft")).toBe(false);
   });
 
-  it("marks draft rollback transitions as requiring signature artifact reset", () => {
+  it("allows draft rollback only before work starts and resets signature artifacts", () => {
     expect(getContractStatusTransition("signed", "draft")).toEqual({
       allowed: true,
       resetSignatureArtifacts: true,
     });
+    // 진행 시작(active) 이후에는 초안으로 되돌릴 수 없다.
     expect(getContractStatusTransition("active", "draft")).toEqual({
-      allowed: true,
-      resetSignatureArtifacts: true,
+      allowed: false,
+      resetSignatureArtifacts: false,
     });
     expect(getContractStatusTransition("draft", "signed")).toEqual({
       allowed: true,

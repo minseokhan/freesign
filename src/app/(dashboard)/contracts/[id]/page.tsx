@@ -3,7 +3,10 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { ContractStatusTransitionButton } from "@/components/contract-status-transition-button";
-import { ContractStatusBadge } from "@/components/contract-status-badge";
+import {
+  ContractStatusBadge,
+  getContractStatusMeta,
+} from "@/components/contract-status-badge";
 import { SignaturePad } from "@/components/signature-pad";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -25,7 +28,6 @@ type ContractRow = Pick<
   | "end_date"
   | "status"
   | "clauses"
-  | "contract_pdf_url"
   | "signature_image_path"
   | "doc_hash"
   | "signature_meta"
@@ -151,6 +153,14 @@ function PdfLink({ contractId }: { contractId: string }) {
   );
 }
 
+function statusLabel(status: string | null) {
+  return status ? getContractStatusMeta(status).label : "생성";
+}
+
+function displayTitle(title: string) {
+  return title.replace(/\s*초안\s*$/, "").trim() || title;
+}
+
 const transitionLabels: Partial<Record<ContractStatus, string>> = {
   active: "진행 시작",
   done: "완료 처리",
@@ -180,7 +190,7 @@ export default async function ContractDetailPage({
     supabase
       .from("contracts")
       .select(
-        "id,title,scope,amount,start_date,end_date,status,clauses,contract_pdf_url,signature_image_path,doc_hash,signature_meta,created_at,client:clients(name)",
+        "id,title,scope,amount,start_date,end_date,status,clauses,signature_image_path,doc_hash,signature_meta,created_at,client:clients(name)",
       )
       .eq("id", id),
   ).maybeSingle();
@@ -216,6 +226,15 @@ export default async function ContractDetailPage({
   const statusTransitions = getAvailableContractStatusTransitions(
     contract.status,
   ).filter((status) => status !== "signed");
+  // 다음 단계 버튼을 2열 그리드에서 시계방향(진행/완료 → 인보이스 → 취소 → 초안 되돌리기)으로 배치.
+  const forwardTransitions = statusTransitions.filter(
+    (status) => status !== "draft" && status !== "canceled",
+  );
+  const rollbackTransition = statusTransitions.includes("draft") ? "draft" : null;
+  const cancelTransition = statusTransitions.includes("canceled")
+    ? "canceled"
+    : null;
+  const canIssueInvoice = contract.status !== "canceled";
 
   return (
     <div className="mx-auto max-w-3xl space-y-xl">
@@ -229,7 +248,7 @@ export default async function ContractDetailPage({
           </Link>
           <div className="mt-sm flex flex-wrap items-center gap-sm">
             <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
-              {contract.title}
+              {displayTitle(contract.title)}
             </h2>
             <ContractStatusBadge status={contract.status} />
           </div>
@@ -265,12 +284,15 @@ export default async function ContractDetailPage({
               contract.end_date,
             )}`}
           />
-          <DetailItem label="문서 해시" value={contract.doc_hash} />
-          <DetailItem
-            label="PDF 저장"
-            value={contract.contract_pdf_url ? "저장됨" : "아직 없음"}
-          />
         </dl>
+        <div className="mt-lg">
+          <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
+            문서 해시
+          </dt>
+          <dd className="mt-xs break-all font-mono text-sm leading-relaxed text-text-body">
+            {contract.doc_hash ?? "등록되지 않음"}
+          </dd>
+        </div>
       </Card>
 
       <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
@@ -388,33 +410,50 @@ export default async function ContractDetailPage({
             현재 계약 상태에서 가능한 다음 작업만 표시됩니다.
           </p>
         </div>
-        <div className="mt-xl grid gap-md sm:grid-cols-2">
-          {statusTransitions.length === 0 ? (
-            <p className="text-sm leading-relaxed text-text-muted">
-              현재 상태에서 변경할 수 있는 상태가 없습니다.
-            </p>
-          ) : (
-            statusTransitions.map((status) => (
+        {forwardTransitions.length === 0 &&
+        !canIssueInvoice &&
+        !rollbackTransition &&
+        !cancelTransition ? (
+          <p className="mt-xl text-sm leading-relaxed text-text-muted">
+            현재 상태에서 진행할 수 있는 작업이 없습니다.
+          </p>
+        ) : (
+          <div className="mt-xl grid gap-md sm:grid-cols-2">
+            {forwardTransitions.map((status) => (
               <ContractStatusTransitionButton
                 key={status}
                 contractId={contract.id}
                 status={status}
                 label={transitionLabels[status] ?? "상태 변경"}
-                variant={
-                  status === "canceled" || status === "draft"
-                    ? "danger"
-                    : "primary"
-                }
+                variant="primary"
               />
-            ))
-          )}
-          <Link
-            href={`/invoices/new?contract=${contract.id}`}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            인보이스 발행
-          </Link>
-        </div>
+            ))}
+            {canIssueInvoice ? (
+              <Link
+                href={`/invoices/new?contract=${contract.id}`}
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+              >
+                인보이스 발행
+              </Link>
+            ) : null}
+            {rollbackTransition ? (
+              <ContractStatusTransitionButton
+                contractId={contract.id}
+                status={rollbackTransition}
+                label={transitionLabels[rollbackTransition] ?? "상태 변경"}
+                variant="danger"
+              />
+            ) : null}
+            {cancelTransition ? (
+              <ContractStatusTransitionButton
+                contractId={contract.id}
+                status={cancelTransition}
+                label={transitionLabels[cancelTransition] ?? "상태 변경"}
+                variant="danger"
+              />
+            ) : null}
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -423,7 +462,8 @@ export default async function ContractDetailPage({
             이력 타임라인
           </h3>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            계약 상태 전이는 append-only 이벤트로 기록됩니다.
+            계약이 언제 어떤 상태로 바뀌었는지 남기는 변경 기록입니다. 분쟁 시
+            &ldquo;계약 → 서명 → 입금&rdquo; 증빙 체인의 근거가 됩니다.
           </p>
         </div>
         {events.length === 0 ? (
@@ -441,8 +481,10 @@ export default async function ContractDetailPage({
                 <div className="flex flex-col gap-xs sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-medium text-text-primary">
                     {event.from_status
-                      ? `${event.from_status} -> ${event.to_status}`
-                      : event.to_status}
+                      ? `${statusLabel(event.from_status)} → ${statusLabel(
+                          event.to_status,
+                        )}`
+                      : statusLabel(event.to_status)}
                   </p>
                   <time className="text-xs text-text-muted">
                     {formatDate(event.created_at)}

@@ -18,7 +18,7 @@ export const CONTRACT_STATUSES = [
 const forwardTransitions: Partial<Record<ContractStatus, ContractStatus[]>> = {
   draft: ["signed", "canceled"],
   signed: ["active", "draft", "canceled"],
-  active: ["done", "draft", "canceled"],
+  active: ["done", "canceled"],
 };
 
 export function getContractStatusTransition(
