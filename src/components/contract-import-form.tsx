@@ -67,6 +67,12 @@ function firstError(fieldErrors: FieldErrors | undefined, field: string) {
   return fieldErrors?.[field as keyof ContractImportInput]?.[0] ?? null;
 }
 
+// 필드별 원문(주로 zod 기본 영어) 메시지는 표시하지 않고, 잘못된 필드 여부만 노출한다.
+// 상단 루트 메시지("입력값을 확인해 주세요")와 빨간 테두리로 충분히 안내된다.
+function hasFieldError(fieldErrors: FieldErrors | undefined, field: string) {
+  return Boolean(firstError(fieldErrors, field));
+}
+
 function getParseErrorMessage(result: unknown) {
   if (
     result &&
@@ -402,7 +408,10 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
               label="계약 제목"
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              error={firstError(fieldErrors, "title")}
+              aria-invalid={hasFieldError(fieldErrors, "title") || undefined}
+              className={cn(
+                hasFieldError(fieldErrors, "title") && "border-red-500",
+              )}
             />
 
             <div className="grid gap-sm">
@@ -420,20 +429,10 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
                 className={cn(
                   "rounded-sm border border-slate-300 bg-white px-md py-sm text-sm leading-relaxed text-text-primary",
                   "focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30",
-                  firstError(fieldErrors, "scope") && "border-red-500",
+                  hasFieldError(fieldErrors, "scope") && "border-red-500",
                 )}
-                aria-invalid={firstError(fieldErrors, "scope") ? true : undefined}
-                aria-describedby={
-                  firstError(fieldErrors, "scope")
-                    ? "import-scope-error"
-                    : undefined
-                }
+                aria-invalid={hasFieldError(fieldErrors, "scope") || undefined}
               />
-              {firstError(fieldErrors, "scope") ? (
-                <p id="import-scope-error" className="text-xs text-red-600">
-                  {firstError(fieldErrors, "scope")}
-                </p>
-              ) : null}
             </div>
 
             <Input
@@ -443,23 +442,36 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
               step={1}
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
-              error={firstError(fieldErrors, "amount")}
+              aria-invalid={hasFieldError(fieldErrors, "amount") || undefined}
+              className={cn(
+                hasFieldError(fieldErrors, "amount") && "border-red-500",
+              )}
             />
 
-            <div className="grid gap-lg sm:grid-cols-2">
+            <div className="grid gap-lg sm:grid-cols-2 sm:items-start">
               <Input
                 label="시작일"
                 type="date"
                 value={startDate}
                 onChange={(event) => setStartDate(event.target.value)}
-                error={firstError(fieldErrors, "start_date")}
+                aria-invalid={
+                  hasFieldError(fieldErrors, "start_date") || undefined
+                }
+                className={cn(
+                  hasFieldError(fieldErrors, "start_date") && "border-red-500",
+                )}
               />
               <Input
                 label="종료일"
                 type="date"
                 value={endDate}
                 onChange={(event) => setEndDate(event.target.value)}
-                error={firstError(fieldErrors, "end_date")}
+                aria-invalid={
+                  hasFieldError(fieldErrors, "end_date") || undefined
+                }
+                className={cn(
+                  hasFieldError(fieldErrors, "end_date") && "border-red-500",
+                )}
               />
             </div>
           </div>

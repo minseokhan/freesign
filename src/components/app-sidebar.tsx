@@ -23,13 +23,13 @@ export function AppSidebar() {
   const pathname = usePathname() ?? "/dashboard";
 
   return (
-    <aside className="w-full border-b border-surface-border bg-white md:min-h-screen md:w-64 md:border-b-0 md:border-r">
-      <div className="flex h-full flex-col gap-xl px-lg py-xl">
+    <aside className="w-full border-b border-surface-border bg-white md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:self-start md:border-b-0 md:border-r">
+      <div className="flex h-full flex-col gap-xl overflow-y-auto px-lg py-xl">
         <Link
           href="/dashboard"
-          className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          className="inline-flex self-start rounded-sm px-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
         >
-          <Logo className="h-6" />
+          <Logo className="h-7" />
         </Link>
         <nav aria-label="대시보드 내비게이션" className="flex flex-col gap-xs">
           {navItems.map((item) => {
