@@ -56,6 +56,16 @@ function formatKRW(amount: number) {
   }).format(amount);
 }
 
+function formatAmountInput(value: unknown) {
+  const digits = String(value ?? "").replace(/[^\d]/g, "");
+
+  if (digits === "") {
+    return "";
+  }
+
+  return Number(digits).toLocaleString("ko-KR");
+}
+
 export function InvoiceForm({
   contract,
   defaultIssueDate,
@@ -69,6 +79,7 @@ export function InvoiceForm({
     handleSubmit,
     register,
     setError,
+    setValue,
     watch,
   } = useForm<InvoiceFormInput, unknown, InvoiceInput>({
     defaultValues: {
@@ -150,12 +161,18 @@ export function InvoiceForm({
         <div className="grid gap-lg">
           <Input
             label="청구 금액"
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={1}
-            step={1}
             error={errors.amount?.message}
             {...register("amount")}
+            value={formatAmountInput(amount)}
+            onChange={(event) => {
+              const digits = event.target.value.replace(/[^\d]/g, "");
+
+              setValue("amount", digits === "" ? "" : Number(digits), {
+                shouldValidate: Boolean(errors.amount),
+              });
+            }}
           />
 
           <div className="grid gap-lg sm:grid-cols-2">

@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InvoicePaymentToggle } from "@/components/invoice-payment-toggle";
-import { PaymentStatusBadge } from "@/components/payment-status-badge";
+import {
+  getPaymentStatusMeta,
+  PaymentStatusBadge,
+} from "@/components/payment-status-badge";
 import { Card } from "@/components/ui/card";
 import { notDeleted } from "@/lib/db";
 import { deriveDueStatus, formatKRW } from "@/lib/metrics";
@@ -370,8 +373,8 @@ export default async function InvoiceDetailPage({
                 <div className="flex flex-col gap-xs sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-medium text-text-primary">
                     {event.from_status
-                      ? `${event.from_status} -> ${event.to_status}`
-                      : event.to_status}
+                      ? `${getPaymentStatusMeta(event.from_status).label} → ${getPaymentStatusMeta(event.to_status).label}`
+                      : getPaymentStatusMeta(event.to_status).label}
                   </p>
                   <time className="text-xs text-text-muted">
                     {formatDateTime(event.created_at)}

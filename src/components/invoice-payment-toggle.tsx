@@ -3,10 +3,7 @@
 import { useEffect, useOptimistic, useState, useTransition } from "react";
 
 import { setInvoicePayment } from "@/app/(dashboard)/invoices/actions";
-import {
-  PaymentStatusBadge,
-  type PaymentStatus,
-} from "@/components/payment-status-badge";
+import { type PaymentStatus } from "@/components/payment-status-badge";
 import { Button } from "@/components/ui/button";
 
 type InvoicePaymentToggleProps = {
@@ -78,7 +75,6 @@ export function InvoicePaymentToggle({
   return (
     <div className="grid gap-sm sm:justify-items-end">
       <div className="flex flex-wrap items-center justify-end gap-sm">
-        <PaymentStatusBadge status={optimisticStatus} />
         {optimisticStatus === "unpaid" ? (
           <label className="sr-only" htmlFor="payment-method">
             입금 방식
@@ -96,6 +92,7 @@ export function InvoicePaymentToggle({
         <Button
           type="button"
           variant={isPaid ? "danger" : "primary"}
+          className={isPaid ? "bg-red-50 hover:bg-red-100" : undefined}
           disabled={!nextStatus || isPending}
           onClick={submit}
         >

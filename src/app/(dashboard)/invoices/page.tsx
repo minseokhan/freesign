@@ -184,7 +184,7 @@ export default async function InvoicesPage({
                   <th scope="col" className="px-xl py-md">
                     계약
                   </th>
-                  <th scope="col" className="px-xl py-md text-right">
+                  <th scope="col" className="px-xl py-md">
                     금액
                   </th>
                   <th scope="col" className="px-xl py-md">
@@ -221,7 +221,7 @@ export default async function InvoicesPage({
                           {invoice.contract?.title ?? "계약 없음"}
                         </Link>
                       </td>
-                      <td className="px-xl py-lg text-right font-medium tabular-nums text-text-primary">
+                      <td className="px-xl py-lg font-medium tabular-nums text-text-primary">
                         {formatKRW(invoice.amount)}
                       </td>
                       <td className="px-xl py-lg">
