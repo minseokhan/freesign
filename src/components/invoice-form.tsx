@@ -13,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { calcWithholding } from "@/lib/tax";
+import { calcWithholding, type WithholdingType } from "@/lib/tax";
 import { cn } from "@/lib/utils";
 import {
   invoiceInputSchema,
@@ -30,6 +30,7 @@ type InvoiceFormProps = {
   };
   defaultIssueDate: string;
   defaultDueDate: string;
+  defaultWithholdingType?: WithholdingType;
 };
 
 type InvoiceFormInput = z.input<typeof invoiceInputSchema>;
@@ -59,6 +60,7 @@ export function InvoiceForm({
   contract,
   defaultIssueDate,
   defaultDueDate,
+  defaultWithholdingType,
 }: InvoiceFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -74,7 +76,7 @@ export function InvoiceForm({
       amount: contract.amount,
       issue_date: defaultIssueDate,
       due_date: defaultDueDate,
-      withholding_type: "wt_3_3",
+      withholding_type: defaultWithholdingType ?? "wt_3_3",
     },
     resolver: zodResolver(invoiceInputSchema),
   });

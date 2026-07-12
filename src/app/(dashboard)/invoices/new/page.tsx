@@ -56,6 +56,16 @@ export default async function NewInvoicePage({
   }
 
   const contract = data as ContractRow;
+
+  const { data: profileData, error: profileError } = await supabase
+    .from("profiles")
+    .select("default_withholding_type")
+    .maybeSingle();
+
+  if (profileError) {
+    throw profileError;
+  }
+
   const issueDate = new Date();
   const dueDate = new Date(issueDate);
   dueDate.setDate(issueDate.getDate() + 30);
@@ -87,6 +97,7 @@ export default async function NewInvoicePage({
         }}
         defaultIssueDate={formatDateInput(issueDate)}
         defaultDueDate={formatDateInput(dueDate)}
+        defaultWithholdingType={profileData?.default_withholding_type}
       />
     </div>
   );
