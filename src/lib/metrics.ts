@@ -8,6 +8,40 @@ export interface ChannelRevenueRow {
   revenue: number;
 }
 
+export interface ClientRevenueRow {
+  clientId: string;
+  clientName: string;
+  revenue: number;
+}
+
+export interface TaxSummaryRow {
+  withholdingType: string;
+  invoiceCount: number;
+  grossAmount: number;
+  withholdingAmount: number;
+  netAmount: number;
+}
+
+export interface TaxTotals {
+  invoiceCount: number;
+  grossAmount: number;
+  withholdingAmount: number;
+  netAmount: number;
+}
+
+export interface OutstandingSummary {
+  unpaidCount: number;
+  unpaidAmount: number;
+  overdueCount: number;
+  overdueAmount: number;
+}
+
+const WITHHOLDING_TYPE_LABELS: Record<string, string> = {
+  wt_3_3: "3.3%",
+  wt_8_8: "8.8%",
+  none: "없음"
+};
+
 const KST_TIME_ZONE = "Asia/Seoul";
 const DUE_SOON_WINDOW_DAYS = 7;
 
@@ -72,6 +106,38 @@ export function topChannelsByRevenue(
     })
     .slice(0, normalizedLimit)
     .map(({ row }) => row);
+}
+
+export function topClientsByRevenue(
+  rows: ClientRevenueRow[],
+  limit: number
+): ClientRevenueRow[] {
+  const normalizedLimit = Math.max(0, Math.trunc(limit));
+
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      const revenueOrder = right.row.revenue - left.row.revenue;
+      return revenueOrder === 0 ? left.index - right.index : revenueOrder;
+    })
+    .slice(0, normalizedLimit)
+    .map(({ row }) => row);
+}
+
+export function sumTaxSummary(rows: TaxSummaryRow[]): TaxTotals {
+  return rows.reduce<TaxTotals>(
+    (totals, row) => ({
+      invoiceCount: totals.invoiceCount + row.invoiceCount,
+      grossAmount: totals.grossAmount + row.grossAmount,
+      withholdingAmount: totals.withholdingAmount + row.withholdingAmount,
+      netAmount: totals.netAmount + row.netAmount
+    }),
+    { invoiceCount: 0, grossAmount: 0, withholdingAmount: 0, netAmount: 0 }
+  );
+}
+
+export function getWithholdingTypeLabel(withholdingType: string): string {
+  return WITHHOLDING_TYPE_LABELS[withholdingType] ?? WITHHOLDING_TYPE_LABELS.none;
 }
 
 function formatKstDate(date: Date): string {

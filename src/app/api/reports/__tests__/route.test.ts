@@ -27,11 +27,19 @@ describe("GET /api/reports", () => {
     expect(runtime).toBe("nodejs");
   });
 
-  it("exports CSV from the report RPC with private download headers", async () => {
+  it("exports the tax ledger CSV from the report RPC with private download headers", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [
-        { channel: "direct", revenue: "1200000" },
-        { channel: "linkedin", revenue: 350000 },
+        {
+          paid_at: "2026-03-15T05:00:00.000Z",
+          issue_date: "2026-03-01",
+          client_name: "김클라",
+          channel: "direct",
+          amount: "1000000",
+          withholding_type: "wt_3_3",
+          withholding_amount: "33000",
+          net_amount: 967000,
+        },
       ],
       error: null,
     });
@@ -48,12 +56,14 @@ describe("GET /api/reports", () => {
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(requireUser).toHaveBeenCalled();
-    expect(rpc).toHaveBeenCalledWith("get_report_channel_revenue", {
+    expect(rpc).toHaveBeenCalledWith("get_report_tax_ledger", {
       report_year: 2026,
     });
     const body = new Uint8Array(await response.arrayBuffer());
     const expectedBody = new TextEncoder().encode(
-      "\uFEFF채널,수익(원)\r\n직거래,1200000\r\n링크드인,350000",
+      "﻿입금일,발행일,클라이언트,채널,청구액(원),원천징수유형,원천징수액(원),실지급액(원)\r\n" +
+        "2026-03-15,2026-03-01,김클라,직거래,1000000,3.3%,33000,967000\r\n" +
+        "합계,,,,1000000,,33000,967000",
     );
 
     expect(Array.from(body)).toEqual(Array.from(expectedBody));

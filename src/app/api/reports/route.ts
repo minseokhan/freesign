@@ -1,26 +1,27 @@
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
-import {
-  getReportChannelLabel,
-  serializeReportCsv,
-  type ReportCsvRow,
-} from "@/lib/reports-csv";
+import { serializeTaxLedgerCsv, type ReportLedgerRow } from "@/lib/reports-csv";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
-type ReportChannelRevenue = {
-  channel: string;
-  revenue: number | string | null;
-  total_revenue: number | string | null;
+type ReportLedgerRpcRow = {
+  paid_at: string | null;
+  issue_date: string | null;
+  client_name: string | null;
+  channel: string | null;
+  amount: number | string | null;
+  withholding_type: string | null;
+  withholding_amount: number | string | null;
+  net_amount: number | string | null;
 };
 
 type ReportRpcClient = {
   rpc(
-    functionName: "get_report_channel_revenue",
+    functionName: "get_report_tax_ledger",
     args: { report_year: number },
-  ): PromiseLike<{ data: ReportChannelRevenue[] | null; error: Error | null }>;
+  ): PromiseLike<{ data: ReportLedgerRpcRow[] | null; error: Error | null }>;
 };
 
 export async function GET(request: Request) {
@@ -37,7 +38,7 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
   const rpc = supabase as unknown as ReportRpcClient;
-  const { data, error } = await rpc.rpc("get_report_channel_revenue", {
+  const { data, error } = await rpc.rpc("get_report_tax_ledger", {
     report_year: yearResult.year,
   });
 
@@ -45,12 +46,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const rows: ReportCsvRow[] = (data ?? []).map((row) => ({
-    channel: row.channel,
-    channelLabel: getReportChannelLabel(row.channel),
-    revenue: toAmount(row.revenue),
+  const rows: ReportLedgerRow[] = (data ?? []).map((row) => ({
+    paidAt: row.paid_at ?? "",
+    issueDate: row.issue_date ?? "",
+    clientName: row.client_name ?? "",
+    channel: row.channel ?? "other",
+    amount: toAmount(row.amount),
+    withholdingType: row.withholding_type ?? "none",
+    withholdingAmount: toAmount(row.withholding_amount),
+    netAmount: toAmount(row.net_amount),
   }));
-  const csv = serializeReportCsv(rows);
+  const csv = serializeTaxLedgerCsv(rows);
 
   return new NextResponse(csv, {
     headers: {

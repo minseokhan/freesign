@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { deriveDueStatus, formatKRW, topChannelsByRevenue } from "@/lib/metrics";
+import {
+  deriveDueStatus,
+  formatKRW,
+  getWithholdingTypeLabel,
+  sumTaxSummary,
+  topChannelsByRevenue,
+  topClientsByRevenue,
+  type TaxSummaryRow
+} from "@/lib/metrics";
 
 describe("formatKRW", () => {
   it("formats integer won amounts with a KRW prefix and thousand separators", () => {
@@ -121,5 +129,91 @@ describe("topChannelsByRevenue", () => {
     topChannelsByRevenue(rows, 2);
 
     expect(rows).toEqual(original);
+  });
+});
+
+describe("topClientsByRevenue", () => {
+  it("sorts client revenue rows in descending order and applies the limit", () => {
+    expect(
+      topClientsByRevenue(
+        [
+          { clientId: "a", clientName: "가", revenue: 300_000 },
+          { clientId: "b", clientName: "나", revenue: 900_000 },
+          { clientId: "c", clientName: "다", revenue: 500_000 }
+        ],
+        2
+      )
+    ).toEqual([
+      { clientId: "b", clientName: "나", revenue: 900_000 },
+      { clientId: "c", clientName: "다", revenue: 500_000 }
+    ]);
+  });
+
+  it("keeps original order for equal revenue rows", () => {
+    expect(
+      topClientsByRevenue(
+        [
+          { clientId: "a", clientName: "가", revenue: 500_000 },
+          { clientId: "b", clientName: "나", revenue: 500_000 }
+        ],
+        2
+      )
+    ).toEqual([
+      { clientId: "a", clientName: "가", revenue: 500_000 },
+      { clientId: "b", clientName: "나", revenue: 500_000 }
+    ]);
+  });
+
+  it("returns an empty array for empty input", () => {
+    expect(topClientsByRevenue([], 5)).toEqual([]);
+  });
+});
+
+describe("sumTaxSummary", () => {
+  const rows: TaxSummaryRow[] = [
+    {
+      withholdingType: "wt_3_3",
+      invoiceCount: 2,
+      grossAmount: 2_000_000,
+      withholdingAmount: 66_000,
+      netAmount: 1_934_000
+    },
+    {
+      withholdingType: "none",
+      invoiceCount: 1,
+      grossAmount: 500_000,
+      withholdingAmount: 0,
+      netAmount: 500_000
+    }
+  ];
+
+  it("adds up counts and amounts across withholding types", () => {
+    expect(sumTaxSummary(rows)).toEqual({
+      invoiceCount: 3,
+      grossAmount: 2_500_000,
+      withholdingAmount: 66_000,
+      netAmount: 2_434_000
+    });
+  });
+
+  it("returns zeroed totals for empty input", () => {
+    expect(sumTaxSummary([])).toEqual({
+      invoiceCount: 0,
+      grossAmount: 0,
+      withholdingAmount: 0,
+      netAmount: 0
+    });
+  });
+});
+
+describe("getWithholdingTypeLabel", () => {
+  it("maps known withholding types to Korean rate labels", () => {
+    expect(getWithholdingTypeLabel("wt_3_3")).toBe("3.3%");
+    expect(getWithholdingTypeLabel("wt_8_8")).toBe("8.8%");
+    expect(getWithholdingTypeLabel("none")).toBe("없음");
+  });
+
+  it("falls back to 없음 for unknown types", () => {
+    expect(getWithholdingTypeLabel("unexpected")).toBe("없음");
   });
 });
