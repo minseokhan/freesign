@@ -102,6 +102,32 @@ describe("database schema migrations", () => {
     expect(eventColumnResult.rows).toEqual([]);
   });
 
+  it("creates transactional domain event helper functions", async () => {
+    const functionResult = await pool.query<{ proname: string }>(
+      `
+        select proname
+        from pg_proc
+        where pronamespace = 'public'::regnamespace
+          and proname in (
+            'transition_contract_status_with_event',
+            'sign_contract_with_event',
+            'import_signed_contract_with_event',
+            'issue_invoice_with_event',
+            'set_invoice_payment_with_event'
+          )
+        order by proname
+      `,
+    );
+
+    expect(functionResult.rows.map((row) => row.proname)).toEqual([
+      "import_signed_contract_with_event",
+      "issue_invoice_with_event",
+      "set_invoice_payment_with_event",
+      "sign_contract_with_event",
+      "transition_contract_status_with_event",
+    ]);
+  });
+
   async function insertContract(overrides: Record<string, unknown> = {}) {
     const values = {
       user_id: userId,
@@ -111,6 +137,7 @@ describe("database schema migrations", () => {
       amount: 1_000_000,
       start_date: "2026-07-01",
       end_date: "2026-07-31",
+      status: "draft",
       clauses: [],
       ...overrides,
     };
@@ -118,10 +145,10 @@ describe("database schema migrations", () => {
     return await pool.query(
       `
         insert into contracts (
-          user_id, client_id, title, scope, amount, start_date, end_date, clauses
+          user_id, client_id, title, scope, amount, start_date, end_date, status, clauses
         )
         values (
-          $1, $2, $3, $4, $5, $6, $7, $8::jsonb
+          $1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb
         )
         returning id
       `,
@@ -133,6 +160,7 @@ describe("database schema migrations", () => {
         values.amount,
         values.start_date,
         values.end_date,
+        values.status,
         JSON.stringify(values.clauses),
       ],
     );
@@ -249,6 +277,75 @@ describe("database schema migrations", () => {
         [userId, clientId],
       ),
     ).rejects.toThrow();
+  });
+
+  it("transitions contract status and appends its event in one database function", async () => {
+    const contractResult = await insertContract({ status: "signed" });
+    const contractId = contractResult.rows[0].id;
+
+    const result = await pool.query<{ transition_contract_status_with_event: string }>(
+      `
+        select transition_contract_status_with_event(
+          $1,
+          'active',
+          false,
+          $2,
+          'contract.status_changed',
+          '{"reset_signature_artifacts": false}'::jsonb
+        )
+      `,
+      [contractId, userId],
+    );
+
+    expect(result.rows[0].transition_contract_status_with_event).toBe(contractId);
+
+    const stateResult = await pool.query<{ status: string; event_type: string }>(
+      `
+        select contracts.status, contract_events.event_type
+        from contracts
+        join contract_events on contract_events.contract_id = contracts.id
+        where contracts.id = $1
+      `,
+      [contractId],
+    );
+
+    expect(stateResult.rows).toEqual([
+      { status: "active", event_type: "contract.status_changed" },
+    ]);
+  });
+
+  it("fails contract transition atomically when the event cannot be appended", async () => {
+    const contractResult = await insertContract({ status: "signed" });
+    const contractId = contractResult.rows[0].id;
+
+    await expect(
+      pool.query(
+        `
+          select transition_contract_status_with_event(
+            $1,
+            'active',
+            false,
+            $2,
+            null,
+            '{}'::jsonb
+          )
+        `,
+        [contractId, userId],
+      ),
+    ).rejects.toThrow();
+
+    const stateResult = await pool.query<{ status: string; event_count: string }>(
+      `
+        select contracts.status, count(contract_events.id) as event_count
+        from contracts
+        left join contract_events on contract_events.contract_id = contracts.id
+        where contracts.id = $1
+        group by contracts.status
+      `,
+      [contractId],
+    );
+
+    expect(stateResult.rows).toEqual([{ status: "signed", event_count: "0" }]);
   });
 
   it("rejects channels outside the allowed text set", async () => {

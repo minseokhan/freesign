@@ -13,10 +13,7 @@ import {
 } from "@/lib/validation/invoice";
 import type { Database } from "@/types/database";
 
-type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"];
 type InvoiceUpdate = Database["public"]["Tables"]["invoices"]["Update"];
-type InvoiceEventInsert =
-  Database["public"]["Tables"]["invoice_events"]["Insert"];
 type InvoicePaymentStatus = Database["public"]["Enums"]["payment_status"];
 
 const invoicePaymentTransitionSchema = z.enum(["paid", "unpaid"]);
@@ -97,49 +94,33 @@ export async function createInvoice(
     parsed.amount,
     parsed.withholding_type,
   );
-  const payload = {
-    user_id: user.id,
-    contract_id: parsed.contract_id,
-    client_id: contract.client_id,
-    amount: parsed.amount,
-    issue_date: parsed.issue_date,
-    due_date: parsed.due_date,
-    withholding_type: parsed.withholding_type,
-    withholding_amount: withholding,
-    net_amount: net,
-    payment_status: "unpaid",
-  } satisfies InvoiceInsert;
-
   const { data, error } = await supabase
-    .from("invoices")
-    .insert(payload)
-    .select("id")
-    .single();
+    .rpc("issue_invoice_with_event", {
+      p_contract_id: parsed.contract_id,
+      p_client_id: contract.client_id,
+      p_amount: parsed.amount,
+      p_issue_date: parsed.issue_date,
+      p_due_date: parsed.due_date,
+      p_withholding_type: parsed.withholding_type,
+      p_withholding_amount: withholding,
+      p_net_amount: net,
+      p_actor: user.id,
+      p_event_type: "invoice.issued",
+      p_meta: {
+        contract_id: parsed.contract_id,
+        client_id: contract.client_id,
+      },
+    });
 
   if (error) {
     return dbError(error);
   }
 
-  const eventPayload = {
-    user_id: user.id,
-    invoice_id: data.id,
-    actor: user.id,
-    from_status: null,
-    to_status: "unpaid",
-    event_type: "invoice.issued",
-    meta: {
-      contract_id: parsed.contract_id,
-      client_id: contract.client_id,
-    },
-  } satisfies InvoiceEventInsert;
-
-  await supabase.from("invoice_events").insert(eventPayload);
-
   revalidatePath("/invoices");
   revalidatePath(`/contracts/${parsed.contract_id}`);
-  revalidatePath(`/invoices/${data.id}`);
+  revalidatePath(`/invoices/${data}`);
 
-  return { ok: true, id: data.id };
+  return { ok: true, id: data };
 }
 
 export async function setInvoicePayment(
@@ -203,47 +184,27 @@ export async function setInvoicePayment(
     nextStatus === "paid"
       ? (parsedInput.data.payment_method?.trim() || null)
       : null;
-  const payload = {
-    payment_status: nextStatus,
-    paid_at: nextStatus === "paid" ? new Date().toISOString() : null,
-    payment_method: paymentMethod,
-  } satisfies InvoiceUpdate;
-
-  const { data, error } = await supabase
-    .from("invoices")
-    .update(payload)
-    .eq("id", id)
-    .select("id")
-    .single();
+  const paidAt = nextStatus === "paid" ? new Date().toISOString() : null;
+  const { data, error } = await supabase.rpc("set_invoice_payment_with_event", {
+    p_invoice_id: id,
+    p_to_status: nextStatus,
+    p_paid_at: paidAt,
+    p_payment_method: paymentMethod,
+    p_actor: user.id,
+    p_event_type: "invoice.payment_changed",
+    p_meta: {
+      payment_method: paymentMethod,
+    },
+  });
 
   if (error) {
     return dbError(error);
   }
 
-  const eventPayload = {
-    user_id: user.id,
-    invoice_id: id,
-    actor: user.id,
-    from_status: fromStatus,
-    to_status: nextStatus,
-    event_type: "invoice.payment_changed",
-    meta: {
-      payment_method: paymentMethod,
-    },
-  } satisfies InvoiceEventInsert;
-
-  const { error: eventError } = await supabase
-    .from("invoice_events")
-    .insert(eventPayload);
-
-  if (eventError) {
-    return dbError(eventError);
-  }
-
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
 
-  return { ok: true, id: data.id };
+  return { ok: true, id: data };
 }
 
 export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {

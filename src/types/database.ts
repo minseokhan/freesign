@@ -329,7 +329,76 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      import_signed_contract_with_event: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_clauses: Json
+          p_client_id: string
+          p_contract_id: string
+          p_doc_hash: string
+          p_end_date: string
+          p_event_type: string
+          p_meta?: Json
+          p_plain_summary: string | null
+          p_scope: string
+          p_source_pdf_url: string
+          p_start_date: string
+          p_title: string
+        }
+        Returns: string
+      }
+      issue_invoice_with_event: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_client_id: string
+          p_contract_id: string
+          p_due_date: string
+          p_event_type: string
+          p_issue_date: string
+          p_meta?: Json
+          p_net_amount: number
+          p_withholding_amount: number
+          p_withholding_type: Database["public"]["Enums"]["withholding_type"]
+        }
+        Returns: string
+      }
+      set_invoice_payment_with_event: {
+        Args: {
+          p_actor: string
+          p_event_type: string
+          p_invoice_id: string
+          p_meta?: Json
+          p_paid_at: string | null
+          p_payment_method: string | null
+          p_to_status: Database["public"]["Enums"]["payment_status"]
+        }
+        Returns: string
+      }
+      sign_contract_with_event: {
+        Args: {
+          p_actor: string
+          p_contract_id: string
+          p_doc_hash: string
+          p_event_type: string
+          p_meta?: Json
+          p_signature_image_path: string
+          p_signature_meta: Json
+        }
+        Returns: string
+      }
+      transition_contract_status_with_event: {
+        Args: {
+          p_actor: string
+          p_contract_id: string
+          p_event_type: string
+          p_meta?: Json
+          p_reset_signature_artifacts: boolean
+          p_to_status: Database["public"]["Enums"]["contract_status"]
+        }
+        Returns: string
+      }
     }
     Enums: {
       contract_status: "draft" | "signed" | "active" | "done" | "canceled"

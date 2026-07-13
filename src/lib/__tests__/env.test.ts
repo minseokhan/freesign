@@ -1,4 +1,6 @@
 import {
+  anthropicEnvSchema,
+  parseAnthropicEnv,
   parsePublicEnv,
   parseServerEnv,
   publicEnvSchema,
@@ -29,14 +31,23 @@ describe("env runtime validation", () => {
     expect(Object.keys(publicEnvSchema.shape)).not.toContain("ANTHROPIC_API_KEY");
   });
 
-  it("parses server-only env values separately", () => {
+  it("parses Anthropic env without requiring the seed-only service role key", () => {
+    expect(parseAnthropicEnv({ ANTHROPIC_API_KEY: validEnv.ANTHROPIC_API_KEY })).toEqual({
+      ANTHROPIC_API_KEY: validEnv.ANTHROPIC_API_KEY,
+    });
+    expect(Object.keys(anthropicEnvSchema.shape)).not.toContain(
+      "SUPABASE_SERVICE_ROLE_KEY",
+    );
+  });
+
+  it("parses seed-only env values separately", () => {
     expect(parseServerEnv(validEnv)).toEqual({
       SUPABASE_SERVICE_ROLE_KEY: validEnv.SUPABASE_SERVICE_ROLE_KEY,
-      ANTHROPIC_API_KEY: validEnv.ANTHROPIC_API_KEY,
     });
     expect(Object.keys(serverEnvSchema.shape)).not.toContain(
       "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     );
+    expect(Object.keys(serverEnvSchema.shape)).not.toContain("ANTHROPIC_API_KEY");
   });
 
   it("throws a clear error for missing required env values", () => {

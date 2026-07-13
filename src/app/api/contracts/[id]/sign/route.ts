@@ -13,9 +13,6 @@ export const runtime = "nodejs";
 const SIGNATURE_BUCKET = "contract-artifacts";
 
 type ContractStatus = Database["public"]["Enums"]["contract_status"];
-type ContractUpdate = Database["public"]["Tables"]["contracts"]["Update"];
-type ContractEventInsert =
-  Database["public"]["Tables"]["contract_events"]["Insert"];
 
 const signRequestSchema = z.object({
   signatureDataUrl: z
@@ -101,47 +98,28 @@ export async function POST(request: Request, context: RouteContext) {
     ua: request.headers.get("user-agent") ?? "unknown",
   };
 
-  const payload = {
-    status: "signed",
-    signature_image_path: signatureImagePath,
-    doc_hash: docHash,
-    signature_meta: signatureMeta as Json,
-  } satisfies ContractUpdate;
-
-  const { data: updatedContract, error: updateError } = await supabase
-    .from("contracts")
-    .update(payload)
-    .eq("id", id)
-    .select("id")
-    .single();
-
-  if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
-  }
-
-  const eventPayload = {
-    user_id: user.id,
-    contract_id: id,
-    actor: user.id,
-    from_status: fromStatus,
-    to_status: "signed",
-    event_type: "signed",
-    meta: {
+  const { data: updatedContractId, error: signError } = await supabase.rpc(
+    "sign_contract_with_event",
+    {
+      p_contract_id: id,
+      p_signature_image_path: signatureImagePath,
+      p_doc_hash: docHash,
+      p_signature_meta: signatureMeta as Json,
+      p_actor: user.id,
+      p_event_type: "signed",
+      p_meta: {
       provider: "v1",
       legalEffect: "none",
       doc_hash: docHash,
       signature_image_path: signatureImagePath,
       ip: signatureMeta.ip,
       ua: signatureMeta.ua,
+      },
     },
-  } satisfies ContractEventInsert;
+  );
 
-  const { error: eventError } = await supabase
-    .from("contract_events")
-    .insert(eventPayload);
-
-  if (eventError) {
-    return NextResponse.json({ error: eventError.message }, { status: 500 });
+  if (signError) {
+    return NextResponse.json({ error: signError.message }, { status: 500 });
   }
 
   revalidatePath("/contracts");
@@ -149,7 +127,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   return NextResponse.json({
     ok: true,
-    id: updatedContract.id,
+    id: updatedContractId,
     legalEffect: "none",
   });
 }

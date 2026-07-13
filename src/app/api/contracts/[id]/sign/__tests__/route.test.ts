@@ -55,33 +55,6 @@ function createContractReadQuery(status = "draft") {
   };
 }
 
-function createUpdateQuery(calls: string[]) {
-  const eq = vi.fn().mockReturnThis();
-  const select = vi.fn().mockReturnThis();
-  const single = vi.fn().mockImplementation(() => {
-    calls.push("contract.update.single");
-
-    return Promise.resolve({ data: { id: "contract-1" }, error: null });
-  });
-  const update = vi.fn().mockImplementation((payload) => {
-    calls.push(`contract.update:${payload.status}`);
-
-    return { eq, select, single };
-  });
-
-  return { update, eq, select, single };
-}
-
-function createEventInsertQuery(calls: string[]) {
-  return {
-    insert: vi.fn().mockImplementation(() => {
-      calls.push("contract_events.insert");
-
-      return Promise.resolve({ error: null });
-    }),
-  };
-}
-
 function createStorage(calls: string[]) {
   const upload = vi.fn().mockImplementation(() => {
     calls.push("storage.upload");
@@ -124,19 +97,40 @@ describe("POST /api/contracts/[id]/sign", () => {
   it("uploads the signature and computes the provider hash before signing the contract", async () => {
     const calls: string[] = [];
     const contractRead = createContractReadQuery();
-    const contractUpdate = createUpdateQuery(calls);
-    const eventInsert = createEventInsertQuery(calls);
     const storage = createStorage(calls);
+    const rpc = vi.fn().mockImplementation((fnName, args) => {
+      calls.push("contracts.rpc_sign");
+
+      expect(fnName).toBe("sign_contract_with_event");
+      expect(args).toMatchObject({
+        p_contract_id: "contract-1",
+        p_actor: "user-123",
+        p_signature_image_path: "user-123/contract-1/signature.png",
+        p_doc_hash: "provider-doc-hash",
+        p_event_type: "signed",
+        p_meta: expect.objectContaining({
+          provider: "v1",
+          legalEffect: "none",
+          doc_hash: "provider-doc-hash",
+          signature_image_path: "user-123/contract-1/signature.png",
+          ip: "203.0.113.10",
+          ua: "Vitest Browser",
+        }),
+      });
+      expect(args.p_signature_meta).toEqual(
+        expect.objectContaining({
+          signer: "freelancer@example.test",
+          ip: "203.0.113.10",
+          ua: "Vitest Browser",
+        }),
+      );
+
+      return Promise.resolve({ data: "contract-1", error: null });
+    });
     const supabase = {
       storage,
-      from: vi.fn((table: string) => {
-        if (table === "contract_events") return eventInsert;
-
-        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
-          .length === 1
-          ? contractRead
-          : contractUpdate;
-      }),
+      from: vi.fn(() => contractRead),
+      rpc,
     };
     vi.mocked(createSupabaseClient).mockResolvedValue(
       supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
@@ -149,9 +143,7 @@ describe("POST /api/contracts/[id]/sign", () => {
     expect(response.status).toBe(200);
     expect(calls).toEqual([
       "storage.upload",
-      "contract.update:signed",
-      "contract.update.single",
-      "contract_events.insert",
+      "contracts.rpc_sign",
     ]);
     expect(storage.from).toHaveBeenCalledWith("contract-artifacts");
     expect(storage.upload).toHaveBeenCalledWith(
@@ -166,45 +158,18 @@ describe("POST /api/contracts/[id]/sign", () => {
     expect(
       vi.mocked(createV1SignatureProvider).mock.results[0].value.computeDocHash,
     ).toHaveBeenCalledWith(clauses);
-    expect(contractUpdate.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: "signed",
-        signature_image_path: "user-123/contract-1/signature.png",
-        doc_hash: "provider-doc-hash",
-        signature_meta: expect.objectContaining({
-          signer: "freelancer@example.test",
-          ip: "203.0.113.10",
-          ua: "Vitest Browser",
-        }),
-      }),
-    );
-    expect(eventInsert.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: "user-123",
-        contract_id: "contract-1",
-        actor: "user-123",
-        from_status: "draft",
-        to_status: "signed",
-        event_type: "signed",
-      }),
-    );
+    expect(rpc).toHaveBeenCalledOnce();
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");
     expect(revalidatePath).toHaveBeenCalledWith("/contracts/contract-1");
   });
 
   it("ignores client-supplied server-owned signature fields", async () => {
     const calls: string[] = [];
-    const contractUpdate = createUpdateQuery(calls);
+    const rpc = vi.fn().mockResolvedValue({ data: "contract-1", error: null });
     const supabase = {
       storage: createStorage(calls),
-      from: vi.fn((table: string) => {
-        if (table === "contract_events") return createEventInsertQuery(calls);
-
-        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
-          .length === 1
-          ? createContractReadQuery()
-          : contractUpdate;
-      }),
+      from: vi.fn(() => createContractReadQuery()),
+      rpc,
     };
     vi.mocked(createSupabaseClient).mockResolvedValue(
       supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
@@ -227,11 +192,10 @@ describe("POST /api/contracts/[id]/sign", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(contractUpdate.update.mock.calls[0][0]).toMatchObject({
-      status: "signed",
-      doc_hash: "provider-doc-hash",
-      signature_image_path: "user-123/contract-1/signature.png",
-      signature_meta: expect.objectContaining({
+    expect(rpc.mock.calls[0][1]).toMatchObject({
+      p_doc_hash: "provider-doc-hash",
+      p_signature_image_path: "user-123/contract-1/signature.png",
+      p_signature_meta: expect.objectContaining({
         signer: "freelancer@example.test",
         ip: "203.0.113.10",
         ua: "Vitest Browser",

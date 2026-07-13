@@ -3,7 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { normalizeImportedClauses } from "@/lib/contracts/draft";
-import { getServerEnv } from "@/lib/env";
+import { getAnthropicEnv } from "@/lib/env";
 import type { ContractClauseInput } from "@/lib/validation/contract";
 import {
   ANTHROPIC_CONTRACT_MODEL,
@@ -127,7 +127,7 @@ function createAnthropicClient(): AnthropicMessagesClient {
     throw new Error("Contract PDF import is only available on the server.");
   }
 
-  const env = getServerEnv();
+  const env = getAnthropicEnv();
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   return {

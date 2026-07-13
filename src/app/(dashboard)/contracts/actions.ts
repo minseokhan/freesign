@@ -29,8 +29,6 @@ const MAX_SOURCE_PDF_SIZE_BYTES = 5 * 1024 * 1024;
 
 type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
 type ContractUpdate = Database["public"]["Tables"]["contracts"]["Update"];
-type ContractEventInsert =
-  Database["public"]["Tables"]["contract_events"]["Insert"];
 type ContractActionField =
   | keyof ContractDraftInput
   | keyof ContractClausesInput
@@ -266,35 +264,9 @@ export async function createImportedContract(
   // 무결성 해시는 조항이 아니라 업로드한 원본 PDF 바이트에서 산출한다.
   const sourceBytes = Buffer.from(await sourcePdf.arrayBuffer());
   const docHash = createV1SignatureProvider().computeFileHash(sourceBytes);
-
-  const insertPayload = {
-    user_id: user.id,
-    client_id: parsed.client_id,
-    title: parsed.title,
-    scope: parsed.scope,
-    amount: parsed.amount,
-    start_date: parsed.start_date,
-    end_date: parsed.end_date,
-    // 불러오기 계약은 별도 서명 단계 없이 저장 즉시 성사(signed)로 안착한다.
-    status: "signed",
-    clauses: parsed.clauses as Json,
-    // 계약 전체 평문요약은 조항별 복제 대신 계약 레벨에 1회만 저장한다.
-    plain_summary: parsed.plain_summary,
-    doc_hash: docHash,
-  } satisfies ContractInsert;
-
-  const { data, error } = await supabase
-    .from("contracts")
-    .insert(insertPayload)
-    .select("id")
-    .single();
-
-  if (error) {
-    return dbError(error);
-  }
-
-  const contractId = data.id;
+  const contractId = crypto.randomUUID();
   const sourcePdfKey = `${user.id}/${contractId}/source.pdf`;
+
   const { error: uploadError } = await supabase.storage
     .from(CONTRACT_ARTIFACTS_BUCKET)
     .upload(sourcePdfKey, sourceBytes, {
@@ -303,39 +275,33 @@ export async function createImportedContract(
     });
 
   if (uploadError) {
-    console.error("Failed to upload imported contract source PDF", {
-      contractId,
-      error: uploadError.message,
-    });
-  } else {
-    const { error: updateError } = await supabase
-      .from("contracts")
-      .update({ source_pdf_url: sourcePdfKey } satisfies ContractUpdate)
-      .eq("id", contractId);
-
-    if (updateError) {
-      console.error("Failed to store imported contract source PDF key", {
-        contractId,
-        error: updateError.message,
-      });
-    }
+    return dbError(uploadError);
   }
 
-  const eventPayload = {
-    user_id: user.id,
-    contract_id: contractId,
-    actor: user.id,
-    from_status: null,
-    to_status: "signed",
-    event_type: "contract.imported",
-    meta: { source: "pdf_import" },
-  } satisfies ContractEventInsert;
+  const { data, error } = await supabase.rpc("import_signed_contract_with_event", {
+    p_contract_id: contractId,
+    p_client_id: parsed.client_id,
+    p_title: parsed.title,
+    p_scope: parsed.scope,
+    p_amount: parsed.amount,
+    p_start_date: parsed.start_date,
+    p_end_date: parsed.end_date,
+    p_clauses: parsed.clauses as Json,
+    p_plain_summary: parsed.plain_summary,
+    p_doc_hash: docHash,
+    p_source_pdf_url: sourcePdfKey,
+    p_actor: user.id,
+    p_event_type: "contract.imported",
+    p_meta: { source: "pdf_import" },
+  });
 
-  await supabase.from("contract_events").insert(eventPayload);
+  if (error) {
+    return dbError(error);
+  }
 
   revalidatePath("/contracts");
 
-  return { ok: true, id: contractId };
+  return { ok: true, id: data };
 }
 
 export async function updateContractClauses(
@@ -447,46 +413,28 @@ export async function transitionContractStatus(
     };
   }
 
-  const payload = {
-    status: parsedStatus.data,
-    ...(transition.resetSignatureArtifacts
-      ? {
-          signature_meta: null,
-          doc_hash: null,
-          signature_image_path: null,
-        }
-      : {}),
-  } satisfies ContractUpdate;
-
-  const { data, error } = await supabase
-    .from("contracts")
-    .update(payload)
-    .eq("id", id)
-    .select("id")
-    .single();
+  const { data, error } = await supabase.rpc(
+    "transition_contract_status_with_event",
+    {
+      p_contract_id: id,
+      p_to_status: parsedStatus.data,
+      p_reset_signature_artifacts: transition.resetSignatureArtifacts,
+      p_actor: user.id,
+      p_event_type: "contract.status_changed",
+      p_meta: {
+        reset_signature_artifacts: transition.resetSignatureArtifacts,
+      },
+    },
+  );
 
   if (error) {
     return dbError(error);
   }
 
-  const eventPayload = {
-    user_id: user.id,
-    contract_id: id,
-    actor: user.id,
-    from_status: fromStatus,
-    to_status: parsedStatus.data,
-    event_type: "contract.status_changed",
-    meta: {
-      reset_signature_artifacts: transition.resetSignatureArtifacts,
-    },
-  } satisfies ContractEventInsert;
-
-  await supabase.from("contract_events").insert(eventPayload);
-
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${id}`);
 
-  return { ok: true, id: data.id };
+  return { ok: true, id: data };
 }
 
 export async function deleteContract(id: string): Promise<ContractActionResult> {

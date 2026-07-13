@@ -10,11 +10,15 @@ export const publicEnvSchema = z.object({
 
 export const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+});
+
+export const anthropicEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1),
 });
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
+export type AnthropicEnv = z.infer<typeof anthropicEnvSchema>;
 
 function formatEnvError(scope: "public" | "server", error: z.ZodError) {
   const keys = error.issues
@@ -45,6 +49,16 @@ export function parseServerEnv(env: EnvInput): ServerEnv {
   return result.data;
 }
 
+export function parseAnthropicEnv(env: EnvInput): AnthropicEnv {
+  const result = anthropicEnvSchema.safeParse(env);
+
+  if (!result.success) {
+    throw new Error(formatEnvError("server", result.error));
+  }
+
+  return result.data;
+}
+
 export function getPublicEnv() {
   return parsePublicEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -60,6 +74,15 @@ export function getServerEnv() {
 
   return parseServerEnv({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+  });
+}
+
+export function getAnthropicEnv() {
+  if (typeof window !== "undefined") {
+    throw new Error("Server environment variables are not available in browser code.");
+  }
+
+  return parseAnthropicEnv({
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
   });
 }

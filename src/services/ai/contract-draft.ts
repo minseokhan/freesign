@@ -2,7 +2,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
-import { getServerEnv } from "@/lib/env";
+import { getAnthropicEnv } from "@/lib/env";
 import { REQUIRED_CONTRACT_CLAUSES } from "@/lib/validation/contract";
 
 export { REQUIRED_CONTRACT_CLAUSES };
@@ -147,7 +147,7 @@ function createAnthropicClient(): AnthropicMessagesClient {
     throw new Error("Contract draft generation is only available on the server.");
   }
 
-  const env = getServerEnv();
+  const env = getAnthropicEnv();
   const anthropic = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
 
   return {

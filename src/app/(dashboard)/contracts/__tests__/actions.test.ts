@@ -93,6 +93,10 @@ function createEventInsertTableMock() {
   return { insert };
 }
 
+function createRpcMock() {
+  return vi.fn().mockResolvedValue({ data: "contract-1", error: null });
+}
+
 function createImportedContractFormData(
   payload: Record<string, unknown>,
   file?: File,
@@ -433,48 +437,12 @@ describe("contract draft server actions", () => {
     expect(revalidatePath).not.toHaveBeenCalledWith("/contracts/contract-1");
   });
 
-  it("updates the contract status before appending a transition event", async () => {
-    const calls: string[] = [];
+  it("transitions contract status through an atomic RPC", async () => {
     const contractQuery = createContractStatusReadQuery("signed");
-    const updateTable = createUpdateTableMock();
-    updateTable.update.mockImplementation((payload) => {
-      calls.push("contracts.update");
-
-      expect(payload).toEqual({ status: "active" });
-
-      return {
-        eq: updateTable.eq,
-        select: updateTable.select,
-        single: updateTable.single,
-      };
-    });
-    const eventTable = createEventInsertTableMock();
-    eventTable.insert.mockImplementation((payload) => {
-      calls.push("contract_events.insert");
-
-      expect(payload).toEqual({
-        user_id: user.id,
-        contract_id: "contract-1",
-        actor: user.id,
-        from_status: "signed",
-        to_status: "active",
-        event_type: "contract.status_changed",
-        meta: {
-          reset_signature_artifacts: false,
-        },
-      });
-
-      return Promise.resolve({ error: null });
-    });
+    const rpc = createRpcMock();
     const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === "contract_events") return eventTable;
-
-        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
-          .length === 1
-          ? contractQuery
-          : updateTable;
-      }),
+      from: vi.fn(() => contractQuery),
+      rpc,
     };
     vi.mocked(createSupabaseClient).mockResolvedValue(
       supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
@@ -483,24 +451,26 @@ describe("contract draft server actions", () => {
     const result = await transitionContractStatus("contract-1", "active");
 
     expect(result).toEqual({ ok: true, id: "contract-1" });
-    expect(calls).toEqual(["contracts.update", "contract_events.insert"]);
+    expect(rpc).toHaveBeenCalledWith("transition_contract_status_with_event", {
+      p_contract_id: "contract-1",
+      p_to_status: "active",
+      p_reset_signature_artifacts: false,
+      p_actor: user.id,
+      p_event_type: "contract.status_changed",
+      p_meta: {
+        reset_signature_artifacts: false,
+      },
+    });
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");
     expect(revalidatePath).toHaveBeenCalledWith("/contracts/contract-1");
   });
 
   it("clears signature artifacts when rolling a signed contract back to draft", async () => {
     const contractQuery = createContractStatusReadQuery("signed");
-    const updateTable = createUpdateTableMock();
-    const eventTable = createEventInsertTableMock();
+    const rpc = createRpcMock();
     const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === "contract_events") return eventTable;
-
-        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
-          .length === 1
-          ? contractQuery
-          : updateTable;
-      }),
+      from: vi.fn(() => contractQuery),
+      rpc,
     };
     vi.mocked(createSupabaseClient).mockResolvedValue(
       supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
@@ -509,17 +479,14 @@ describe("contract draft server actions", () => {
     const result = await transitionContractStatus("contract-1", "draft");
 
     expect(result).toEqual({ ok: true, id: "contract-1" });
-    expect(updateTable.update).toHaveBeenCalledWith({
-      status: "draft",
-      signature_meta: null,
-      doc_hash: null,
-      signature_image_path: null,
-    });
-    expect(eventTable.insert).toHaveBeenCalledWith(
+    expect(rpc).toHaveBeenCalledWith(
+      "transition_contract_status_with_event",
       expect.objectContaining({
-        from_status: "signed",
-        to_status: "draft",
-        meta: {
+        p_to_status: "draft",
+        p_reset_signature_artifacts: true,
+        p_actor: user.id,
+        p_event_type: "contract.status_changed",
+        p_meta: {
           reset_signature_artifacts: true,
         },
       }),
@@ -584,78 +551,41 @@ describe("contract draft server actions", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("creates an imported contract that lands signed with the source PDF hash and stores only the source PDF key", async () => {
+  it("creates an imported contract through source upload and an atomic RPC", async () => {
     const expectedDocHash =
       createV1SignatureProvider().computeFileHash(SOURCE_PDF_BYTES);
     const calls: string[] = [];
-    const contractsInsert = createInsertTableMock("imported-contract-1");
-    contractsInsert.insert.mockImplementation((payload) => {
-      calls.push("contracts.insert");
-
-      expect(payload).toEqual({
-        user_id: user.id,
-        client_id: validInput.client_id,
-        title: "기존 계약서",
-        scope: validInput.scope,
-        amount: validInput.amount,
-        start_date: validInput.start_date,
-        end_date: validInput.end_date,
-        status: "signed",
-        clauses: validClauses,
-        plain_summary: null,
-        doc_hash: expectedDocHash,
+    const rpc = vi.fn().mockImplementation((fnName, args) => {
+      calls.push("contracts.rpc_import");
+      expect(fnName).toBe("import_signed_contract_with_event");
+      expect(args).toMatchObject({
+        p_client_id: validInput.client_id,
+        p_title: "기존 계약서",
+        p_scope: validInput.scope,
+        p_amount: validInput.amount,
+        p_start_date: validInput.start_date,
+        p_end_date: validInput.end_date,
+        p_clauses: validClauses,
+        p_plain_summary: null,
+        p_doc_hash: expectedDocHash,
+        p_actor: user.id,
+        p_event_type: "contract.imported",
+        p_meta: { source: "pdf_import" },
       });
-      expect(payload).not.toHaveProperty("source_pdf_url");
-      expect(payload).not.toHaveProperty("signature_meta");
+      expect(args.p_contract_id).toEqual(expect.any(String));
+      expect(args.p_source_pdf_url).toBe(`${user.id}/${args.p_contract_id}/source.pdf`);
 
-      return {
-        select: contractsInsert.select,
-        single: contractsInsert.single,
-      };
-    });
-    const contractsUpdate = {
-      update: vi.fn((payload) => {
-        calls.push("contracts.update_source_pdf");
-        expect(payload).toEqual({
-          source_pdf_url: `${user.id}/imported-contract-1/source.pdf`,
-        });
-
-        return {
-          eq: vi.fn().mockResolvedValue({ error: null }),
-        };
-      }),
-    };
-    const eventTable = createEventInsertTableMock();
-    eventTable.insert.mockImplementation((payload) => {
-      calls.push("contract_events.insert");
-
-      expect(payload).toEqual({
-        user_id: user.id,
-        contract_id: "imported-contract-1",
-        actor: user.id,
-        from_status: null,
-        to_status: "signed",
-        event_type: "contract.imported",
-        meta: { source: "pdf_import" },
-      });
-
-      return Promise.resolve({ error: null });
+      return Promise.resolve({ data: args.p_contract_id, error: null });
     });
     const storageUpload = vi.fn().mockImplementation((key) => {
       calls.push("storage.upload");
-      expect(key).toBe(`${user.id}/imported-contract-1/source.pdf`);
+      expect(key).toMatch(new RegExp(`^${user.id}/.+/source\\.pdf$`));
 
       return Promise.resolve({ error: null });
     });
     const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === "contract_events") return eventTable;
-
-        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
-          .length === 1
-          ? contractsInsert
-          : contractsUpdate;
-      }),
+      from: vi.fn(),
+      rpc,
       storage: {
         from: vi.fn().mockReturnValue({ upload: storageUpload }),
       },
@@ -679,7 +609,7 @@ describe("contract draft server actions", () => {
       ),
     );
 
-    expect(result).toEqual({ ok: true, id: "imported-contract-1" });
+    expect(result).toEqual({ ok: true, id: expect.any(String) });
     expect(assertOwned).toHaveBeenCalledWith(
       supabase,
       "clients",
@@ -687,17 +617,44 @@ describe("contract draft server actions", () => {
     );
     expect(supabase.storage.from).toHaveBeenCalledWith("contract-artifacts");
     expect(storageUpload).toHaveBeenCalledWith(
-      `${user.id}/imported-contract-1/source.pdf`,
+      expect.stringMatching(new RegExp(`^${user.id}/.+/source\\.pdf$`)),
       expect.any(Buffer),
       { contentType: "application/pdf", upsert: true },
     );
-    expect(calls).toEqual([
-      "contracts.insert",
-      "storage.upload",
-      "contracts.update_source_pdf",
-      "contract_events.insert",
-    ]);
+    expect(calls).toEqual(["storage.upload", "contracts.rpc_import"]);
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");
+  });
+
+  it("rejects an imported contract when source PDF upload fails before DB writes", async () => {
+    const rpc = createRpcMock();
+    const storageUpload = vi.fn().mockResolvedValue({
+      error: { message: "storage unavailable" },
+    });
+    const supabase = {
+      from: vi.fn(),
+      rpc,
+      storage: {
+        from: vi.fn().mockReturnValue({ upload: storageUpload }),
+      },
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await createImportedContract(
+      createImportedContractFormData(
+        {
+          ...validInput,
+          title: "기존 계약서",
+          clauses: validClauses,
+        },
+        createSourcePdfFile(),
+      ),
+    );
+
+    expect(result).toEqual({ ok: false, error: "storage unavailable" });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it("rejects an imported contract when the source PDF is missing", async () => {
