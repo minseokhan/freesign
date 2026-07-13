@@ -7,6 +7,7 @@ import {
   createImportedContract,
   type ContractActionResult,
 } from "@/app/(dashboard)/contracts/actions";
+import { AiProcessingNotice } from "@/components/ai-processing-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -356,6 +357,12 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
               </p>
             ) : null}
           </div>
+
+          {isParsing ? (
+            <div className="mt-xl">
+              <AiProcessingNotice message="AI가 계약서를 분석하고 있어요. 최대 몇 분 정도 걸릴 수 있으니 창을 닫지 말고 잠시만 기다려 주세요." />
+            </div>
+          ) : null}
 
           <div className="mt-xl flex justify-end border-t border-surface-border pt-lg">
             <Button

@@ -10,6 +10,7 @@ import {
   createContractDraft,
   type ContractActionResult,
 } from "@/app/(dashboard)/contracts/actions";
+import { AiProcessingNotice } from "@/components/ai-processing-notice";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -329,6 +330,10 @@ export function ContractForm({ clients }: ContractFormProps) {
             </p>
           ) : null}
 
+          {isGenerating ? (
+            <AiProcessingNotice message="AI가 계약 초안을 작성하고 있어요. 최대 몇 분 정도 걸릴 수 있으니 창을 닫지 말고 잠시만 기다려 주세요." />
+          ) : null}
+
           <div className="flex justify-end border-t border-surface-border pt-lg">
             <Button type="submit" disabled={isDisabled}>
               {isGenerating ? "초안 생성 중" : "초안 생성"}
@@ -388,6 +393,12 @@ export function ContractForm({ clients }: ContractFormProps) {
               ))}
             </div>
           </div>
+
+          {isSaving ? (
+            <div className="mt-xl">
+              <AiProcessingNotice message="계약 초안을 확정해 저장하고 있어요. 최대 몇 분 정도 걸릴 수 있으니 창을 닫지 말고 잠시만 기다려 주세요." />
+            </div>
+          ) : null}
 
           <div className="mt-xl flex flex-col-reverse gap-sm border-t border-surface-border pt-lg sm:flex-row sm:justify-end">
             <Button
