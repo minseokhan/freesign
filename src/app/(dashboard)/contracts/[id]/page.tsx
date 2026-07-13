@@ -28,6 +28,7 @@ type ContractRow = Pick<
   | "end_date"
   | "status"
   | "clauses"
+  | "plain_summary"
   | "signature_image_path"
   | "doc_hash"
   | "signature_meta"
@@ -207,7 +208,7 @@ export default async function ContractDetailPage({
     supabase
       .from("contracts")
       .select(
-        "id,title,scope,amount,start_date,end_date,status,clauses,signature_image_path,doc_hash,signature_meta,source_pdf_url,created_at,client:clients(name)",
+        "id,title,scope,amount,start_date,end_date,status,clauses,plain_summary,signature_image_path,doc_hash,signature_meta,source_pdf_url,created_at,client:clients(name)",
       )
       .eq("id", id),
   ).maybeSingle();
@@ -234,6 +235,9 @@ export default async function ContractDetailPage({
 
   const events = (eventData ?? []) as ContractEventRow[];
   const clauses = normalizeClauses(contract.clauses);
+  // 계약 전체 요약이 있으면(새 계약) 상단에 1회만 노출하고 조항별 요약은 생략한다.
+  // 불러오기 계약은 계약 레벨 요약이 없어(null) 조항별 요약을 개별 노출한다.
+  const contractSummary = contract.plain_summary?.trim() || null;
   const signatureMeta = isSignatureMeta(contract.signature_meta)
     ? contract.signature_meta
     : null;
@@ -341,6 +345,16 @@ export default async function ContractDetailPage({
             조항별 본문과 프리랜서가 빠르게 확인할 수 있는 요약입니다.
           </p>
         </div>
+        {contractSummary ? (
+          <div className="mt-xl rounded-md bg-surface-muted px-md py-sm">
+            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+              평문요약
+            </p>
+            <p className="mt-xs text-sm leading-relaxed text-text-body">
+              {contractSummary}
+            </p>
+          </div>
+        ) : null}
         {clauses.length === 0 ? (
           <p className="mt-xl text-sm leading-relaxed text-text-muted">
             아직 표시할 조항이 없습니다.
@@ -363,14 +377,16 @@ export default async function ContractDetailPage({
                 <p className="mt-md whitespace-pre-wrap text-sm leading-relaxed text-text-body">
                   {clause.body}
                 </p>
-                <div className="mt-lg rounded-md bg-surface-muted px-md py-sm">
-                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                    평문요약
-                  </p>
-                  <p className="mt-xs text-sm leading-relaxed text-text-body">
-                    {clause.plain_summary}
-                  </p>
-                </div>
+                {contractSummary ? null : (
+                  <div className="mt-lg rounded-md bg-surface-muted px-md py-sm">
+                    <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                      평문요약
+                    </p>
+                    <p className="mt-xs text-sm leading-relaxed text-text-body">
+                      {clause.plain_summary}
+                    </p>
+                  </div>
+                )}
               </article>
             ))}
           </div>

@@ -218,6 +218,12 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>조항과 평문요약</Text>
+          {document.plainSummary ? (
+            <View style={styles.summary}>
+              <Text style={styles.summaryLabel}>평문요약</Text>
+              <Text>{document.plainSummary}</Text>
+            </View>
+          ) : null}
           {document.clauses.length === 0 ? (
             <Text>표시할 조항이 없습니다.</Text>
           ) : (
@@ -234,10 +240,13 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
                   ) : null}
                 </View>
                 <Text style={styles.clauseBody}>{clause.body}</Text>
-                <View style={styles.summary}>
-                  <Text style={styles.summaryLabel}>평문요약</Text>
-                  <Text>{clause.plainSummary}</Text>
-                </View>
+                {/* 계약 전체 요약이 있으면 조항별 요약은 생략(중복 방지). 불러오기 계약만 조항별 노출. */}
+                {document.plainSummary ? null : (
+                  <View style={styles.summary}>
+                    <Text style={styles.summaryLabel}>평문요약</Text>
+                    <Text>{clause.plainSummary}</Text>
+                  </View>
+                )}
               </View>
             ))
           )}

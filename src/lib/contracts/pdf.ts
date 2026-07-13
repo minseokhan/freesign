@@ -25,6 +25,8 @@ export type ContractPdfModel = {
   periodLabel: string;
   status: string;
   clauses: ContractPdfClause[];
+  // 계약 전체 평문요약. 있으면 1회만 노출하고 조항별 요약은 생략한다(불러오기 계약은 null).
+  plainSummary: string | null;
   docHash: string;
   signature: ContractPdfSignature | null;
   signatureImageDataUri: string | null;
@@ -39,6 +41,7 @@ type ContractPdfRow = {
   end_date: string;
   status: string;
   clauses: Json;
+  plain_summary?: string | null;
   doc_hash: string | null;
   signature_meta: Json;
 };
@@ -64,11 +67,22 @@ export function mapContractPdfProps({
     )}`,
     status: contract.status,
     clauses: normalizeClauses(contract.clauses),
+    plainSummary: normalizeContractSummary(contract.plain_summary),
     docHash: contract.doc_hash ?? "서명 전 문서 해시 없음",
     signature: normalizeSignature(contract.signature_meta),
     signatureImageDataUri,
     disclaimer: CONTRACT_PDF_DISCLAIMER,
   };
+}
+
+function normalizeContractSummary(summary: string | null | undefined): string | null {
+  if (typeof summary !== "string") {
+    return null;
+  }
+
+  const trimmed = summary.trim();
+
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function normalizeClauses(clauses: Json): ContractPdfClause[] {

@@ -32,6 +32,7 @@ describe("mapContractPdfProps", () => {
         end_date: "2026-07-31",
         status: "signed",
         clauses,
+        plain_summary: "계약 전체 평문요약입니다.",
         doc_hash: "abc123",
         signature_meta: {
           signer: "freelancer@example.test",
@@ -56,6 +57,7 @@ describe("mapContractPdfProps", () => {
       needsReview: true,
       plainSummary: "검수 기준 확인이 필요합니다.",
     });
+    expect(document.plainSummary).toBe("계약 전체 평문요약입니다.");
     expect(document.disclaimer).toBe(CONTRACT_PDF_DISCLAIMER);
   });
 
@@ -83,5 +85,7 @@ describe("mapContractPdfProps", () => {
     expect(document.signature).toBeNull();
     expect(document.signatureImageDataUri).toBeNull();
     expect(document.clauses).toEqual([]);
+    // 불러오기 계약 등 계약 레벨 요약이 없으면 null → 조항별 요약을 개별 노출한다.
+    expect(document.plainSummary).toBeNull();
   });
 });

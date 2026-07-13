@@ -207,6 +207,8 @@ describe("contract draft server actions", () => {
         start_date: validInput.start_date,
         end_date: validInput.end_date,
         status: "draft",
+        // 계약 전체 요약은 계약 레벨 컬럼에 1회만 저장한다.
+        plain_summary: "서버 생성 요약입니다.",
       }),
     );
     expect(insertTable.insert.mock.calls[0][0]).not.toHaveProperty("doc_hash");
@@ -217,6 +219,8 @@ describe("contract draft server actions", () => {
           title: "당사자",
           source: "skeleton",
           needs_review: true,
+          // 조항별 요약은 더 이상 계약 전체 요약을 복제하지 않는다.
+          plain_summary: "",
         }),
       ]),
     );

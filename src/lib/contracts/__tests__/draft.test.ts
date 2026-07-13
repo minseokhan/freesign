@@ -23,10 +23,12 @@ describe("toContractClauses", () => {
     expect(clauses[0]).toEqual({
       title: "당사자",
       body: "당사자 본문입니다.",
-      plain_summary: "전체 요약입니다.",
+      // 계약 전체 요약은 계약 레벨에서 1회만 노출하므로 조항마다 복제하지 않는다.
+      plain_summary: "",
       needs_review: false,
       source: "ai",
     });
+    expect(clauses.every((clause) => clause.plain_summary === "")).toBe(true);
   });
 
   it("marks all clauses as needing review when the draft does", () => {

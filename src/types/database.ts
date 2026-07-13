@@ -108,6 +108,7 @@ export type Database = {
           end_date: string
           id: string
           is_demo: boolean
+          plain_summary: string | null
           scope: string
           signature_image_path: string | null
           signature_meta: Json | null
@@ -129,6 +130,7 @@ export type Database = {
           end_date: string
           id?: string
           is_demo?: boolean
+          plain_summary?: string | null
           scope: string
           signature_image_path?: string | null
           signature_meta?: Json | null
@@ -150,6 +152,7 @@ export type Database = {
           end_date?: string
           id?: string
           is_demo?: boolean
+          plain_summary?: string | null
           scope?: string
           signature_image_path?: string | null
           signature_meta?: Json | null

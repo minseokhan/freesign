@@ -22,8 +22,10 @@ export function toContractClauses(draft: ContractDraft): ContractClauseDraft[] {
 
     return {
       title,
+      // 계약 전체 평문요약은 계약 레벨(contracts.plain_summary)에서 1회만 노출한다.
+      // 조항마다 동일 요약을 복제하지 않는다(불러오기 계약은 조항별 요약을 별도로 채운다).
       body,
-      plain_summary: draft.plain_summary,
+      plain_summary: "",
       needs_review: draft.needs_review || body.includes("[검토 필요]"),
       source: draft.source,
     };

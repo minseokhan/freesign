@@ -196,6 +196,8 @@ export async function createContractDraft(
     end_date: parsed.end_date,
     status: "draft",
     clauses,
+    // 계약 전체 평문요약은 조항별 복제 대신 계약 레벨에 1회만 저장한다.
+    plain_summary: draft.plain_summary,
   } satisfies ContractUpdate;
 
   if (existingDraft) {
