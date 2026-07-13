@@ -141,7 +141,9 @@ export function InvoiceForm({
   return (
     <Card>
       <form className="space-y-xl" onSubmit={onSubmit} noValidate>
-        <input type="hidden" {...register("contract_id")} />
+        {/* hidden 속성으로 space-y-xl(`:not([hidden])~:not([hidden])`)의 형제 계산에서
+            제외한다. 없으면 뒤따르는 헤더에 불필요한 상단 마진이 붙는다. */}
+        <input type="hidden" hidden {...register("contract_id")} />
 
         <div className="border-b border-surface-border pb-lg">
           <h3 className="text-lg font-semibold text-text-primary">
