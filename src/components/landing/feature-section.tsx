@@ -26,9 +26,9 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "AI 계약 초안",
+    title: "AI 계약 초안 · 평문 요약",
     description:
-      "구조화 입력만으로 계약 초안을 생성합니다. 항상 '초안'으로 표시되고, 실패해도 골격 폴백으로 흐름이 끊기지 않아요.",
+      "구조화 입력만으로 계약 초안을 생성하고, 조항마다 쉬운 말 요약을 붙여 줍니다. 항상 '초안'으로 표시되고, 실패해도 골격 폴백으로 흐름이 끊기지 않아요.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
         <path
@@ -36,6 +36,22 @@ const FEATURES: Feature[] = [
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "기존 계약 불러오기",
+    description:
+      "발주처가 보낸 PDF를 AI가 분석·검토해 성사된 계약으로 불러옵니다. 이미 체결된 계약도 서명 단계 없이 기록 체인에 바로 편입돼요.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
+        <path
+          d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8m-5-5 5 5m-5-5v5h5M9 13h6m-6 3h4"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </svg>
     ),
@@ -57,13 +73,29 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "세금 정리 CSV",
+    title: "매출 리포트 · 세무 정리 CSV",
     description:
-      "연도별로 입금/발행 기준을 명시한 CSV를 한 번에 내보냅니다. 연말 정산과 세무 대리인 전달이 간편해요.",
+      "연도별 입금 기준 세무 요약과 채널별·클라이언트별 매출을 집계합니다. 입금/발행 기준을 명시한 CSV로 세무 대리인에게 그대로 전달해요.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
         <path
-          d="M12 3v12m0 0 4-4m-4 4-4-4M5 17v2a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2"
+          d="M4 20V10m5 10V4m5 16v-7m5 7V8"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: "삭제해도 남는 증빙",
+    description:
+      "계약·인보이스를 지워도 소프트 삭제로 처리해 감사·복원·CSV 보존에 필요한 기록은 그대로 남습니다. 실수로 지워도 되돌릴 수 있어요.",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
+        <path
+          d="M12 3a9 9 0 1 0 8.5 6M12 7v5l3 2M20 4v4h-4"
           stroke="currentColor"
           strokeWidth="1.5"
           strokeLinecap="round"

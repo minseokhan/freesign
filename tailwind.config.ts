@@ -66,6 +66,55 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Pretendard", ...defaultTheme.fontFamily.sans]
+      },
+      keyframes: {
+        "flow-rise": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" }
+        },
+        "flow-pop": {
+          "0%": { opacity: "0", transform: "scale(0.85)" },
+          "60%": { transform: "scale(1.08)" },
+          "100%": { opacity: "1", transform: "scale(1)" }
+        },
+        "flow-draw": {
+          "0%": { strokeDashoffset: "1" },
+          "70%": { strokeDashoffset: "0" },
+          "100%": { strokeDashoffset: "0" }
+        },
+        "flow-pen": {
+          "0%": { offsetDistance: "0%", opacity: "0" },
+          "8%": { opacity: "1" },
+          "70%": { offsetDistance: "100%", opacity: "1" },
+          "78%": { opacity: "0" },
+          "100%": { offsetDistance: "100%", opacity: "0" }
+        },
+        "flow-caret": {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0" }
+        },
+        "flow-typing": {
+          "0%, 60%, 100%": { opacity: "0.35", transform: "translateY(0)" },
+          "30%": { opacity: "1", transform: "translateY(-3px)" }
+        },
+        "flow-toggle": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(16px)" }
+        },
+        "flow-fill": {
+          "0%": { width: "0%" },
+          "100%": { width: "var(--flow-fill, 100%)" }
+        }
+      },
+      animation: {
+        "flow-rise": "flow-rise 0.5s ease-out both",
+        "flow-pop": "flow-pop 0.45s ease-out both",
+        "flow-draw": "flow-draw 2.4s ease-in-out infinite",
+        "flow-pen": "flow-pen 2.4s ease-in-out infinite",
+        "flow-caret": "flow-caret 1s step-end infinite",
+        "flow-typing": "flow-typing 1.2s ease-in-out infinite",
+        "flow-toggle": "flow-toggle 0.5s ease-out both",
+        "flow-fill": "flow-fill 0.9s ease-out both"
       }
     }
   },
