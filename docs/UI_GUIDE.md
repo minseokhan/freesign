@@ -119,6 +119,7 @@ shadow-[0_1px_2px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.10)] p-6
 중립: rounded-full bg-slate-100 text-slate-600 border border-slate-200 ...
 ※ 색 옆에 항상 텍스트 라벨(입금완료/미수/지연) 포함
 ```
+> **예외 — 대시보드 계약 파이프라인 단계 배지**: 상태 배지의 "전 화면 동일 색" 원칙에서 유일한 예외. signed/active가 상태 배지에선 모두 amber라 인접 단계가 겹치므로, 파이프라인만 진행감을 주는 별도 팔레트(draft=slate·signed=blue-50·active=amber·done=green)를 쓴다.
 ### 버튼
 ```
 Primary:   rounded-[10px] bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800
@@ -139,7 +140,8 @@ error: border-red-500  (+ 필드 하단 text-red-600 text-xs, aria-describedby �
 ### 스텝 인디케이터 (`/contracts/new` 점진적 노출)
 ```
 현재 단계 blue-600 채움 + 라벨, 완료 단계 green 체크, 이후 단계 slate-300
-"구조화 입력 · 초안 생성 · 조항 편집 · 확정" 진행 위치 표시
+"구조화 입력 · 초안 생성 · 저장"(3단계) 진행 위치 표시, 마지막 버튼은 "초안 저장"
+조항 편집은 별도 페이지(`/contracts/[id]/edit`)로 분리
 ```
 ### 면책 배너 (AI 초안·원천징수 — 비차단 경고)
 ```
@@ -153,7 +155,7 @@ rounded-[10px] bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 p
 ```
 ### 이력 타임라인 (증빙 체인)
 ```
-좌측 세로선 + 노드(이벤트 타입별 시맨틱 색) + 시각(text-slate-500) + 설명
+좌측 세로선 + 노드(단일 브랜드 블루 고정) + 시각(text-slate-500) + 설명
 생성·서명·발행·입금·되돌리기·취소를 시간 역순 또는 순차로
 ```
 ### 테이블 (목록)
@@ -167,12 +169,13 @@ zebra 없이 얇은 구분선(border-slate-200)로 밀도 유지
 - 전체 너비: `max-w-6xl`(대시보드·리포트·목록), 상세/폼은 `max-w-3xl`.
 - 좌측 사이드 내비(대시보드 그룹, 활성 항목 blue-50 배경 + blue-600 텍스트) + 상단 페이지 헤더(제목 + 우상단 primary 액션).
 - 정렬: 좌측 정렬 기본, 숫자·금액은 우측 정렬. 중앙 정렬은 빈 상태 CTA에만.
-- 그리드: 대시보드 KPI는 반응형 그리드(`grid-cols-1 md:grid-cols-2 xl:grid-cols-4`), 간격 `lg~xl`.
+- 그리드: 대시보드 KPI는 반응형 그리드(`grid-cols-1 md:grid-cols-3`, 카드 3개: 미수금 합계·이달 수익·이번 달 예정 입금), 간격 `lg~xl`.
 
 ## 모션
 - 허용: fade/slide-in `150–200ms ease-out`(카드·모달 등장), 색 전환 `transition-colors 150ms`, 낙관적 토글은 **즉시** 반영.
 - 금지: 글로우·펄스·플로트·무한 루프 애니메이션, 등장 시 과장된 bounce.
 - 접근성: `prefers-reduced-motion` 존중 — 모션 최소화 모드에서 트랜지션 제거.
+- AI 처리 대기: AI 로딩 안내(`ai-processing-notice.tsx`)는 블루 계열(`border-blue-200 bg-brand-point`) 박스 + 작은 회전 스피너로 비차단 진행 상태를 알린다(글로우·펄스 아님).
 
 ## 아이콘
 - SVG 인라인, `strokeWidth 1.5`(lucide 계열). 크기 위계 `16 / 20 / 24`.

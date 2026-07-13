@@ -31,13 +31,14 @@ src/
 
 ## 페이지 구조 (IA)
 ```
+/                     공개 랜딩(마케팅) — 인증 여부에 따라 CTA 분기 + 메뉴별 화면 갤러리
 /login                로그인(Google)
-/dashboard            미수금 합계·이달 수익·임박/지연 지급기한 + 채널 수익 TOP 위젯
+/dashboard            미수금 합계·이달 수익·이번 달 예정 입금 KPI + 계약 파이프라인(단계별 건수) + 임박/지연 지급기한 + 채널 수익 TOP 위젯
 /clients              클라이언트 목록(채널 태그 배지·필터)
 /clients/[id]         클라이언트 상세 + 하위 계약 목록
 /contracts            계약 목록
 /contracts/new        AI 초안 생성 플로우(시나리오 A: 구조화 입력 → 초안 → 편집 → 확정)
-/contracts/import     기존 계약 PDF 불러오기(시나리오 B: 업로드 → Claude 추출 → 검토 → draft 저장)
+/contracts/import     기존 계약 PDF 불러오기(시나리오 B: 업로드 → Claude 추출 → 검토 → 서명 없이 성사(signed) 저장, doc_hash는 원본 PDF 바이트로 산출)
 /contracts/[id]       계약 상세 — 조항·평문요약·PDF·서명·하위 인보이스·이력 타임라인
 /invoices             인보이스 목록(상태 필터)
 /invoices/[id]        인보이스 상세 — 원천징수 내역·정산 상태 토글·PDF·상태 이력
@@ -61,6 +62,7 @@ contracts
   start_date, end_date,
   status(enum: draft|signed|active|done|canceled),
   clauses(jsonb),           -- 확정 조항: [{title, body, plain_summary, needs_review}] · zod 검증
+  plain_summary?(text),     -- 계약 레벨 평문요약 1급 컬럼(시나리오 A, 조항별 중복 대신 계약 1회) · 0010 마이그레이션
   contract_pdf_url?,        -- 서명 PDF 경로(private Storage key만 저장)
   source_pdf_url?,          -- 발주처 원본 PDF 경로(private Storage key, contract_pdf_url과 분리)
   signature_image_path?,    -- 서명 PNG 경로(private Storage key)
@@ -118,15 +120,16 @@ profiles
 ```
 폼(Client) → Server Action → zod allowlist 검증(도메인 필드만) → getUser()로 user_id 주입
            → FK 소유권 재검증(invoice→contract/client)
-           → 도메인 UPDATE → 이벤트 로그 INSERT(순차, best-effort)
+           → 단일 트랜잭션 RPC(*_with_event): 도메인 UPDATE + 이벤트 로그 INSERT를 원자적으로 함께 수행
            → revalidatePath → { ok } 반환(useActionState) 또는 useOptimistic 갱신
 ```
 
 **서명(부분 실패 최소화 순서)**
 ```
-캔버스 PNG → Server Action/route → Storage 업로드(private, {user_id}/{contract_id}/)
-          → doc_hash 산출 + IP/UA 메타(서버) → 도메인 UPDATE(status=signed) → 이벤트 INSERT
-  ※ status 변경을 앞쪽에 두지 않아 업로드/해시 실패 시 미완 상태로 남지 않게 한다.
+캔버스 PNG → route(/api/contracts/[id]/sign) → Storage 업로드(private, {user_id}/{contract_id}/)
+          → doc_hash 산출 + IP/UA 메타(서버)
+          → sign_contract_with_event RPC: status=signed UPDATE + signature_meta/doc_hash + 이벤트 INSERT를 원자적으로 처리
+  ※ 업로드/해시를 RPC 앞에 두어, 실패 시 상태가 미완으로 남지 않게 한다.
 ```
 
 **AI 초안**

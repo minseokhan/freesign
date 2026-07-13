@@ -1,8 +1,8 @@
 # FreeSign — 실행·확인 가이드
 
-Phase 0~8 개발이 끝난 시점에서 **직접 해줘야 할 설정**, **확인할 수 있는 것**, **웹 라우트별로 볼 수 있는 내용**을 정리한 문서입니다.
+Phase 0~9(계약 불러오기 포함) 개발이 끝난 시점에서 **직접 해줘야 할 설정**, **확인할 수 있는 것**, **웹 라우트별로 볼 수 있는 내용**을 정리한 문서입니다.
 
-> 현재 상태: phase 0~8 코드 완료. 단 **E2E 실구동(phase 8 step1)만 `blocked`** — 라이브 Supabase + 테스트 계정이 있어야 실제로 돌릴 수 있습니다(코드/스펙은 작성 완료). 나머지는 모두 `completed`이고 `lint`·`build`·`test`(177개) green.
+> 현재 상태: 전 phase 코드 완료. `lint`·`build`·`test`(Vitest 236개) green이고, **E2E(Playwright happy-path·smoke)도 dev 테스트 로그인으로 그린 통과**(정산 체인 전체 자동 검증). E2E는 라이브 Supabase + 테스트 계정이 있어야 로컬/CI에서 실제 구동됩니다.
 
 ---
 
@@ -22,18 +22,18 @@ npm install          # 의존성 설치
    - `anon public` 키 → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `service_role` 키 → `SUPABASE_SERVICE_ROLE_KEY` (⚠️ **CLI 시드에서만** 사용. 앱 요청 경로에 절대 넣지 않음)
 
-### 1-3. DB 마이그레이션 적용 (`supabase/migrations/0001~0007`)
-스키마·RLS·인덱스·스토리지·대시보드 집계 함수·데모 삭제 정책이 들어있습니다. **순서대로 전부** 적용해야 합니다.
+### 1-3. DB 마이그레이션 적용 (`supabase/migrations/0001~0012`)
+스키마·RLS·인덱스·스토리지·대시보드/리포트 집계 함수·데모 삭제 정책·원본 PDF·계약 평문요약·대시보드 확장·도메인 뮤테이션 함수가 들어있습니다. **순서대로 전부** 적용해야 합니다.
 
 **방법 A — Supabase CLI (권장)**
 ```bash
 npx supabase login
 npx supabase link --project-ref <project-ref>   # URL의 <project-ref>.supabase.co
-npx supabase db push                            # 0001~0007 순차 적용
+npx supabase db push                            # 0001~0012 순차 적용
 ```
-**방법 B — SQL 에디터**: Supabase 대시보드 → SQL Editor에서 `0001_schema.sql`부터 `0007_...sql`까지 **번호 순서대로** 붙여넣어 실행.
+**방법 B — SQL 에디터**: Supabase 대시보드 → SQL Editor에서 `0001_schema.sql`부터 `0012_...sql`까지 **번호 순서대로** 붙여넣어 실행.
 
-> 적용 항목: 6개 테이블(clients·contracts·invoices·contract_events·invoice_events·profiles), RLS(`user_id` 스코프), 인덱스, private Storage 버킷, 대시보드/리포트 집계 함수(`.rpc()`), 데모 삭제 정책.
+> 적용 항목: 6개 테이블(clients·contracts·invoices·contract_events·invoice_events·profiles), RLS(`user_id` 스코프), 인덱스, private Storage 버킷, 대시보드/리포트 집계 함수(`.rpc()`), 데모 삭제 정책, 도메인 뮤테이션 트랜잭션 함수(`*_with_event`).
 
 ### 1-4. Google OAuth 설정
 1. **Google Cloud Console** → OAuth 2.0 클라이언트 ID 생성(웹 애플리케이션).
@@ -78,7 +78,7 @@ npm run dev          # http://localhost:3000
 ### 2-1. 코드 품질 게이트 (외부 리소스 불필요 — 지금 바로 가능)
 ```bash
 npm run lint         # ESLint
-npm test             # Vitest 177개 (임베디드 Postgres로 RLS·집계까지 검증)
+npm test             # Vitest 236개 (임베디드 Postgres로 RLS·집계까지 검증)
 npm run build        # 프로덕션 빌드
 ```
 `npm test`는 내장 Postgres를 자체 부팅하므로 **라이브 Supabase 없이도** 스키마·RLS 경계·세금 계산·집계 로직이 검증됩니다.
@@ -113,7 +113,7 @@ npm run build        # 프로덕션 빌드
 |--------|------------|
 | `/` | 진입점 — 로그인 상태면 `/dashboard`, 아니면 `/login`으로 자동 리다이렉트 |
 | `/login` | **Google 로그인** 버튼. OAuth 실패 시 안내 배너 |
-| `/dashboard` | **핵심 화면.** KPI 카드(미수금 합계·이달 수익, KST 기준 SQL 집계), 임박/지연 인보이스 리스트, 채널 수익 TOP 위젯, **데모 데이터 채우기/지우기** 버튼, 데이터 0건 빈 상태 |
+| `/dashboard` | **핵심 화면.** KPI 카드(미수금 합계·이달 수익·이번 달 예정 입금, KST 기준 SQL 집계), **계약 파이프라인**(초안→서명완료→진행중→완료 단계별 건수), 임박/지연 인보이스 리스트, 채널 수익 TOP 위젯, **데모 데이터 채우기/지우기** 버튼, 데이터 0건 빈 상태 |
 | `/clients` | 클라이언트 목록, 채널 배지·필터 |
 | `/clients/new` | 클라이언트 생성 폼(채널 select, zod 검증) |
 | `/clients/[id]` | 클라이언트 상세, 수정/삭제(삭제 확인 UI) |
@@ -134,8 +134,10 @@ npm run build        # 프로덕션 빌드
 |--------|------|
 | `GET /auth/callback` | Google OAuth 콜백(code→세션 교환) |
 | `POST /api/contracts/draft` | AI 초안 생성 |
+| `POST /api/contracts/import/parse` | 업로드한 기존 계약 PDF를 Claude로 파싱해 조항·금액·기간 추출 미리보기(저장 없음) |
 | `POST /api/contracts/[id]/sign` | 서명 처리(Storage 업로드·해시·상태전이) |
 | `GET /api/contracts/[id]/pdf` | 계약 PDF(한글 임베드) |
+| `GET /api/contracts/[id]/source-pdf` | 불러온 계약의 원본 PDF signed URL 반환 |
 | `GET /api/invoices/[id]/pdf` | 인보이스 PDF |
 | `GET /api/reports?year=YYYY` | 채널 수익 CSV(서버 생성, UTF-8 BOM) |
 

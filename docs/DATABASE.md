@@ -57,6 +57,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 | `start_date` / `end_date` | date NOT NULL | 계약 기간 |
 | `status` | contract_status, 기본 `draft` | 계약 상태(§ ENUM) |
 | `clauses` | jsonb, 기본 `[]` | 계약 조항 목록 |
+| `plain_summary` | text | 계약 레벨 평문요약(시나리오 A는 계약 1회, 0010 마이그레이션). 조항별 요약은 `clauses[].plain_summary` |
 | `contract_pdf_url` | text | FreeSign이 생성한 서명본 PDF의 Storage key |
 | `source_pdf_url` | text | 고객이 제공한 원본 PDF의 Storage key. 출처 보존을 위해 서명본과 분리 |
 | `signature_image_path` | text | 서명 이미지 Storage 경로 |
@@ -99,7 +100,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 
 ## contract_events / invoice_events — 상태 전이 로그
 
-상태 변경을 기록하는 append-only 감사 로그. 도메인 UPDATE 이후 이벤트 INSERT 순으로 기록된다(부분 실패 방지). 두 테이블은 참조 대상만 다르고 구조가 동일하다.
+상태 변경을 기록하는 append-only 감사 로그. 도메인 UPDATE와 이벤트 INSERT는 단일 트랜잭션 RPC(§ 도메인 뮤테이션 함수)로 원자적으로 함께 수행된다(부분 실패 방지). 두 테이블은 참조 대상만 다르고 구조가 동일하다.
 
 | 컬럼 | 타입 | 의미 |
 |------|------|------|
@@ -172,7 +173,8 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 집계는 JS가 아니라 SQL에서 수행한다. 모두 `stable` / `security invoker`(호출자 RLS 적용) / `search_path = public`. 연/월 경계는 KST 기준, `deleted_at IS NULL` 필터 적용.
 
 **대시보드**
-- `get_dashboard_totals()` → `outstanding_amount`(미수 총액, unpaid의 amount 합), `monthly_revenue`(당월 입금 net_amount 합, KST 월 기준).
+- `get_dashboard_totals()` → 6개 지표 반환: `outstanding_amount`(미수 총액, unpaid amount 합)·`outstanding_count`(미수 건수)·`monthly_revenue`(당월 입금 net_amount 합, KST 월)·`monthly_paid_count`(당월 입금 건수)·`expected_this_month_amount`(이번 달 지급기한 미입금 청구액)·`expected_this_month_count`(그 건수). (0011 마이그레이션에서 2→6 컬럼 확장)
+- `get_dashboard_contract_pipeline()` → 계약 상태별 건수(초안/서명완료/진행중/완료, canceled 제외). (0011 신규)
 - `get_dashboard_channel_revenue()` → 채널별 입금 net_amount 합.
 
 **리포트(연 단위, `report_year` 인자)** — 입금 기준은 `paid_at`의 KST 연도, 미수 기준은 `issue_date` 연도.
@@ -181,6 +183,18 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 - `get_report_client_revenue(year)` → 고객별 net_amount 합 + 전체 합계(윈도우).
 - `get_report_outstanding(year)` → 미수 건수/금액 + 연체 건수/금액(연체 = `due_date` < KST 오늘). 발행일 기준.
 - `get_report_tax_ledger(year)` → 세무 정리용 인보이스 원장(입금일 오름차순, CSV 내보내기 전용).
+
+---
+
+## 도메인 뮤테이션 함수 (SQL RPC, 트랜잭션)
+
+상태 전이·발행·서명·불러오기는 도메인 UPDATE/INSERT와 이벤트 로그 INSERT를 **단일 트랜잭션 함수**로 원자적으로 처리한다(부분 실패 방지, 대상 행 `for update` 락). Server Action이 소유권 검증 후 호출한다. (0012 마이그레이션)
+
+- `transition_contract_status_with_event(...)` → 계약 status 전이 + `contract_events` 기록. `p_reset_signature_artifacts` 플래그로 signed→draft 되돌릴 때 서명 아티팩트(서명 이미지·doc_hash·signature_meta) 초기화.
+- `sign_contract_with_event(...)` → status=signed + doc_hash/signature_meta 기록 + 이벤트(`contract.signed`).
+- `import_signed_contract_with_event(...)` → 불러온 계약을 서명 없이 signed로 삽입 + 이벤트(`contract.imported`). doc_hash는 원본 PDF 바이트 기준.
+- `issue_invoice_with_event(...)` → 인보이스 발행(금액 스냅샷) + 이벤트.
+- `set_invoice_payment_with_event(...)` → 결제 상태 토글(unpaid↔paid, paid_at/payment_method 처리) + 이벤트.
 
 ---
 

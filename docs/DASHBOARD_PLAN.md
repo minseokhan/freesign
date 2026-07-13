@@ -1,5 +1,7 @@
 # 대시보드 개선 계획
 
+> ✅ **구현 완료(아카이브).** 이 계획의 모든 항목이 반영됐다 — 예정 입금·계약 파이프라인·건수 배지 모두 라이브. 실제 집계는 `supabase/migrations/0011_dashboard_additions.sql`(아래 §3의 계획상 `0006`이 아니라 실제로는 0011로 생성됨), 순수 함수는 `src/lib/metrics.ts`의 `summarizeContractPipeline`, UI는 `src/app/(dashboard)/dashboard/page.tsx`. 현재 스키마·함수는 `docs/DATABASE.md` 참조. 아래 본문은 당시 계획 기록이다.
+
 ## 0. 완료된 것 (이번 세션)
 - `임박/지연 지급기한` 카드 좌/상 이중 여백 버그 수정.
   - 원인: `cn`의 tailwind-merge가 커스텀 여백 토큰(`p-xl`)을 인식하지 못해 `p-0`이 `Card` 기본 패딩을 못 지움 → 카드 24px + 헤더 24px = 좌 48px·상 40px.

@@ -1,6 +1,6 @@
 # 프로젝트: FreeSign
 
-프리랜서 개인이 "계약 → 서명 → 청구 → 입금 → 세금 정리"를 하나의 데이터 흐름으로 관리하는 한국형 올인원. 방어 가능한 코어는 "계약 → 지급기한 → 입금/미수 증빙"의 기록 체인. 상세는 `PLAN.md`·`docs/`(PRD·ARCHITECTURE·ADR·UI_GUIDE) 참조.
+프리랜서 개인이 "계약 → 서명 → 청구 → 입금 → 세금 정리"를 하나의 데이터 흐름으로 관리하는 한국형 올인원. 방어 가능한 코어는 "계약 → 지급기한 → 입금/미수 증빙"의 기록 체인. 상세는 `docs/`(PRD·ARCHITECTURE·ADR·UI_GUIDE·DATABASE) 참조.
 
 ## 기술 스택
 - Next.js 15 (App Router, RSC + Server Actions)
@@ -20,7 +20,7 @@
 - `deleted_at IS NULL` 필터는 RLS가 아니라 **공용 쿼리 헬퍼**에서(복원·감사·CSV 보존). Storage는 private 버킷 + `{user_id}/...` 경로, DB엔 key만 저장·읽기는 단기 signed URL.
 - 서버 인가는 `getUser()`(`getSession()` 아님). middleware는 토큰 갱신 전용(보안 경계 아님).
 - 컴포넌트는 `components/`, 타입은 `types/`, 순수 함수는 `lib/`(집계는 SQL, 변환만 JS)에 분리.
-- 그 밖의 보안·에러·엣지 규칙은 `PLAN.md` § 보안·에러 핸들링·엣지 참조.
+- 그 밖의 보안·데이터 접근·상태 전이 규칙은 `docs/ARCHITECTURE.md`(데이터 모델 규칙·데이터 흐름·패턴)·`docs/ADR.md` 참조.
 
 ## 개발 프로세스
 - CRITICAL: 새 기능 구현 시 반드시 테스트를 먼저 작성하고, 테스트가 통과하는 구현을 작성할 것 (TDD). `lib/tax.ts`·`lib/metrics.ts` 순수 함수와 상태 전이·보안 경계(RLS·소유권)는 특히 필수.

@@ -10,18 +10,19 @@ FreeSign v1 간이 서명은 **계약을 무효로 만드는 문제는 없지만
 
 ## 1. v1 전자서명이 실제로 쓰이는 곳
 
-전자서명은 **"계약서 서명" 한 군데**에만 쓰인다. 인보이스/결제에는 서명 개념이 없다.
+계약이 성사(`signed`)되는 경로는 **두 가지**다. 인보이스/결제에는 서명 개념이 없다.
+- **(A) 캔버스 서명** — 사용자가 직접 만든 계약을 캔버스로 서명해 성사시키는 주 경로(아래 흐름).
+- **(B) 계약 불러오기** — 발주처가 보낸 원본 PDF를 업로드하면 **캔버스 서명 없이** 곧바로 성사 저장한다(`createImportedContract` → `import_signed_contract_with_event` RPC, 이벤트 `contract.imported`). 이때 `doc_hash`는 조항 JSON이 아니라 **업로드한 원본 PDF 바이트**로 산출하고(`computeFileHash`), 상세 화면은 불러온 계약(`source_pdf_url != null`)에 서명 카드를 숨긴 채 "원본이 증빙"으로 처리한다. 따라서 "서명은 한 군데뿐"이 아니라, **원본 PDF 증빙 경로가 별도로 존재**한다.
 
-**흐름**
-1. 계약 상세 페이지에서 `status === "draft"`일 때만 캔버스 서명 패드 노출 (`src/app/(dashboard)/contracts/[id]/page.tsx:346`)
-2. 캔버스 서명 PNG를 `POST /api/contracts/[id]/sign`으로 전송 (`src/components/signature-pad.tsx:89`)
-3. 서버 라우트(`src/app/api/contracts/[id]/sign/route.ts`)가 순서대로:
+**(A) 캔버스 서명 흐름**
+1. 계약 상세 페이지에서 `status === "draft"`일 때만 캔버스 서명 패드 노출 (`src/app/(dashboard)/contracts/[id]/page.tsx`, `status === "draft"` 분기)
+2. 캔버스 서명 PNG를 `POST /api/contracts/[id]/sign`으로 전송 (`src/components/signature-pad.tsx`)
+3. 서버 라우트(`src/app/api/contracts/[id]/sign/route.ts`):
    - private 버킷에 서명 이미지 업로드 (`{user_id}/{contract_id}/signature.png`, DB엔 key만)
-   - 계약 조항을 canonical JSON 정렬 후 **SHA-256 해시**(`doc_hash`) 산출 (`src/services/signature/provider.ts:41`)
+   - 계약 조항을 canonical JSON 정렬 후 **SHA-256 해시**(`doc_hash`) 산출 (`src/services/signature/provider.ts`의 `computeDocHash`)
    - 서버에서 `signature_meta = { signer(이메일), signed_at, ip, ua }` 구성 — **클라이언트 입력 금지, 전부 서버에서 채움**
-   - `contracts` 테이블 `status: draft → signed` UPDATE
-   - `contract_events`에 append-only 감사 로그 INSERT
-4. 되돌리기(`signed → draft`) 시 서명 이미지·해시·메타를 전부 null로 초기화 (`src/app/(dashboard)/contracts/actions.ts:307`)
+   - **`sign_contract_with_event` RPC**로 `status: draft → signed` UPDATE + `doc_hash`/`signature_meta` 기록 + `contract_events` INSERT를 **단일 트랜잭션**으로 원자적 처리(개별 UPDATE/INSERT 순차 아님)
+4. 되돌리기(`signed → draft`)는 `transitionContractStatus`가 `transition_contract_status_with_event` RPC에 `p_reset_signature_artifacts` 플래그를 넘겨 서버에서 서명 이미지·해시·메타를 초기화한다 (`src/app/(dashboard)/contracts/actions.ts`)
 
 **핵심**: 코드가 명시적으로 `legalEffect: "none"`을 반환하고, UI/PDF에 "v1 간이 서명은 법적 효력이 없는 기록용" 면책 문구를 단다. 실제 법적효력 서명 API는 `SignatureProvider` 인터페이스 뒤 교체 지점으로 v2에 미뤄져 있다 (`docs/ADR.md:18`, `docs/PRD.md:21`).
 

@@ -33,7 +33,7 @@
 ### ADR-006: 정산은 상태 머신 + append-only 이벤트 로그 (수동 토글)
 **결정**: 실 PG 없이 `payment_status`(draft→unpaid→paid, 되돌리기 허용) 수동 토글. 모든 상태 전이(계약·인보이스)는 `contract_events`/`invoice_events`에 append-only로 기록하고 상세 화면에 이력 타임라인으로 노출. 원천징수·금액은 발행 시점 스냅샷.
 **이유**: 프리랜서 실무는 계좌이체 + 수동 확인이 자연스러움. 이벤트 로그가 "증빙 기록 체인"(방어 가능한 코어)을 실제로 보여준다. 스냅샷으로 발행 후 세율·금액 drift 방지.
-**트레이드오프**: 자동 입금 확인 없음(수동 오토글 가능 → 되돌리기로 정정). MVP는 도메인 UPDATE 후 이벤트 INSERT 순차·best-effort — RPC 트랜잭션 원자성(드문 부분 실패 방지)은 v2. 두 탭 동시 편집은 last-write-wins.
+**트레이드오프**: 자동 입금 확인 없음(수동 오토글 가능 → 되돌리기로 정정). 도메인 변경 + 이벤트 기록은 단일 트랜잭션 RPC(`*_with_event` 함수군, `0012_domain_event_functions.sql` — `sign_contract_with_event`·`issue_invoice_with_event`·`set_invoice_payment_with_event`·`transition_contract_status_with_event`·`import_signed_contract_with_event`)로 원자화해 부분 실패를 방지한다(당초 v2로 미뤘으나 v1에서 앞당겨 구현). 두 탭 동시 편집은 last-write-wins.
 
 ### ADR-007: E2E 포함 풀 테스트 커버리지 (Vitest + Playwright)
 **결정**: Vitest(순수 함수 `lib/tax.ts`·`lib/metrics.ts`, API 통합) + Playwright(로그인~정산~리포트 실사용 플로우) + GitHub Actions CI. 새 기능은 테스트 먼저(TDD). OAuth E2E는 dev 전용 테스트 로그인 경로로 대체.
