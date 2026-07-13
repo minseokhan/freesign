@@ -36,6 +36,25 @@ export interface OutstandingSummary {
   overdueAmount: number;
 }
 
+export interface ContractStatusCountRow {
+  status: string;
+  count: number;
+}
+
+export interface ContractPipelineRow {
+  status: string;
+  label: string;
+  count: number;
+}
+
+// canceled은 활성 진행 흐름이 아니므로 파이프라인 요약에서 제외한다.
+const CONTRACT_PIPELINE_STAGES: ReadonlyArray<{ status: string; label: string }> = [
+  { status: "draft", label: "초안" },
+  { status: "signed", label: "서명완료" },
+  { status: "active", label: "진행중" },
+  { status: "done", label: "완료" }
+];
+
 const WITHHOLDING_TYPE_LABELS: Record<string, string> = {
   wt_3_3: "3.3%",
   wt_8_8: "8.8%",
@@ -122,6 +141,18 @@ export function topClientsByRevenue(
     })
     .slice(0, normalizedLimit)
     .map(({ row }) => row);
+}
+
+export function summarizeContractPipeline(
+  rows: ContractStatusCountRow[]
+): ContractPipelineRow[] {
+  const countByStatus = new Map(rows.map((row) => [row.status, row.count]));
+
+  return CONTRACT_PIPELINE_STAGES.map((stage) => ({
+    status: stage.status,
+    label: stage.label,
+    count: countByStatus.get(stage.status) ?? 0
+  }));
 }
 
 export function sumTaxSummary(rows: TaxSummaryRow[]): TaxTotals {

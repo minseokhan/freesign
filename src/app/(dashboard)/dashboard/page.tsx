@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+
 import Link from "next/link";
 
 import { ChannelBadge } from "@/components/channel-badge";
@@ -8,6 +10,7 @@ import { notDeleted } from "@/lib/db";
 import {
   deriveDueStatus,
   formatKRW,
+  summarizeContractPipeline,
   topChannelsByRevenue,
   type ChannelRevenueRow,
   type DueStatus,
@@ -18,12 +21,21 @@ import type { Database } from "@/types/database";
 
 type DashboardTotals = {
   outstanding_amount: number | string | null;
+  outstanding_count: number | string | null;
   monthly_revenue: number | string | null;
+  monthly_paid_count: number | string | null;
+  expected_this_month_amount: number | string | null;
+  expected_this_month_count: number | string | null;
 };
 
 type DashboardChannelRevenue = {
   channel: string;
   revenue: number | string | null;
+};
+
+type DashboardContractPipeline = {
+  status: string;
+  count: number | string | null;
 };
 
 type DashboardRpcClient = {
@@ -33,6 +45,9 @@ type DashboardRpcClient = {
   rpc(
     functionName: "get_dashboard_channel_revenue",
   ): PromiseLike<{ data: DashboardChannelRevenue[] | null; error: Error | null }>;
+  rpc(
+    functionName: "get_dashboard_contract_pipeline",
+  ): PromiseLike<{ data: DashboardContractPipeline[] | null; error: Error | null }>;
 };
 
 type InvoiceRow = Pick<
@@ -49,6 +64,15 @@ type InvoiceRow = Pick<
 
 type AttentionInvoice = InvoiceRow & {
   dueStatus: Extract<DueStatus, "overdue" | "due_soon">;
+};
+
+// 파이프라인 단계는 진행감이 보이도록 회색→파랑→앰버→초록으로 구분한다
+// (계약 상태 배지는 signed/active가 모두 앰버라 인접 단계가 겹쳐 별도 팔레트를 쓴다).
+const PIPELINE_STAGE_STYLES: Record<string, string> = {
+  draft: "bg-slate-100 text-slate-500",
+  signed: "bg-blue-50 text-blue-500",
+  active: "bg-amber-50 text-amber-600",
+  done: "bg-green-50 text-green-600",
 };
 
 function toAmount(value: number | string | null | undefined) {
@@ -86,11 +110,13 @@ export default async function DashboardPage() {
   const [
     totalsResult,
     channelRevenueResult,
+    contractPipelineResult,
     unpaidInvoicesResult,
     demoClientResult,
   ] = await Promise.all([
     rpc.rpc("get_dashboard_totals"),
     rpc.rpc("get_dashboard_channel_revenue"),
+    rpc.rpc("get_dashboard_contract_pipeline"),
     notDeleted(
       supabase
         .from("invoices")
@@ -115,6 +141,10 @@ export default async function DashboardPage() {
     throw channelRevenueResult.error;
   }
 
+  if (contractPipelineResult.error) {
+    throw contractPipelineResult.error;
+  }
+
   if (unpaidInvoicesResult.error) {
     throw unpaidInvoicesResult.error;
   }
@@ -125,7 +155,17 @@ export default async function DashboardPage() {
 
   const totals = totalsResult.data?.[0];
   const outstandingAmount = toAmount(totals?.outstanding_amount);
+  const outstandingCount = toAmount(totals?.outstanding_count);
   const monthlyRevenue = toAmount(totals?.monthly_revenue);
+  const monthlyPaidCount = toAmount(totals?.monthly_paid_count);
+  const expectedThisMonthAmount = toAmount(totals?.expected_this_month_amount);
+  const expectedThisMonthCount = toAmount(totals?.expected_this_month_count);
+  const contractPipeline = summarizeContractPipeline(
+    (contractPipelineResult.data ?? []).map((row) => ({
+      status: row.status,
+      count: toAmount(row.count),
+    })),
+  );
   const channelRevenueRows: ChannelRevenueRow[] = (
     channelRevenueResult.data ?? []
   ).map((row) => ({
@@ -189,7 +229,7 @@ export default async function DashboardPage() {
 
       <section
         aria-label="핵심 정산 지표"
-        className="grid grid-cols-1 gap-lg md:grid-cols-2"
+        className="grid grid-cols-1 gap-lg md:grid-cols-3"
       >
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
@@ -199,7 +239,7 @@ export default async function DashboardPage() {
             {formatKRW(outstandingAmount)}
           </p>
           <p className="mt-sm text-xs leading-relaxed text-text-muted">
-            미입금 상태 인보이스의 청구 총액입니다.
+            미입금 인보이스 {outstandingCount}건의 청구 총액입니다.
           </p>
         </Card>
 
@@ -211,14 +251,81 @@ export default async function DashboardPage() {
             {formatKRW(monthlyRevenue)}
           </p>
           <p className="mt-sm text-xs leading-relaxed text-text-muted">
-            KST 입금월 기준 실지급액 합계입니다.
+            KST 입금월 기준 입금 {monthlyPaidCount}건의 실지급액 합계입니다.
+          </p>
+        </Card>
+
+        <Card>
+          <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+            이번 달 예정 입금
+          </p>
+          <p className="mt-md text-3xl font-bold tracking-tight text-amber-700 tabular-nums">
+            {formatKRW(expectedThisMonthAmount)}
+          </p>
+          <p className="mt-sm text-xs leading-relaxed text-text-muted">
+            이번 달 지급기한이 도래하는 미입금 {expectedThisMonthCount}건의 청구액입니다.
           </p>
         </Card>
       </section>
 
+      <section aria-label="계약 파이프라인">
+        <Card>
+          <div className="flex flex-col gap-xs sm:flex-row sm:items-baseline sm:justify-between">
+            <h3 className="text-lg font-semibold text-text-primary">
+              계약 파이프라인
+            </h3>
+            <p className="text-sm text-text-muted">
+              취소를 제외한 계약의 진행 단계별 건수입니다.
+            </p>
+          </div>
+          <div className="mt-lg flex flex-col gap-sm sm:flex-row sm:items-center">
+            {contractPipeline.map((stage, index) => {
+              const stageStyle =
+                PIPELINE_STAGE_STYLES[stage.status] ??
+                PIPELINE_STAGE_STYLES.draft;
+              const isEmpty = stage.count === 0;
+
+              return (
+                <Fragment key={stage.status}>
+                  <div
+                    className={cn(
+                      "flex flex-1 items-center justify-between gap-md rounded-md px-lg py-md sm:flex-col sm:items-start sm:gap-sm",
+                      stageStyle,
+                      isEmpty && "opacity-60",
+                    )}
+                  >
+                    <span className="text-xs font-semibold uppercase tracking-wide">
+                      {stage.label}
+                    </span>
+                    <span className="text-3xl font-bold tabular-nums">
+                      {stage.count}
+                    </span>
+                  </div>
+                  {index < contractPipeline.length - 1 ? (
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mx-auto h-5 w-5 shrink-0 rotate-90 text-text-disabled sm:rotate-0"
+                    >
+                      <path d="m9 6 6 6-6 6" />
+                    </svg>
+                  ) : null}
+                </Fragment>
+              );
+            })}
+          </div>
+        </Card>
+      </section>
+
       <section className="grid grid-cols-1 gap-lg xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        <Card className="p-0">
-          <div className="border-b border-surface-border px-xl py-lg">
+        {/* twMerge가 커스텀 여백 토큰(p-xl)을 인식하지 못해 p-0이 기본 패딩을 지우지 못한다. !important로 강제해 헤더/테이블을 full-bleed로 정렬한다. */}
+        <Card className="!p-0">
+          <div className="border-b border-surface-border px-xl py-xl">
             <h3 className="text-lg font-semibold text-text-primary">
               임박/지연 지급기한
             </h3>

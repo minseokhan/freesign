@@ -4,6 +4,7 @@ import {
   deriveDueStatus,
   formatKRW,
   getWithholdingTypeLabel,
+  summarizeContractPipeline,
   sumTaxSummary,
   topChannelsByRevenue,
   topClientsByRevenue,
@@ -215,5 +216,40 @@ describe("getWithholdingTypeLabel", () => {
 
   it("falls back to 없음 for unknown types", () => {
     expect(getWithholdingTypeLabel("unexpected")).toBe("없음");
+  });
+});
+
+describe("summarizeContractPipeline", () => {
+  it("returns the four active-flow statuses in canonical order with zero fill", () => {
+    expect(summarizeContractPipeline([])).toEqual([
+      { status: "draft", label: "초안", count: 0 },
+      { status: "signed", label: "서명완료", count: 0 },
+      { status: "active", label: "진행중", count: 0 },
+      { status: "done", label: "완료", count: 0 }
+    ]);
+  });
+
+  it("maps counts to their status regardless of input order", () => {
+    expect(
+      summarizeContractPipeline([
+        { status: "done", count: 2 },
+        { status: "draft", count: 5 }
+      ])
+    ).toEqual([
+      { status: "draft", label: "초안", count: 5 },
+      { status: "signed", label: "서명완료", count: 0 },
+      { status: "active", label: "진행중", count: 0 },
+      { status: "done", label: "완료", count: 2 }
+    ]);
+  });
+
+  it("excludes canceled contracts from the pipeline", () => {
+    const summary = summarizeContractPipeline([
+      { status: "canceled", count: 9 },
+      { status: "active", count: 3 }
+    ]);
+
+    expect(summary.some((row) => row.status === "canceled")).toBe(false);
+    expect(summary.find((row) => row.status === "active")?.count).toBe(3);
   });
 });

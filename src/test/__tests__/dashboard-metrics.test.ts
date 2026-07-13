@@ -29,20 +29,34 @@ describe("dashboard metrics functions", () => {
     return result.rows[0].id;
   }
 
-  async function insertContract(userId: string, clientId: string) {
+  async function insertContract(
+    userId: string,
+    clientId: string,
+    overrides: {
+      status?: "draft" | "signed" | "active" | "done" | "canceled";
+      deleted?: boolean;
+    } = {},
+  ) {
     const result = await runAs<{ id: string }>(
       pool,
       userId,
       `
         insert into contracts (
-          user_id, client_id, title, scope, amount, start_date, end_date
+          user_id, client_id, title, scope, amount, start_date, end_date,
+          status, deleted_at
         )
         values (
-          $1, $2, 'Dashboard contract', 'Dashboard scope', 1000000, '2026-07-01', '2026-07-31'
+          $1, $2, 'Dashboard contract', 'Dashboard scope', 1000000, '2026-07-01', '2026-07-31',
+          $3, $4
         )
         returning id
       `,
-      [userId, clientId],
+      [
+        userId,
+        clientId,
+        overrides.status ?? "draft",
+        overrides.deleted ? new Date().toISOString() : null,
+      ],
     );
 
     return result.rows[0].id;
@@ -56,6 +70,7 @@ describe("dashboard metrics functions", () => {
       netAmount?: number;
       paymentStatus?: "draft" | "unpaid" | "paid";
       paidAtSql?: string;
+      dueDateSql?: string;
       deleted?: boolean;
     },
   ) {
@@ -70,7 +85,7 @@ describe("dashboard metrics functions", () => {
           withholding_type, withholding_amount, net_amount, payment_status, paid_at, deleted_at
         )
         values (
-          $1, $2, $3, $4, '2026-07-01', '2026-07-31',
+          $1, $2, $3, $4, '2026-07-01', ${overrides.dueDateSql ?? "'2026-07-31'"},
           'wt_3_3', $5, $6, $7, ${overrides.paidAtSql ?? "null"}, $8
         )
       `,
@@ -94,15 +109,28 @@ describe("dashboard metrics functions", () => {
     const linkedinClientId = await insertClient(userA, "LinkedIn Client", "linkedin");
     const userBClientId = await insertClient(userB, "Hidden Client", "youtube");
 
+    // 미입금 · 이번 달 지급기한 도래.
     await insertInvoice(userA, directClientId, {
       amount: 1_000_000,
       netAmount: 900_000,
       paymentStatus: "unpaid",
+      dueDateSql:
+        "(date_trunc('month', now() at time zone 'Asia/Seoul')::date + 9)",
+    });
+    // 미입금 · 지급기한은 다음 달(예정 입금에서 제외, 미수 총액엔 포함).
+    await insertInvoice(userA, directClientId, {
+      amount: 700_000,
+      netAmount: 630_000,
+      paymentStatus: "unpaid",
+      dueDateSql:
+        "(date_trunc('month', now() at time zone 'Asia/Seoul') + interval '1 month')::date",
     });
     await insertInvoice(userA, directClientId, {
       amount: 300_000,
       netAmount: 270_000,
       paymentStatus: "unpaid",
+      dueDateSql:
+        "(date_trunc('month', now() at time zone 'Asia/Seoul')::date + 9)",
       deleted: true,
     });
     await insertInvoice(userA, directClientId, {
@@ -125,14 +153,24 @@ describe("dashboard metrics functions", () => {
       paymentStatus: "unpaid",
     });
 
-    const result = await runAs<{ outstanding_amount: string; monthly_revenue: string }>(
-      pool,
-      userA,
-      "select * from get_dashboard_totals()",
-    );
+    const result = await runAs<{
+      outstanding_amount: string;
+      outstanding_count: string;
+      monthly_revenue: string;
+      monthly_paid_count: string;
+      expected_this_month_amount: string;
+      expected_this_month_count: string;
+    }>(pool, userA, "select * from get_dashboard_totals()");
 
     expect(result.rows).toEqual([
-      { outstanding_amount: "1000000", monthly_revenue: "450000" },
+      {
+        outstanding_amount: "1700000",
+        outstanding_count: "2",
+        monthly_revenue: "450000",
+        monthly_paid_count: "1",
+        expected_this_month_amount: "1000000",
+        expected_this_month_count: "1",
+      },
     ]);
   });
 
@@ -178,6 +216,38 @@ describe("dashboard metrics functions", () => {
     expect(result.rows).toEqual([
       { channel: "direct", revenue: "100000" },
       { channel: "linkedin", revenue: "300000" },
+    ]);
+  });
+
+  it("counts contracts by status with RLS and soft-delete filters", async () => {
+    const userA = await createUser(pool, "dashboard-pipeline-a@example.test");
+    const userB = await createUser(pool, "dashboard-pipeline-b@example.test");
+    const clientA = await insertClient(userA, "Pipeline Client", "direct");
+    const clientB = await insertClient(userB, "Hidden Client", "youtube");
+
+    await insertContract(userA, clientA, { status: "draft" });
+    await insertContract(userA, clientA, { status: "draft" });
+    await insertContract(userA, clientA, { status: "signed" });
+    await insertContract(userA, clientA, { status: "active" });
+    await insertContract(userA, clientA, { status: "active" });
+    await insertContract(userA, clientA, { status: "active" });
+    await insertContract(userA, clientA, { status: "done" });
+    await insertContract(userA, clientA, { status: "canceled" });
+    await insertContract(userA, clientA, { status: "signed", deleted: true });
+    await insertContract(userB, clientB, { status: "active" });
+
+    const result = await runAs<{ status: string; count: string }>(
+      pool,
+      userA,
+      "select * from get_dashboard_contract_pipeline() order by status",
+    );
+
+    expect(result.rows).toEqual([
+      { status: "active", count: "3" },
+      { status: "canceled", count: "1" },
+      { status: "done", count: "1" },
+      { status: "draft", count: "2" },
+      { status: "signed", count: "1" },
     ]);
   });
 
@@ -249,6 +319,7 @@ describe("dashboard metrics functions", () => {
           and proname in (
             'get_dashboard_totals',
             'get_dashboard_channel_revenue',
+            'get_dashboard_contract_pipeline',
             'get_report_channel_revenue'
           )
         order by proname
@@ -257,6 +328,7 @@ describe("dashboard metrics functions", () => {
 
     expect(result.rows).toEqual([
       { proname: "get_dashboard_channel_revenue", prosecdef: false },
+      { proname: "get_dashboard_contract_pipeline", prosecdef: false },
       { proname: "get_dashboard_totals", prosecdef: false },
       { proname: "get_report_channel_revenue", prosecdef: false },
     ]);
