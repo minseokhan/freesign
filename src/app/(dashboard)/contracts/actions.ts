@@ -21,6 +21,7 @@ import {
   type ContractImportInput,
 } from "@/lib/validation/contract";
 import { generateContractDraft } from "@/services/ai/contract-draft";
+import { createV1SignatureProvider } from "@/services/signature/provider";
 import type { Database, Json } from "@/types/database";
 
 const CONTRACT_ARTIFACTS_BUCKET = "contract-artifacts";
@@ -246,12 +247,23 @@ export async function createImportedContract(
     return parsed;
   }
 
+  // 불러오기 계약은 이미 성사된 계약이므로 원본 PDF가 증빙의 핵심이다. 원본 없이는 저장할 수 없다.
+  const sourcePdf = formData.get("file");
+
+  if (!isValidSourcePdf(sourcePdf)) {
+    return { ok: false, error: "원본 계약서 PDF를 업로드해 주세요." };
+  }
+
   const supabase = await createSupabaseClient();
   const owned = await assertOwned(supabase, "clients", parsed.client_id);
 
   if (!owned) {
     return { ok: false, error: "클라이언트를 찾을 수 없습니다." };
   }
+
+  // 무결성 해시는 조항이 아니라 업로드한 원본 PDF 바이트에서 산출한다.
+  const sourceBytes = Buffer.from(await sourcePdf.arrayBuffer());
+  const docHash = createV1SignatureProvider().computeFileHash(sourceBytes);
 
   const insertPayload = {
     user_id: user.id,
@@ -261,8 +273,10 @@ export async function createImportedContract(
     amount: parsed.amount,
     start_date: parsed.start_date,
     end_date: parsed.end_date,
-    status: "draft",
+    // 불러오기 계약은 별도 서명 단계 없이 저장 즉시 성사(signed)로 안착한다.
+    status: "signed",
     clauses: parsed.clauses as Json,
+    doc_hash: docHash,
   } satisfies ContractInsert;
 
   const { data, error } = await supabase
@@ -276,35 +290,30 @@ export async function createImportedContract(
   }
 
   const contractId = data.id;
-  const sourcePdf = formData.get("file");
+  const sourcePdfKey = `${user.id}/${contractId}/source.pdf`;
+  const { error: uploadError } = await supabase.storage
+    .from(CONTRACT_ARTIFACTS_BUCKET)
+    .upload(sourcePdfKey, sourceBytes, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
 
-  if (isValidSourcePdf(sourcePdf)) {
-    const sourcePdfKey = `${user.id}/${contractId}/source.pdf`;
-    const buffer = Buffer.from(await sourcePdf.arrayBuffer());
-    const { error: uploadError } = await supabase.storage
-      .from(CONTRACT_ARTIFACTS_BUCKET)
-      .upload(sourcePdfKey, buffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
+  if (uploadError) {
+    console.error("Failed to upload imported contract source PDF", {
+      contractId,
+      error: uploadError.message,
+    });
+  } else {
+    const { error: updateError } = await supabase
+      .from("contracts")
+      .update({ source_pdf_url: sourcePdfKey } satisfies ContractUpdate)
+      .eq("id", contractId);
 
-    if (uploadError) {
-      console.error("Failed to upload imported contract source PDF", {
+    if (updateError) {
+      console.error("Failed to store imported contract source PDF key", {
         contractId,
-        error: uploadError.message,
+        error: updateError.message,
       });
-    } else {
-      const { error: updateError } = await supabase
-        .from("contracts")
-        .update({ source_pdf_url: sourcePdfKey } satisfies ContractUpdate)
-        .eq("id", contractId);
-
-      if (updateError) {
-        console.error("Failed to store imported contract source PDF key", {
-          contractId,
-          error: updateError.message,
-        });
-      }
     }
   }
 
@@ -313,7 +322,7 @@ export async function createImportedContract(
     contract_id: contractId,
     actor: user.id,
     from_status: null,
-    to_status: "draft",
+    to_status: "signed",
     event_type: "contract.imported",
     meta: { source: "pdf_import" },
   } satisfies ContractEventInsert;

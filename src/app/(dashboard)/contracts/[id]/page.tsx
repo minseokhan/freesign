@@ -31,6 +31,7 @@ type ContractRow = Pick<
   | "signature_image_path"
   | "doc_hash"
   | "signature_meta"
+  | "source_pdf_url"
   | "created_at"
 > & {
   client: {
@@ -153,6 +154,18 @@ function PdfLink({ contractId }: { contractId: string }) {
   );
 }
 
+function SourcePdfLink({ contractId }: { contractId: string }) {
+  return (
+    <Link
+      href={`/api/contracts/${contractId}/source-pdf`}
+      target="_blank"
+      className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+    >
+      원본 PDF
+    </Link>
+  );
+}
+
 function statusLabel(status: string | null) {
   return status ? getContractStatusMeta(status).label : "생성";
 }
@@ -177,6 +190,10 @@ function getEventDescription(event: ContractEventRow) {
     return "계약 상태 변경";
   }
 
+  if (event.event_type === "contract.imported") {
+    return "기존 계약 불러오기(성사)";
+  }
+
   return event.event_type;
 }
 
@@ -190,7 +207,7 @@ export default async function ContractDetailPage({
     supabase
       .from("contracts")
       .select(
-        "id,title,scope,amount,start_date,end_date,status,clauses,signature_image_path,doc_hash,signature_meta,created_at,client:clients(name)",
+        "id,title,scope,amount,start_date,end_date,status,clauses,signature_image_path,doc_hash,signature_meta,source_pdf_url,created_at,client:clients(name)",
       )
       .eq("id", id),
   ).maybeSingle();
@@ -235,6 +252,8 @@ export default async function ContractDetailPage({
     ? "canceled"
     : null;
   const canIssueInvoice = contract.status !== "canceled";
+  // 발주처가 보낸 원본 PDF로 성사된 계약. 자체 간이 서명 대신 원본이 증빙이다.
+  const isImported = contract.source_pdf_url != null;
 
   return (
     <div className="mx-auto max-w-3xl space-y-xl">
@@ -265,6 +284,7 @@ export default async function ContractDetailPage({
               조항 편집
             </Link>
           ) : null}
+          {isImported ? <SourcePdfLink contractId={contract.id} /> : null}
           <PdfLink contractId={contract.id} />
         </div>
       </div>
@@ -359,13 +379,25 @@ export default async function ContractDetailPage({
 
       <Card>
         <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">서명</h3>
+          <h3 className="text-lg font-semibold text-text-primary">
+            {isImported ? "원본 계약서" : "서명"}
+          </h3>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            v1 간이 서명은 private Storage에 저장하고, 문서 해시는 Provider로
-            산출합니다.
+            {isImported
+              ? "발주처가 보낸 원본 계약서로 성사된 계약입니다. 원본 PDF를 증빙으로 보관하고, 문서 해시는 원본 PDF에서 산출합니다."
+              : "v1 간이 서명은 private Storage에 저장하고, 문서 해시는 Provider로 산출합니다."}
           </p>
         </div>
-        {contract.status === "draft" ? (
+        {isImported ? (
+          <div className="mt-xl space-y-lg">
+            <SourcePdfLink contractId={contract.id} />
+            <div className="rounded-md border border-surface-border bg-surface-muted px-md py-sm text-xs leading-relaxed text-text-muted">
+              이미 성사된 계약이므로 별도 서명 단계 없이 저장 시 성사로
+              기록됩니다. 무결성 확인을 위한 문서 해시는 위 기본 정보에서
+              확인할 수 있습니다.
+            </div>
+          </div>
+        ) : contract.status === "draft" ? (
           <div className="mt-xl">
             <SignaturePad contractId={contract.id} />
           </div>

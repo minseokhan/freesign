@@ -37,7 +37,8 @@ export default async function ImportContractPage() {
             기존 계약 불러오기
           </h2>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            발주처가 보낸 PDF를 분석한 뒤 검토해서 draft 계약으로 저장합니다.
+            발주처가 보낸 PDF를 분석·검토한 뒤 성사된 계약으로 저장합니다.
+            이미 체결된 계약이므로 별도 서명 단계는 없습니다.
           </p>
         </div>
       </div>

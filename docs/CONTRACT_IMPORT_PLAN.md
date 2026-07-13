@@ -81,3 +81,65 @@ CLAUDE.md 규칙상 순수 함수·상태전이·보안 경계는 테스트 필�
 - Claude document block의 정확한 SDK 페이로드 형태는 구현 시 `claude-api` 스킬/context7로 재확인(base64 PDF, media_type `application/pdf`).
 - `source_pdf_url` 컬럼 추가로 `database.ts` 생성 타입 재생성 필요(supabase gen types 또는 수기).
 - 스캔 이미지 PDF(텍스트 레이어 없음)는 Claude PDF 지원 범위에서 OCR까지 되나 정확도 편차 있음 — 검토 단계가 이를 흡수.
+
+---
+
+# 후속 변경 (2026-07-13 결정): 불러오기 계약은 서명 단계 제거
+
+## 문제
+
+위 초기 설계는 불러오기 계약도 `status:"draft"`로 저장하고 **기존 서명 흐름을 재사용**하기로 했다(본문 12·44행). 그런데 "기존 계약 불러오기 = 이미 성사되어 발주처가 서명본 PDF를 보낸 것"이므로, 상세 페이지가 draft 계약에 대해 띄우는 **v1 간이 서명 패드**(`contracts/[id]/page.tsx:368`)는 의미가 없다:
+
+- 실제 증빙은 **업로드한 원본 PDF**다. 그 위에 앱의 "법적 효력 없는 기록용" 서명을 다시 그리는 건 **무의미한 이중 서명**이다.
+- 무결성 해시도 "새로 그린 그림"이 아니라 **원본 PDF의 해시**여야 의미가 있다.
+
+## 확정 방향 (사용자)
+
+> 파일 업로드 → AI 파싱 → 항목별 검토·수정 → **저장 = 끝**. 이후엔 **인보이스 발행**만. 추가로 **원본 PDF를 보관**하고 상세에서 **원본 PDF 다운로드 버튼** 제공.
+
+즉 불러오기 계약은 서명 패드를 거치지 않고, **저장 즉시 "성사된 계약"으로 안착**한다.
+
+**안착 상태 = `signed`** (이 결정의 유일한 판단 지점).
+- 근거: `signed`(성사)가 "계약 체결됨, 원본 PDF가 증빙"이라는 사실과 정확히 맞고, doc_hash·증빙 체인과 정합한다. `draft`(초안)로 두면 배지가 "초안"으로 뜨는 오표기가 된다.
+- `signed`에서 기존 전이(→active 진행 시작 / →done / →canceled / →draft 되돌리기)와 **인보이스 발행**(`canIssueInvoice = status !== "canceled"`)이 이미 모두 가능하므로 상태머신(`lib/contract-status.ts`) 수정은 불필요하다.
+- 초기 insert에서 서버가 status를 채우는 것이므로 서명 라우트의 draft→signed 게이트(`sign/route.ts:71`)를 우회하는 게 정상이다(서버 소유 필드).
+
+## 변경 파일
+
+### A. 서명 Provider (수정) — `src/services/signature/provider.ts`
+- `SignatureProvider`에 `computeFileHash(bytes: Uint8Array): string` 추가 — 원본 PDF 바이트의 SHA-256 hex. 기존 `computeDocHash`(조항 canonical JSON 해시)와 별개.
+
+### B. 저장 Server Action (수정) — `createImportedContract` (`contracts/actions.ts:239`)
+- 저장 시점에 **원본 PDF를 필수**로 요구(현재는 best-effort로 없어도 계약 생성). 없으면 거부 — 원본이 증빙의 핵심이므로. (파싱 단계에서 이미 PDF가 있으니 정합.)
+- 순서: FormData의 `file` 바이트 확보 → `computeFileHash`로 doc_hash 산출 → insert 시 `status:"signed"`, `doc_hash`, `signature_meta:{signer:user.email, signed_at:now, source:"pdf_import"}`, `signature_image_path:null` → id 확보 → `${user.id}/${id}/source.pdf` 업로드 → `source_pdf_url` update.
+- provenance 이벤트: `contract_events`에 `from_status:null → to_status:"signed"`, `event_type:"contract.imported"`, `meta:{source:"pdf_import", doc_hash}` (도메인 insert 후 이벤트 insert, 순차).
+- **주의**: `signed_at`에 `new Date()`를 쓰므로 서버 액션(Node)에서 산출 — 문제없음.
+
+### C. 상세 페이지 (수정) — `contracts/[id]/page.tsx`
+- select와 `ContractRow`에 `source_pdf_url` 추가. `isImported = contract.source_pdf_url != null` 판별.
+- **서명 카드**: 불러오기 계약(`isImported`)에는 **서명 입력 패드를 렌더하지 않는다**. draft 여부와 무관하게, 불러오기 계약은 "원본 PDF가 증빙"임을 안내하고 원본 PDF 다운로드 + doc_hash를 보여준다. (직접 작성한 계약(`!isImported`)은 기존 서명 패드/서명 이미지 흐름 그대로 유지.)
+- **원본 PDF 다운로드 버튼**: `isImported`이면 헤더의 생성 PDF 링크(`PdfLink`, `/api/contracts/[id]/pdf`) 옆에 "원본 PDF" 버튼 추가. 서빙은 신규 라우트 D 사용.
+
+### D. 원본 PDF 라우트 (신규) — `src/app/api/contracts/[id]/source-pdf/route.ts`
+- `runtime="nodejs"`. `requireUser` → 계약 소유·`source_pdf_url` 조회(RLS 스코프) → `contract-artifacts` 버킷에서 단기 signed URL 생성해 `redirect`. (읽기는 단기 signed URL 원칙 준수, key는 노출 안 함. 기존 `pdf/route.ts` 패턴 참고.)
+
+### E. 진입/저장 후 흐름
+- 불러오기 폼(`contract-import-form.tsx`)은 저장 성공 시 이미 `/contracts/{id}`로 이동 — 변경 불필요. 상세에서 곧바로 "인보이스 발행" 가능.
+- (선택) 타임라인 `getEventDescription`에 `contract.imported` 라벨("기존 계약 불러오기(성사)") 추가 — 현재는 raw event_type 노출.
+
+## TDD (테스트 먼저)
+
+1. **`computeFileHash`** (`services/signature/__tests__/provider.test.ts`에 추가) — 동일 바이트 → 동일 hex, 알려진 벡터의 SHA-256과 일치.
+2. **`createImportedContract`** (`contracts/__tests__/actions.test.ts`) — (a) 원본 PDF 없으면 거부, (b) 성공 시 `status:"signed"`·`doc_hash`(PDF 해시)·`source_pdf_url`이 서버값으로 세팅, (c) 이벤트 `to_status:"signed"`·`event_type:"contract.imported"`가 도메인 insert 후 기록, (d) 타 유저 client_id 거부(기존 케이스 유지).
+3. **원본 PDF 라우트** (`source-pdf/__tests__/route.test.ts`) — 소유자면 signed URL redirect, 비소유/미존재면 404.
+
+## 검증 (수동 E2E)
+
+- `npm run test` / `npm run build` / `npm run lint` 통과.
+- dev-browser: test-login → `/contracts/import` → PDF 업로드·파싱·검토·**저장** → 상세가 **`signed` 배지**, **서명 패드 없음**, **원본 PDF 다운로드 버튼** 노출, 문서 해시 채워짐 확인 → "인보이스 발행" 진입 확인.
+
+## 확정 및 구현 (2026-07-13)
+
+- 안착 상태는 **`signed`(성사)** 로 확정. 사용자가 이후 "진행 시작"으로 `active` 전이.
+- 구현 완료: Provider `computeFileHash`, `createImportedContract`(PDF 필수·`signed`·PDF 해시·`contract.imported`→signed 이벤트), `GET /api/contracts/[id]/source-pdf`(원본 PDF 단기 signed URL redirect), 상세 페이지(불러오기 계약은 서명 패드 대신 원본 PDF 증빙 + 헤더 "원본 PDF" 버튼), 안내 문구 갱신.
+- 검증: 신규/갱신 유닛 테스트 통과(provider·actions·source-pdf 라우트), `npm run test`(227) / `lint` / `build` 통과.

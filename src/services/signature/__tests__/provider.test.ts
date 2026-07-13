@@ -82,3 +82,32 @@ describe("V1SignatureProvider.computeDocHash", () => {
     expect(provider.computeDocHash(clauses)).toBe(firstHash);
   });
 });
+
+describe("V1SignatureProvider.computeFileHash", () => {
+  it("returns the known SHA-256 digest of the raw bytes", () => {
+    const provider = createV1SignatureProvider();
+
+    // 표준 검증 벡터: sha256("abc")
+    expect(provider.computeFileHash(new TextEncoder().encode("abc"))).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    );
+  });
+
+  it("is deterministic and produces a SHA-256 hex digest", () => {
+    const provider = createV1SignatureProvider();
+    const bytes = new Uint8Array([37, 80, 68, 70, 45, 49, 46, 55]);
+
+    const hash = provider.computeFileHash(bytes);
+
+    expect(hash).toMatch(/^[a-f0-9]{64}$/);
+    expect(provider.computeFileHash(bytes)).toBe(hash);
+  });
+
+  it("changes the digest when the bytes change", () => {
+    const provider = createV1SignatureProvider();
+
+    expect(
+      provider.computeFileHash(new TextEncoder().encode("%PDF-1.7 A")),
+    ).not.toBe(provider.computeFileHash(new TextEncoder().encode("%PDF-1.7 B")));
+  });
+});

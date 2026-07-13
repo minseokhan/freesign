@@ -5,6 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { generateContractDraft } from "@/services/ai/contract-draft";
+import { createV1SignatureProvider } from "@/services/signature/provider";
 
 import {
   createContractDraft,
@@ -104,6 +105,20 @@ function createImportedContractFormData(
   }
 
   return formData;
+}
+
+const SOURCE_PDF_BYTES = new TextEncoder().encode("%PDF-1.7");
+
+function createSourcePdfFile() {
+  const file = new File([SOURCE_PDF_BYTES], "source.pdf", {
+    type: "application/pdf",
+  });
+  // 실제 File.arrayBuffer 대신 정확히 크기가 맞는 ArrayBuffer를 반환해 해시를 결정적으로 만든다.
+  Object.defineProperty(file, "arrayBuffer", {
+    value: vi.fn().mockResolvedValue(SOURCE_PDF_BYTES.buffer),
+  });
+
+  return file;
 }
 
 const validClauses = [
@@ -546,11 +561,14 @@ describe("contract draft server actions", () => {
     } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>);
 
     const result = await createImportedContract(
-      createImportedContractFormData({
-        ...validInput,
-        title: "기존 계약서",
-        clauses: validClauses,
-      }),
+      createImportedContractFormData(
+        {
+          ...validInput,
+          title: "기존 계약서",
+          clauses: validClauses,
+        },
+        createSourcePdfFile(),
+      ),
     );
 
     expect(result).toEqual({
@@ -561,7 +579,9 @@ describe("contract draft server actions", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("creates an imported draft with server-owned fields and stores only the source PDF key", async () => {
+  it("creates an imported contract that lands signed with the source PDF hash and stores only the source PDF key", async () => {
+    const expectedDocHash =
+      createV1SignatureProvider().computeFileHash(SOURCE_PDF_BYTES);
     const calls: string[] = [];
     const contractsInsert = createInsertTableMock("imported-contract-1");
     contractsInsert.insert.mockImplementation((payload) => {
@@ -575,11 +595,12 @@ describe("contract draft server actions", () => {
         amount: validInput.amount,
         start_date: validInput.start_date,
         end_date: validInput.end_date,
-        status: "draft",
+        status: "signed",
         clauses: validClauses,
+        doc_hash: expectedDocHash,
       });
       expect(payload).not.toHaveProperty("source_pdf_url");
-      expect(payload).not.toHaveProperty("doc_hash");
+      expect(payload).not.toHaveProperty("signature_meta");
 
       return {
         select: contractsInsert.select,
@@ -607,7 +628,7 @@ describe("contract draft server actions", () => {
         contract_id: "imported-contract-1",
         actor: user.id,
         from_status: null,
-        to_status: "draft",
+        to_status: "signed",
         event_type: "contract.imported",
         meta: { source: "pdf_import" },
       });
@@ -637,13 +658,6 @@ describe("contract draft server actions", () => {
       supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
     );
 
-    const sourceFile = new File(["%PDF-1.7"], "source.pdf", {
-      type: "application/pdf",
-    });
-    Object.defineProperty(sourceFile, "arrayBuffer", {
-      value: vi.fn().mockResolvedValue(Buffer.from("%PDF-1.7").buffer),
-    });
-
     const result = await createImportedContract(
       createImportedContractFormData(
         {
@@ -651,11 +665,11 @@ describe("contract draft server actions", () => {
           title: "기존 계약서",
           clauses: validClauses,
           user_id: "attacker-user",
-          status: "signed",
+          status: "draft",
           source_pdf_url: "https://attacker.example/source.pdf",
           doc_hash: "spoofed",
         },
-        sourceFile,
+        createSourcePdfFile(),
       ),
     );
 
@@ -680,35 +694,15 @@ describe("contract draft server actions", () => {
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");
   });
 
-  it("creates an imported draft without uploading when the source PDF is missing", async () => {
-    const calls: string[] = [];
-    const contractsInsert = createInsertTableMock("imported-contract-1");
-    contractsInsert.insert.mockImplementation(() => {
-      calls.push("contracts.insert");
-
-      return {
-        select: contractsInsert.select,
-        single: contractsInsert.single,
-      };
-    });
-    const eventTable = createEventInsertTableMock();
-    eventTable.insert.mockImplementation(() => {
-      calls.push("contract_events.insert");
-
-      return Promise.resolve({ error: null });
-    });
+  it("rejects an imported contract when the source PDF is missing", async () => {
+    const insertTable = createInsertTableMock();
     const storageFrom = vi.fn();
-    const supabase = {
-      from: vi.fn((table: string) =>
-        table === "contract_events" ? eventTable : contractsInsert,
-      ),
+    vi.mocked(createSupabaseClient).mockResolvedValue({
+      from: vi.fn().mockReturnValue(insertTable),
       storage: {
         from: storageFrom,
       },
-    };
-    vi.mocked(createSupabaseClient).mockResolvedValue(
-      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
-    );
+    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>);
 
     const result = await createImportedContract(
       createImportedContractFormData({
@@ -718,9 +712,13 @@ describe("contract draft server actions", () => {
       }),
     );
 
-    expect(result).toEqual({ ok: true, id: "imported-contract-1" });
+    expect(result).toEqual({
+      ok: false,
+      error: "원본 계약서 PDF를 업로드해 주세요.",
+    });
+    expect(assertOwned).not.toHaveBeenCalled();
+    expect(insertTable.insert).not.toHaveBeenCalled();
     expect(storageFrom).not.toHaveBeenCalled();
-    expect(calls).toEqual(["contracts.insert", "contract_events.insert"]);
-    expect(revalidatePath).toHaveBeenCalledWith("/contracts");
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

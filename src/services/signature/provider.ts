@@ -17,6 +17,7 @@ export interface V1SignatureResult {
 
 export interface SignatureProvider {
   computeDocHash(clauses: readonly Clause[]): string;
+  computeFileHash(bytes: Uint8Array): string;
   createSignatureResult(input: V1SignatureInput): V1SignatureResult;
 }
 
@@ -26,6 +27,9 @@ export function createV1SignatureProvider(): SignatureProvider {
       return createHash("sha256")
         .update(canonicalStringify(clauses), "utf8")
         .digest("hex");
+    },
+    computeFileHash(bytes) {
+      return createHash("sha256").update(bytes).digest("hex");
     },
     createSignatureResult(input) {
       return {

@@ -376,7 +376,8 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
               추출 내용 검토
             </h3>
             <p className="mt-xs text-sm leading-relaxed text-text-muted">
-              금액, 기간, 조항을 확인한 뒤 draft 계약으로 저장합니다.
+              금액, 기간, 조항을 확인한 뒤 성사된 계약으로 저장합니다.
+              (별도 서명 단계는 없습니다.)
             </p>
           </div>
 
