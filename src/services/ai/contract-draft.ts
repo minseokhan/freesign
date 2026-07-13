@@ -160,10 +160,14 @@ function createAnthropicClient(): AnthropicMessagesClient {
 function buildClaudeRequest(input: ContractDraftInput, skeleton: ContractDraft) {
   return {
     model: ANTHROPIC_CONTRACT_MODEL,
-    max_tokens: 1800,
+    // 10개 조항 전체 본문 + 요약을 다듬으면 1800 토큰을 넘어 잘릴 수 있어 여유를 둔다.
+    // 잘린 tool JSON은 파싱 실패 → 골격(skeleton) 폴백으로 떨어진다.
+    max_tokens: 6000,
     thinking: { type: "disabled" },
     system: [
       "You refine Korean freelance service contract drafts for FreeSign.",
+      "Write every output field (title, body, plain_summary) in natural, fluent Korean.",
+      "Do not leak English words or transliterations into the output; express disclaimers in Korean (e.g. '법적 효력이 없는 초안').",
       "The contract skeleton and required clauses are owned by application code.",
       "Do not invent statutes, legal articles, case law, or authoritative legal claims.",
       "If any detail is unclear, mark it with [검토 필요] and set needs_review=true.",

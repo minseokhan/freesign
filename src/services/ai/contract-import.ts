@@ -134,10 +134,13 @@ function createAnthropicClient(): AnthropicMessagesClient {
 function buildClaudeRequest(base64Pdf: string) {
   return {
     model: ANTHROPIC_CONTRACT_MODEL,
-    max_tokens: 3000,
+    // 다페이지 표준계약서는 10개 조항(본문+요약) 출력이 3000 토큰을 넘어 잘리며,
+    // 잘린 tool JSON은 파싱 실패 → 폴백(빈 결과)으로 떨어진다. 넉넉한 상한을 둔다.
+    max_tokens: 8000,
     thinking: { type: "disabled" },
     system: [
       "You extract non-authoritative structured data from Korean freelance service contract PDFs for FreeSign.",
+      "Write every generated text field (plain_summary and any [검토 필요] notes) in natural Korean; do not leak English words or transliterations into the output.",
       "Do not invent statutes, legal articles, case law, facts, dates, amounts, parties, or authoritative legal claims.",
       "If a value is not actually present in the PDF, return null for title, scope, amount, start_date, and end_date.",
       "If a required clause is unclear or absent, use [검토 필요] for body and plain_summary and set needs_review=true.",
