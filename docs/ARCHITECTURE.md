@@ -71,7 +71,8 @@ contracts
   is_demo(bool, default false), deleted_at?, created_at, updated_at
 
 invoices
-  id, user_id, contract_id(FK, ON DELETE RESTRICT), client_id(FK, ON DELETE RESTRICT),
+  id, user_id, contract_id(FK, ON DELETE SET NULL, nullable), client_id(FK, ON DELETE RESTRICT),
+  contract_snapshot?(jsonb),   -- 계약 물리 삭제 시 {title,amount,start_date,end_date} 스냅샷(서버 소유). 평소 NULL
   amount(bigint),           -- 청구 총액(원)
   issue_date, due_date,
   withholding_type(enum: wt_3_3|wt_8_8|none),
@@ -83,7 +84,7 @@ invoices
 
 -- 감사·기록 체인 (append-only, RLS user_id, UPDATE/DELETE 정책 없음)
 contract_events
-  id, user_id, contract_id(FK), actor, from_status?, to_status, event_type, meta(jsonb), created_at
+  id, user_id, contract_id(FK, ON DELETE CASCADE), actor, from_status?, to_status, event_type, meta(jsonb), created_at
 invoice_events
   id, user_id, invoice_id(FK), actor, from_status?, to_status, event_type, meta(jsonb), created_at
 
@@ -97,7 +98,7 @@ profiles
 - **RLS**: SELECT/UPDATE는 `USING`, **INSERT/UPDATE는 `WITH CHECK (user_id = (select auth.uid()))` 둘 다 명시**(없으면 타 user_id 삽입·소유권 이관 가능). `select` 래핑으로 플래너 캐싱. 이벤트 테이블은 select/insert만 허용(UPDATE/DELETE 정책 없음 = append-only).
 - **DB CHECK 제약**: `amount > 0`, `0 <= withholding_amount <= amount`, `net_amount >= 0`, `due_date >= issue_date`.
 - **`deleted_at IS NULL` 필터는 RLS가 아니라 공용 쿼리 헬퍼에서** — RLS에 넣으면 soft-delete 행이 복원·감사·세금 CSV에서 사라짐(soft-delete 목적과 충돌). FK는 `ON DELETE RESTRICT` + 앱 레이어에서 "비삭제 하위가 있으면 부모 삭제 차단".
-- **하드삭제**: 실데이터 `paid` 인보이스는 하드삭제 금지. `is_demo=true`만 예외("데모 지우기"). 데모 삭제 Server Action은 **demo 이벤트를 먼저 삭제한 뒤 demo 도메인 행 삭제**(FK RESTRICT 충돌 방지). 실데이터 이벤트는 여전히 append-only.
+- **하드삭제**: 실데이터 `paid` 인보이스는 하드삭제 금지. `is_demo=true`만 예외("데모 지우기"). 데모 삭제 Server Action은 **demo 이벤트를 먼저 삭제한 뒤 demo 도메인 행 삭제**(FK RESTRICT 충돌 방지). 실데이터 이벤트는 여전히 append-only. **예외: 계약(contracts)은 상태 무관 물리 삭제**(ADR-008 갱신) — `deleteContract` Server Action이 ① 딸린 인보이스에 계약 스냅샷(`contract_snapshot`) 기록(계약 살아있는 동안) → ② 계약 행 DELETE(DB가 `invoices.contract_id` SET NULL + `contract_events` CASCADE 동시 처리) → ③ Storage 아티팩트 best-effort 제거 순으로 수행. 스냅샷을 삭제 앞에, 파일 정리를 DB 삭제 뒤에 둬 부분 실패 시 데이터 유실을 막는다.
 - **원천징수 계산**(`lib/tax.ts`): 소득세(원 미만 절사) + 지방소득세(10원 미만 절사) 분리. 발행 시점 스냅샷 저장(drift 방지), draft 동안만 재계산.
 - **인덱스**: 부분 인덱스 `(user_id) WHERE deleted_at IS NULL`, `(user_id, due_date) WHERE payment_status='unpaid'`, `(user_id, client_id)`, 이벤트 테이블 `(contract_id/invoice_id, created_at)`.
 - **집계**: 대시보드·리포트 지표는 **SQL 집계**(`SUM`/`GROUP BY`) + `lib/metrics.ts` 순수 변환/포맷. 별도 집계 테이블 없음. "이달 수익"은 입금일 기준 — SQL `date_trunc('month', paid_at AT TIME ZONE 'Asia/Seoul')`(UTC 저장을 JS로 집계하면 KST 9시간 밀림).

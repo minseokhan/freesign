@@ -220,7 +220,8 @@ export type Database = {
         Row: {
           amount: number
           client_id: string
-          contract_id: string
+          contract_id: string | null
+          contract_snapshot: Json | null
           created_at: string
           deleted_at: string | null
           due_date: string
@@ -239,7 +240,8 @@ export type Database = {
         Insert: {
           amount: number
           client_id: string
-          contract_id: string
+          contract_id?: string | null
+          contract_snapshot?: Json | null
           created_at?: string
           deleted_at?: string | null
           due_date: string
@@ -258,7 +260,8 @@ export type Database = {
         Update: {
           amount?: number
           client_id?: string
-          contract_id?: string
+          contract_id?: string | null
+          contract_snapshot?: Json | null
           created_at?: string
           deleted_at?: string | null
           due_date?: string

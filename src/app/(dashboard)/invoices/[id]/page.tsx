@@ -8,6 +8,7 @@ import {
   PaymentStatusBadge,
 } from "@/components/payment-status-badge";
 import { Card } from "@/components/ui/card";
+import { resolveContractLabel } from "@/lib/contract-snapshot";
 import { notDeleted } from "@/lib/db";
 import { deriveDueStatus, formatKRW } from "@/lib/metrics";
 import { createClient } from "@/lib/supabase/server";
@@ -27,6 +28,7 @@ type InvoiceRow = Pick<
   | "paid_at"
   | "payment_method"
   | "created_at"
+  | "contract_snapshot"
 > & {
   client: {
     name: string;
@@ -154,7 +156,7 @@ export default async function InvoiceDetailPage({
     supabase
       .from("invoices")
       .select(
-        "id,amount,issue_date,due_date,withholding_type,withholding_amount,net_amount,payment_status,paid_at,payment_method,created_at,client:clients(name),contract:contracts(title)",
+        "id,amount,issue_date,due_date,withholding_type,withholding_amount,net_amount,payment_status,paid_at,payment_method,created_at,contract_snapshot,client:clients(name),contract:contracts(title)",
       )
       .eq("id", id),
   ).maybeSingle();
@@ -209,7 +211,7 @@ export default async function InvoiceDetailPage({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-sm">
               <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
-                {invoice.contract?.title ?? "계약 없음"}
+                {resolveContractLabel(invoice.contract, invoice.contract_snapshot)}
               </h2>
               <PaymentStatusBadge
                 status={invoice.payment_status}

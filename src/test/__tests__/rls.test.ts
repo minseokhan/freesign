@@ -249,6 +249,113 @@ describe("RLS policies", () => {
     expect(clientDelete.rowCount).toBe(1);
   });
 
+  async function insertInvoiceAs(
+    userId: string,
+    contractId: string,
+    clientId: string,
+  ) {
+    const result = await runAs<{ id: string }>(
+      pool,
+      userId,
+      `
+        insert into invoices (
+          user_id, contract_id, client_id, amount, issue_date, due_date,
+          withholding_type, withholding_amount, net_amount
+        )
+        values (
+          $1, $2, $3, 100000, '2026-07-01', '2026-07-31', 'wt_3_3', 3300, 96700
+        )
+        returning id
+      `,
+      [userId, contractId, clientId],
+    );
+
+    return result.rows[0].id;
+  }
+
+  it("lets an owner hard-delete a contract while preserving its invoices with null contract_id", async () => {
+    const clientId = await insertClientAs(userA, "Hard delete client");
+    const contractId = await insertContractAs(userA, clientId);
+    const invoiceId = await insertInvoiceAs(userA, contractId, clientId);
+    await runAs(
+      pool,
+      userA,
+      `
+        insert into contract_events (
+          user_id, contract_id, actor, from_status, to_status, event_type
+        )
+        values ($1, $2, 'user', null, 'draft', 'created')
+      `,
+      [userA, contractId],
+    );
+
+    const deleteResult = await runAs(
+      pool,
+      userA,
+      "delete from contracts where id = $1",
+      [contractId],
+    );
+    expect(deleteResult.rowCount).toBe(1);
+
+    // 성공기준 2: 인보이스는 그대로 남고 contract_id는 SET NULL 된다.
+    const invoiceResult = await runAs<{ id: string; contract_id: string | null }>(
+      pool,
+      userA,
+      "select id, contract_id from invoices where id = $1",
+      [invoiceId],
+    );
+    expect(invoiceResult.rows).toEqual([{ id: invoiceId, contract_id: null }]);
+
+    // 성공기준 3: 계약 이벤트는 cascade로 모두 사라진다.
+    const eventResult = await runAs<{ count: string }>(
+      pool,
+      userA,
+      "select count(*)::text as count from contract_events where contract_id = $1",
+      [contractId],
+    );
+    expect(eventResult.rows).toEqual([{ count: "0" }]);
+  });
+
+  it("allows an owner to hard-delete a signed contract regardless of status", async () => {
+    const clientId = await insertClientAs(userA, "Signed delete client");
+    const contractId = await insertContractAs(userA, clientId);
+    await runAs(
+      pool,
+      userA,
+      "update contracts set status = 'signed' where id = $1",
+      [contractId],
+    );
+
+    const deleteResult = await runAs(
+      pool,
+      userA,
+      "delete from contracts where id = $1",
+      [contractId],
+    );
+    expect(deleteResult.rowCount).toBe(1);
+  });
+
+  it("blocks a user from hard-deleting another user's contract", async () => {
+    const clientId = await insertClientAs(userA, "Foreign delete client");
+    const contractId = await insertContractAs(userA, clientId);
+
+    const deleteResult = await runAs(
+      pool,
+      userB,
+      "delete from contracts where id = $1",
+      [contractId],
+    );
+    expect(deleteResult.rowCount).toBe(0);
+
+    const stillThere = await runAs<{ id: string }>(
+      pool,
+      userA,
+      "select id from contracts where id = $1",
+      [contractId],
+    );
+    expect(stillThere.rows).toEqual([{ id: contractId }]);
+  });
+
   it("blocks anonymous reads with no visible rows", async () => {
     const clientId = await insertClientAs(userA, "Anonymous hidden");
 

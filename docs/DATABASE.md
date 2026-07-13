@@ -79,7 +79,8 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 |------|------|------|
 | `id` | uuid PK | 인보이스 식별자 |
 | `user_id` | uuid FK→auth.users | 소유 사용자 |
-| `contract_id` | uuid FK→contracts (ON DELETE RESTRICT) | 원 계약 |
+| `contract_id` | uuid FK→contracts (ON DELETE SET NULL), nullable | 원 계약. 계약이 물리 삭제되면 NULL로 끊긴다 |
+| `contract_snapshot` | jsonb, nullable | 계약 삭제 시점의 `{title, amount, start_date, end_date}` 스냅샷(서버 소유 필드). 계약이 살아있으면 NULL, 삭제 시 액션이 채운다 |
 | `client_id` | uuid FK→clients (ON DELETE RESTRICT) | 청구 대상 고객 |
 | `amount` | bigint NOT NULL, `> 0` | 청구 총액(원, 세전) |
 | `issue_date` | date NOT NULL | 발행일 |
@@ -94,7 +95,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 | `deleted_at` | timestamptz | 소프트 삭제 시각 |
 | `created_at` / `updated_at` | timestamptz | 생성/수정 시각 |
 
-> `amount`·`withholding_amount`·`net_amount`(금액 스냅샷), `payment_status`·`paid_at`은 서버 소유 필드.
+> `amount`·`withholding_amount`·`net_amount`(금액 스냅샷), `payment_status`·`paid_at`·`contract_snapshot`은 서버 소유 필드.
 
 ---
 
@@ -106,7 +107,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 |------|------|------|
 | `id` | uuid PK | 이벤트 식별자 |
 | `user_id` | uuid FK→auth.users | 소유 사용자 |
-| `contract_id` / `invoice_id` | uuid FK | 대상 계약/인보이스 |
+| `contract_id` / `invoice_id` | uuid FK | 대상 계약/인보이스. `contract_events.contract_id`는 ON DELETE CASCADE(계약 물리 삭제 시 함께 제거) |
 | `actor` | text NOT NULL | 상태를 바꾼 주체 |
 | `from_status` | text | 이전 상태(최초 생성 시 NULL 가능) |
 | `to_status` | text NOT NULL | 이후 상태 |
@@ -139,7 +140,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 `clients`·`contracts`·`invoices`·`contract_events`·`invoice_events`·`profiles` 모두 RLS 활성화.
 
 - **select/insert/update**: 모든 테이블에 `user_id = auth.uid()` 정책(`USING` + `WITH CHECK` 둘 다).
-- **delete**: 기본적으로 삭제 정책 없음(소프트 삭제만). 예외로 데모 데이터는 `is_demo = true` 조건으로 삭제 허용(`*_delete_demo_own`). events의 데모 삭제는 상위 계약/인보이스가 `is_demo = true`인지 EXISTS로 확인.
+- **delete**: 대부분 소프트 삭제만이라 삭제 정책 없음. 예외 (1) 데모 데이터는 `is_demo = true` 조건으로 삭제 허용(`*_delete_demo_own`), events의 데모 삭제는 상위 계약/인보이스가 `is_demo = true`인지 EXISTS로 확인. (2) **계약(contracts)은 물리 삭제**라 소유자 delete 정책 `contracts_delete_own`(상태·is_demo 무관, `contracts_delete_demo_own`은 이 정책의 부분집합이므로 제거). 계약 삭제 시 `contract_events`는 CASCADE, `invoices.contract_id`는 SET NULL로 DB가 처리(참조 액션은 RLS 우회).
 - 서버 인가는 `getUser()` 사용, FK 참조(invoice→contract/client)는 Server Action에서 소유권 재조회 후 insert(FK는 RLS 우회하므로).
 
 ---
@@ -149,7 +150,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 `contract-artifacts` (private) 버킷 — 계약 PDF·서명 이미지 저장.
 - public = false, 파일 크기 제한 5MB, 허용 MIME: `image/png`, `application/pdf`.
 - 경로 규칙: `{user_id}/...` 첫 폴더가 소유자 uid.
-- RLS: select/insert/update 모두 `(storage.foldername(name))[1] = auth.uid()` 조건. DB에는 key만 저장하고 읽기는 단기 signed URL로.
+- RLS: select/insert/update/delete 모두 `(storage.foldername(name))[1] = auth.uid()` 조건(delete는 `contract_artifacts_delete_own` — 계약 물리 삭제 시 서버가 아티팩트 제거). DB에는 key만 저장하고 읽기는 단기 signed URL로.
 
 ---
 

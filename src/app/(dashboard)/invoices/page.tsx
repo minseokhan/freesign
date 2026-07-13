@@ -7,6 +7,7 @@ import {
   type PaymentStatus,
 } from "@/components/payment-status-badge";
 import { Card } from "@/components/ui/card";
+import { resolveContractLabel } from "@/lib/contract-snapshot";
 import { notDeleted } from "@/lib/db";
 import { deriveDueStatus, formatKRW } from "@/lib/metrics";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,7 @@ type InvoiceRow = Pick<
   | "due_date"
   | "payment_status"
   | "created_at"
+  | "contract_snapshot"
 > & {
   client: {
     name: string;
@@ -81,7 +83,7 @@ export default async function InvoicesPage({
     supabase
       .from("invoices")
       .select(
-        "id,amount,issue_date,due_date,payment_status,created_at,client:clients(name),contract:contracts(title)",
+        "id,amount,issue_date,due_date,payment_status,created_at,contract_snapshot,client:clients(name),contract:contracts(title)",
       ),
   );
 
@@ -221,7 +223,10 @@ export default async function InvoicesPage({
                           href={`/invoices/${invoice.id}`}
                           className="font-medium text-text-primary hover:text-brand-primary"
                         >
-                          {invoice.contract?.title ?? "계약 없음"}
+                          {resolveContractLabel(
+                            invoice.contract,
+                            invoice.contract_snapshot,
+                          )}
                         </Link>
                       </td>
                       <td className="px-xl py-lg font-medium tabular-nums text-text-primary">

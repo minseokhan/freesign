@@ -685,32 +685,155 @@ describe("contract draft server actions", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("soft-deletes a contract with deleted_at update after ownership check", async () => {
-    const updateTable = createUpdateTableMock();
+  function createHardDeleteMocks(
+    contractOverride: Record<string, unknown> = {},
+    storageRemoveError: { message: string } | null = null,
+  ) {
+    const calls: string[] = [];
+    const contractData = {
+      title: "삭제될 계약",
+      amount: 3_000_000,
+      start_date: "2026-08-01",
+      end_date: "2026-08-31",
+      contract_pdf_url: "user-123/contract-1/contract.pdf",
+      signature_image_path: "user-123/contract-1/signature.png",
+      source_pdf_url: null,
+      ...contractOverride,
+    };
+    const readQuery = {
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: contractData, error: null }),
+    };
+    const invoiceUpdateEq = vi.fn().mockImplementation(() => {
+      calls.push("invoices.snapshot");
+      return Promise.resolve({ error: null });
+    });
+    const invoiceUpdate = vi.fn().mockReturnValue({ eq: invoiceUpdateEq });
+    const deleteEq = vi.fn().mockImplementation(() => {
+      calls.push("contracts.delete");
+      return Promise.resolve({ error: null });
+    });
+    const contractDelete = vi.fn().mockReturnValue({ eq: deleteEq });
+    const remove = vi.fn().mockImplementation(() => {
+      calls.push("storage.remove");
+      return Promise.resolve({ error: storageRemoveError });
+    });
+    const storageFrom = vi.fn().mockReturnValue({ remove });
     const supabase = {
-      from: vi.fn().mockReturnValue(updateTable),
-    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>;
-    vi.mocked(createSupabaseClient).mockResolvedValue(supabase);
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-07-14T09:00:00.000Z"));
+      from: vi.fn((table: string) => {
+        if (table === "invoices") return { update: invoiceUpdate };
+        const contractCalls = supabase.from.mock.calls.filter(
+          ([name]) => name === "contracts",
+        ).length;
+        return contractCalls === 1 ? readQuery : { delete: contractDelete };
+      }),
+      storage: { from: storageFrom },
+    };
+
+    return {
+      calls,
+      supabase,
+      invoiceUpdate,
+      invoiceUpdateEq,
+      contractDelete,
+      deleteEq,
+      storageFrom,
+      remove,
+    };
+  }
+
+  it("hard-deletes a contract: snapshots invoices, deletes the row, then removes storage artifacts in order", async () => {
+    const mocks = createHardDeleteMocks();
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      mocks.supabase as unknown as Awaited<
+        ReturnType<typeof createSupabaseClient>
+      >,
+    );
 
     const result = await deleteContract("contract-1");
 
     expect(result).toEqual({ ok: true, id: "contract-1" });
-    expect(assertOwned).toHaveBeenCalledWith(supabase, "contracts", "contract-1");
-    expect(updateTable.update).toHaveBeenCalledWith({
-      deleted_at: "2026-07-14T09:00:00.000Z",
+    expect(assertOwned).toHaveBeenCalledWith(
+      mocks.supabase,
+      "contracts",
+      "contract-1",
+    );
+    expect(mocks.invoiceUpdate).toHaveBeenCalledWith({
+      contract_snapshot: {
+        title: "삭제될 계약",
+        amount: 3_000_000,
+        start_date: "2026-08-01",
+        end_date: "2026-08-31",
+      },
     });
+    expect(mocks.invoiceUpdateEq).toHaveBeenCalledWith("contract_id", "contract-1");
+    expect(mocks.deleteEq).toHaveBeenCalledWith("id", "contract-1");
+    expect(mocks.storageFrom).toHaveBeenCalledWith("contract-artifacts");
+    // 원본 PDF 키(source_pdf_url)는 null이라 제거 대상에서 제외된다.
+    expect(mocks.remove).toHaveBeenCalledWith([
+      "user-123/contract-1/contract.pdf",
+      "user-123/contract-1/signature.png",
+    ]);
+    // 순서: 스냅샷(계약 살아있을 때) → 물리 삭제(정본) → Storage 정리.
+    expect(mocks.calls).toEqual([
+      "invoices.snapshot",
+      "contracts.delete",
+      "storage.remove",
+    ]);
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");
-    expect(revalidatePath).toHaveBeenCalledWith("/contracts/contract-1");
+    expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
+    expect(revalidatePath).toHaveBeenCalledWith("/invoices");
+  });
 
-    vi.useRealTimers();
+  it("still succeeds when storage cleanup fails after the row is deleted", async () => {
+    const mocks = createHardDeleteMocks({}, { message: "storage unavailable" });
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      mocks.supabase as unknown as Awaited<
+        ReturnType<typeof createSupabaseClient>
+      >,
+    );
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+
+    const result = await deleteContract("contract-1");
+
+    expect(result).toEqual({ ok: true, id: "contract-1" });
+    expect(mocks.calls).toEqual([
+      "invoices.snapshot",
+      "contracts.delete",
+      "storage.remove",
+    ]);
+    expect(consoleError).toHaveBeenCalled();
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts");
+
+    consoleError.mockRestore();
+  });
+
+  it("skips storage removal when the contract has no stored artifacts", async () => {
+    const mocks = createHardDeleteMocks({
+      contract_pdf_url: null,
+      signature_image_path: null,
+      source_pdf_url: null,
+    });
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      mocks.supabase as unknown as Awaited<
+        ReturnType<typeof createSupabaseClient>
+      >,
+    );
+
+    const result = await deleteContract("contract-1");
+
+    expect(result).toEqual({ ok: true, id: "contract-1" });
+    expect(mocks.storageFrom).not.toHaveBeenCalled();
+    expect(mocks.calls).toEqual(["invoices.snapshot", "contracts.delete"]);
   });
 
   it("rejects contract deletion when ownership check fails", async () => {
-    const updateTable = createUpdateTableMock();
+    const from = vi.fn();
     const supabase = {
-      from: vi.fn().mockReturnValue(updateTable),
+      from,
     } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>;
     vi.mocked(createSupabaseClient).mockResolvedValue(supabase);
     vi.mocked(assertOwned).mockResolvedValueOnce(false);
@@ -718,7 +841,7 @@ describe("contract draft server actions", () => {
     const result = await deleteContract("contract-1");
 
     expect(result).toEqual({ ok: false, error: "계약을 찾을 수 없습니다." });
-    expect(updateTable.update).not.toHaveBeenCalled();
+    expect(from).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

@@ -29,6 +29,7 @@ const MAX_SOURCE_PDF_SIZE_BYTES = 5 * 1024 * 1024;
 
 type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
 type ContractUpdate = Database["public"]["Tables"]["contracts"]["Update"];
+type InvoiceUpdate = Database["public"]["Tables"]["invoices"]["Update"];
 type ContractActionField =
   | keyof ContractDraftInput
   | keyof ContractClausesInput
@@ -451,19 +452,74 @@ export async function deleteContract(id: string): Promise<ContractActionResult> 
     return { ok: false, error: "계약을 찾을 수 없습니다." };
   }
 
-  const { data, error } = await supabase
+  // 계약은 물리 삭제한다. 삭제 후에는 조회할 수 없으므로 스냅샷용 핵심 정보와
+  // Storage 키를 먼저 확보한다.
+  const { data: contract, error: contractError } = await supabase
     .from("contracts")
-    .update({ deleted_at: new Date().toISOString() } satisfies ContractUpdate)
+    .select(
+      "title,amount,start_date,end_date,contract_pdf_url,signature_image_path,source_pdf_url",
+    )
     .eq("id", id)
-    .select("id")
-    .single();
+    .maybeSingle();
 
-  if (error) {
-    return dbError(error);
+  if (contractError) {
+    return dbError(contractError);
+  }
+
+  if (!contract) {
+    return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  // 1) 인보이스에 삭제 시점 계약 스냅샷을 남긴다(아직 계약이 살아있는 동안 contract_id로 매칭).
+  //    맥락 없는 고아 인보이스를 막아 세금·분쟁 시 "왜 받았는지"를 자기설명하게 한다.
+  const contractSnapshot = {
+    title: contract.title,
+    amount: contract.amount,
+    start_date: contract.start_date,
+    end_date: contract.end_date,
+  } satisfies Json;
+
+  const { error: snapshotError } = await supabase
+    .from("invoices")
+    .update({ contract_snapshot: contractSnapshot } satisfies InvoiceUpdate)
+    .eq("contract_id", id);
+
+  if (snapshotError) {
+    return dbError(snapshotError);
+  }
+
+  // 2) 계약 행 물리 삭제(정본). DB에서 invoices.contract_id SET NULL +
+  //    contract_events CASCADE가 함께 처리된다.
+  const { error: deleteError } = await supabase
+    .from("contracts")
+    .delete()
+    .eq("id", id);
+
+  if (deleteError) {
+    return dbError(deleteError);
+  }
+
+  // 3) Storage 아티팩트 정리(best-effort). DB 삭제가 정본이므로 실패해도 삭제는 유효하며
+  //    로그만 남긴다. DB 삭제 뒤에 지워야 파일 먼저 삭제 후 DB 실패 시 실존 파일 유실을 막는다.
+  const storageKeys = [
+    contract.contract_pdf_url,
+    contract.signature_image_path,
+    contract.source_pdf_url,
+  ].filter((key): key is string => Boolean(key));
+
+  if (storageKeys.length > 0) {
+    const { error: removeError } = await supabase.storage
+      .from(CONTRACT_ARTIFACTS_BUCKET)
+      .remove(storageKeys);
+
+    if (removeError) {
+      console.error("계약 Storage 아티팩트 정리 실패", removeError);
+    }
   }
 
   revalidatePath("/contracts");
-  revalidatePath(`/contracts/${id}`);
+  revalidatePath("/dashboard");
+  revalidatePath("/invoices");
 
-  return { ok: true, id: data.id };
+  return { ok: true, id };
 }
