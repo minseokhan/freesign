@@ -196,7 +196,10 @@ export default async function InvoicesPage({
                   <th scope="col" className="px-xl py-md">
                     지급기한
                   </th>
-                  <th scope="col" className="px-xl py-md text-right">
+                  <th
+                    scope="col"
+                    className="whitespace-nowrap px-xl py-md text-right"
+                  >
                     상세
                   </th>
                 </tr>
@@ -241,7 +244,7 @@ export default async function InvoicesPage({
                       >
                         {formatDate(invoice.due_date)}
                       </td>
-                      <td className="px-xl py-lg text-right">
+                      <td className="whitespace-nowrap px-xl py-lg text-right">
                         <Link
                           href={`/invoices/${invoice.id}`}
                           className="text-sm font-medium text-brand-primary hover:text-brand-hover"

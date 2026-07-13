@@ -55,9 +55,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   const { data: signed, error: signedError } = await supabase.storage
     .from(CONTRACT_ARTIFACTS_BUCKET)
-    .createSignedUrl(contract.source_pdf_url, SIGNED_URL_TTL_SECONDS, {
-      download: `contract-source-${contract.id}.pdf`,
-    });
+    .createSignedUrl(contract.source_pdf_url, SIGNED_URL_TTL_SECONDS);
 
   if (signedError || !signed?.signedUrl) {
     return NextResponse.json(

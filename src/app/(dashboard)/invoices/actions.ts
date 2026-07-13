@@ -245,3 +245,34 @@ export async function setInvoicePayment(
 
   return { ok: true, id: data.id };
 }
+
+export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {
+  await requireUser();
+
+  if (!id.trim()) {
+    return { ok: false, error: "인보이스를 찾을 수 없습니다." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const owned = await assertOwned(supabase, "invoices", id);
+
+  if (!owned) {
+    return { ok: false, error: "인보이스를 찾을 수 없습니다." };
+  }
+
+  const { data, error } = await supabase
+    .from("invoices")
+    .update({ deleted_at: new Date().toISOString() } satisfies InvoiceUpdate)
+    .eq("id", id)
+    .select("id")
+    .single();
+
+  if (error) {
+    return dbError(error);
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${id}`);
+
+  return { ok: true, id: data.id };
+}

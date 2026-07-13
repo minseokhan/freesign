@@ -20,6 +20,8 @@ export interface ImportedContractExtract {
   amount: number | null;
   start_date: string | null;
   end_date: string | null;
+  // 계약 전체 평문요약. 상단에 1회만 노출한다(조항별 요약은 생략).
+  plain_summary: string | null;
   clauses: ContractClauseInput[];
   source: "ai" | "fallback";
 }
@@ -51,6 +53,8 @@ const importedContractSchema = z.object({
   amount: z.number().int().positive().nullable(),
   start_date: nullableTextSchema,
   end_date: nullableTextSchema,
+  // 빈 문자열도 허용해 파싱 실패를 막고, 정규화 단계에서 null로 접는다.
+  plain_summary: z.string().nullable(),
   clauses: z.array(importedClauseSchema),
 });
 
@@ -88,6 +92,7 @@ export async function extractContractFromPdf(
       if (parsed) {
         return {
           ...parsed,
+          plain_summary: parsed.plain_summary?.trim() || null,
           clauses: normalizeImportedClauses(parsed.clauses),
           source: "ai",
         };
@@ -111,6 +116,7 @@ function buildFallbackImportedContractExtract(): ImportedContractExtract {
     amount: null,
     start_date: null,
     end_date: null,
+    plain_summary: null,
     clauses: normalizeImportedClauses([]),
     source: "fallback",
   };
@@ -160,6 +166,7 @@ function buildClaudeRequest(base64Pdf: string) {
             amount: { type: ["number", "null"] },
             start_date: { type: ["string", "null"] },
             end_date: { type: ["string", "null"] },
+            plain_summary: { type: ["string", "null"] },
             clauses: {
               type: "array",
               items: {
@@ -181,6 +188,7 @@ function buildClaudeRequest(base64Pdf: string) {
             "amount",
             "start_date",
             "end_date",
+            "plain_summary",
             "clauses",
           ],
         },
@@ -204,11 +212,12 @@ function buildClaudeRequest(base64Pdf: string) {
             type: "text",
             text: JSON.stringify(
               {
-                task: "Extract title, scope, amount, start/end dates, and map clauses into the required FreeSign clause categories.",
+                task: "Extract title, scope, amount, start/end dates, a whole-contract plain_summary, and map clauses into the required FreeSign clause categories.",
                 required_clauses: REQUIRED_CONTRACT_CLAUSES,
                 rules: [
                   "Return null for any missing title, scope, amount, start_date, or end_date.",
                   "Return dates as YYYY-MM-DD only if the PDF provides enough information.",
+                  "Write plain_summary as 2-3 natural Korean sentences summarizing the whole contract for a freelancer; return null if the PDF has too little to summarize.",
                   "For each clause, use one of the required_clauses titles exactly.",
                   "Mark needs_review=true when the PDF text is ambiguous, missing, or needs human confirmation.",
                 ],

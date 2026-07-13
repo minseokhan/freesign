@@ -40,6 +40,7 @@ describe("extractContractFromPdf", () => {
       amount: 3_000_000,
       start_date: "2026-08-01",
       end_date: "2026-08-31",
+      plain_summary: "브랜드 리뉴얼과 랜딩 페이지 제작 계약입니다.",
       clauses: rawClauses,
     });
 
@@ -54,6 +55,7 @@ describe("extractContractFromPdf", () => {
       amount: 3_000_000,
       start_date: "2026-08-01",
       end_date: "2026-08-31",
+      plain_summary: "브랜드 리뉴얼과 랜딩 페이지 제작 계약입니다.",
       clauses: rawClauses,
       source: "ai",
     });
@@ -101,10 +103,37 @@ describe("extractContractFromPdf", () => {
     expect(extracted.title).toBeNull();
     expect(extracted.scope).toBeNull();
     expect(extracted.amount).toBeNull();
+    expect(extracted.plain_summary).toBeNull();
     expect(extracted.clauses).toHaveLength(REQUIRED_CONTRACT_CLAUSES.length);
     expect(extracted.clauses.every((clause) => clause.needs_review)).toBe(true);
     expect(() => contractClausesSchema.parse(extracted.clauses)).not.toThrow();
     expect(client.messages.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("coerces a blank contract-level plain_summary to null", async () => {
+    const rawClauses = REQUIRED_CONTRACT_CLAUSES.map((title) => ({
+      title,
+      body: `${title} 본문입니다.`,
+      plain_summary: `${title} 요약입니다.`,
+      needs_review: false,
+    }));
+    const client = createMockClient({
+      title: "요약 없는 계약서",
+      scope: "업무 범위",
+      amount: 1_000_000,
+      start_date: "2026-08-01",
+      end_date: "2026-08-31",
+      plain_summary: "   ",
+      clauses: rawClauses,
+    });
+
+    const extracted = await extractContractFromPdf("base64-pdf", {
+      client,
+      retryCount: 0,
+    });
+
+    expect(extracted.source).toBe("ai");
+    expect(extracted.plain_summary).toBeNull();
   });
 
   it("falls back without throwing when Claude returns invalid tool input", async () => {

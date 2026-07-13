@@ -63,29 +63,31 @@ export default async function ClientDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-xl">
-      <div className="flex flex-col gap-lg sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <Link
-            href="/clients"
-            className="text-sm font-medium text-text-muted hover:text-brand-primary"
-          >
-            클라이언트 목록
-          </Link>
-          <div className="mt-sm flex flex-wrap items-center gap-sm">
-            <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
-              {client.name}
-            </h2>
-            <ChannelBadge channel={client.channel} />
+      <div>
+        <Link
+          href="/clients"
+          className="text-sm font-medium text-text-muted hover:text-brand-primary"
+        >
+          클라이언트 목록
+        </Link>
+        <div className="mt-sm flex flex-col gap-lg sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-sm">
+              <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
+                {client.name}
+              </h2>
+              <ChannelBadge channel={client.channel} />
+            </div>
           </div>
-        </div>
-        <div className="flex flex-wrap items-start gap-sm">
-          <Link
-            href={`/clients/${client.id}/edit`}
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            수정
-          </Link>
-          <ClientDeleteButton clientId={client.id} />
+          <div className="flex shrink-0 flex-wrap items-start gap-sm">
+            <Link
+              href={`/clients/${client.id}/edit`}
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+            >
+              수정
+            </Link>
+            <ClientDeleteButton clientId={client.id} />
+          </div>
         </div>
       </div>
 

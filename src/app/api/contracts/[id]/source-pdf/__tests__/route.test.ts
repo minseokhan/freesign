@@ -79,10 +79,10 @@ describe("GET /api/contracts/[id]/source-pdf", () => {
 
     expect(assertOwned).toHaveBeenCalledWith(supabase, "contracts", "contract-1");
     expect(storage.from).toHaveBeenCalledWith("contract-artifacts");
+    // 원본 PDF도 브라우저에서 바로 열리도록 download 옵션 없이 inline으로 서명 URL을 만든다.
     expect(storage.createSignedUrl).toHaveBeenCalledWith(
       "user-123/contract-1/source.pdf",
       300,
-      expect.objectContaining({ download: expect.any(String) }),
     );
     expect(response.status).toBeGreaterThanOrEqual(300);
     expect(response.status).toBeLessThan(400);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 
+import { ContractDeleteButton } from "@/components/contract-delete-button";
 import { ContractStatusTransitionButton } from "@/components/contract-status-transition-button";
 import {
   ContractStatusBadge,
@@ -150,7 +151,7 @@ function PdfLink({ contractId }: { contractId: string }) {
       target="_blank"
       className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
     >
-      PDF
+      서식 PDF
     </Link>
   );
 }
@@ -261,35 +262,38 @@ export default async function ContractDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-xl">
-      <div className="flex flex-col gap-lg sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <Link
-            href="/contracts"
-            className="text-sm font-medium text-text-muted hover:text-brand-primary"
-          >
-            계약 목록
-          </Link>
-          <div className="mt-sm flex flex-wrap items-center gap-sm">
-            <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
-              {displayTitle(contract.title)}
-            </h2>
-            <ContractStatusBadge status={contract.status} />
+      <div>
+        <Link
+          href="/contracts"
+          className="text-sm font-medium text-text-muted hover:text-brand-primary"
+        >
+          계약 목록
+        </Link>
+        <div className="mt-sm flex flex-col gap-lg sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-sm">
+              <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
+                {displayTitle(contract.title)}
+              </h2>
+              <ContractStatusBadge status={contract.status} />
+            </div>
+            <p className="mt-sm text-sm leading-relaxed text-text-muted">
+              {contract.client?.name ?? "클라이언트 없음"}
+            </p>
           </div>
-          <p className="mt-sm text-sm leading-relaxed text-text-muted">
-            {contract.client?.name ?? "클라이언트 없음"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-start gap-sm">
-          {contract.status === "draft" ? (
-            <Link
-              href={`/contracts/${contract.id}/edit`}
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-            >
-              조항 편집
-            </Link>
-          ) : null}
-          {isImported ? <SourcePdfLink contractId={contract.id} /> : null}
-          <PdfLink contractId={contract.id} />
+          <div className="flex shrink-0 flex-wrap items-start gap-sm">
+            {contract.status === "draft" ? (
+              <Link
+                href={`/contracts/${contract.id}/edit`}
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+              >
+                조항 편집
+              </Link>
+            ) : null}
+            {isImported ? <SourcePdfLink contractId={contract.id} /> : null}
+            <PdfLink contractId={contract.id} />
+            <ContractDeleteButton contractId={contract.id} />
+          </div>
         </div>
       </div>
 
@@ -393,27 +397,16 @@ export default async function ContractDetailPage({
         )}
       </Card>
 
+      {isImported ? null : (
       <Card>
         <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">
-            {isImported ? "원본 계약서" : "서명"}
-          </h3>
+          <h3 className="text-lg font-semibold text-text-primary">서명</h3>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            {isImported
-              ? "발주처가 보낸 원본 계약서로 성사된 계약입니다. 원본 PDF를 증빙으로 보관하고, 문서 해시는 원본 PDF에서 산출합니다."
-              : "v1 간이 서명은 private Storage에 저장하고, 문서 해시는 Provider로 산출합니다."}
+            v1 간이 서명은 private Storage에 저장하고, 문서 해시는 Provider로
+            산출합니다.
           </p>
         </div>
-        {isImported ? (
-          <div className="mt-xl space-y-lg">
-            <SourcePdfLink contractId={contract.id} />
-            <div className="rounded-md border border-surface-border bg-surface-muted px-md py-sm text-xs leading-relaxed text-text-muted">
-              이미 성사된 계약이므로 별도 서명 단계 없이 저장 시 성사로
-              기록됩니다. 무결성 확인을 위한 문서 해시는 위 기본 정보에서
-              확인할 수 있습니다.
-            </div>
-          </div>
-        ) : contract.status === "draft" ? (
+        {contract.status === "draft" ? (
           <div className="mt-xl">
             <SignaturePad contractId={contract.id} />
           </div>
@@ -448,6 +441,7 @@ export default async function ContractDetailPage({
           </p>
         )}
       </Card>
+      )}
 
       <Card>
         <div className="border-b border-surface-border pb-lg">
@@ -528,11 +522,13 @@ export default async function ContractDetailPage({
                 />
                 <div className="flex flex-col gap-xs sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-sm font-medium text-text-primary">
-                    {event.from_status
-                      ? `${statusLabel(event.from_status)} → ${statusLabel(
-                          event.to_status,
-                        )}`
-                      : statusLabel(event.to_status)}
+                    {event.event_type === "contract.imported"
+                      ? "계약 등록"
+                      : event.from_status
+                        ? `${statusLabel(event.from_status)} → ${statusLabel(
+                            event.to_status,
+                          )}`
+                        : statusLabel(event.to_status)}
                   </p>
                   <time className="text-xs text-text-muted">
                     {formatDate(event.created_at)}

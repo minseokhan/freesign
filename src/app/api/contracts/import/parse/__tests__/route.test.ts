@@ -26,6 +26,7 @@ const extracted = {
   amount: 3_000_000,
   start_date: "2026-08-01",
   end_date: "2026-08-31",
+  plain_summary: "브랜드 리뉴얼 계약입니다.",
   clauses: [],
   source: "ai" as const,
 };

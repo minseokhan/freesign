@@ -73,6 +73,13 @@ export const contractImportInputSchema = z
     amount: z.coerce.number().int().positive(),
     start_date: dateSchema,
     end_date: dateSchema,
+    // 계약 전체 평문요약(선택). 상단에 1회 노출한다. 빈 값은 null로 접는다.
+    plain_summary: z
+      .string()
+      .trim()
+      .optional()
+      .nullable()
+      .transform((value) => value || null),
     clauses: contractClausesSchema,
   })
   .refine((value) => value.end_date >= value.start_date, {

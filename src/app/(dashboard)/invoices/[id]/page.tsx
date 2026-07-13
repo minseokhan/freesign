@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { InvoiceDeleteButton } from "@/components/invoice-delete-button";
 import { InvoicePaymentToggle } from "@/components/invoice-payment-toggle";
 import {
   getPaymentStatusMeta,
@@ -197,39 +198,42 @@ export default async function InvoiceDetailPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-xl">
-      <div className="flex flex-col gap-lg sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <Link
-            href="/invoices"
-            className="text-sm font-medium text-text-muted hover:text-brand-primary"
-          >
-            인보이스 목록
-          </Link>
-          <div className="mt-sm flex flex-wrap items-center gap-sm">
-            <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
-              {invoice.contract?.title ?? "계약 없음"}
-            </h2>
-            <PaymentStatusBadge
-              status={invoice.payment_status}
-              overdue={overdue}
-            />
+      <div>
+        <Link
+          href="/invoices"
+          className="text-sm font-medium text-text-muted hover:text-brand-primary"
+        >
+          인보이스 목록
+        </Link>
+        <div className="mt-sm flex flex-col gap-lg sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-sm">
+              <h2 className="break-words text-2xl font-semibold tracking-tight text-text-primary">
+                {invoice.contract?.title ?? "계약 없음"}
+              </h2>
+              <PaymentStatusBadge
+                status={invoice.payment_status}
+                overdue={overdue}
+              />
+            </div>
+            <p className="mt-sm text-sm leading-relaxed text-text-muted">
+              {invoice.client?.name ?? "클라이언트 없음"}
+            </p>
           </div>
-          <p className="mt-sm text-sm leading-relaxed text-text-muted">
-            {invoice.client?.name ?? "클라이언트 없음"}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-start gap-sm">
-          <InvoicePaymentToggle
-            invoiceId={invoice.id}
-            status={invoice.payment_status}
-          />
-          <Link
-            href={`/api/invoices/${invoice.id}/pdf`}
-            target="_blank"
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            PDF
-          </Link>
+          <div className="flex shrink-0 flex-wrap items-start gap-sm">
+            <InvoicePaymentToggle
+              invoiceId={invoice.id}
+              status={invoice.payment_status}
+            />
+            <Link
+              href={`/api/invoices/${invoice.id}/pdf`}
+              target="_blank"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+            >
+              PDF
+            </Link>
+            <InvoiceDeleteButton invoiceId={invoice.id} />
+          </div>
         </div>
       </div>
 

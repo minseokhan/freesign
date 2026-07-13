@@ -5,7 +5,7 @@ import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { createInvoice, setInvoicePayment } from "../actions";
+import { createInvoice, deleteInvoice, setInvoicePayment } from "../actions";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -404,5 +404,42 @@ describe("invoice server actions", () => {
     expect(updateTable.update).not.toHaveBeenCalled();
     expect(eventInsertTable.insert).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalledWith("/invoices/invoice-1");
+  });
+
+  it("soft-deletes an invoice with deleted_at update after ownership check", async () => {
+    const updateTable = createUpdateTableMock();
+    const supabase = {
+      from: vi.fn().mockReturnValue(updateTable),
+    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>;
+    vi.mocked(createSupabaseClient).mockResolvedValue(supabase);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T09:00:00.000Z"));
+
+    const result = await deleteInvoice("invoice-1");
+
+    expect(result).toEqual({ ok: true, id: "invoice-1" });
+    expect(assertOwned).toHaveBeenCalledWith(supabase, "invoices", "invoice-1");
+    expect(updateTable.update).toHaveBeenCalledWith({
+      deleted_at: "2026-07-14T09:00:00.000Z",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/invoices");
+    expect(revalidatePath).toHaveBeenCalledWith("/invoices/invoice-1");
+
+    vi.useRealTimers();
+  });
+
+  it("rejects invoice deletion when ownership check fails", async () => {
+    const updateTable = createUpdateTableMock();
+    const supabase = {
+      from: vi.fn().mockReturnValue(updateTable),
+    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>;
+    vi.mocked(createSupabaseClient).mockResolvedValue(supabase);
+    vi.mocked(assertOwned).mockResolvedValueOnce(false);
+
+    const result = await deleteInvoice("invoice-1");
+
+    expect(result).toEqual({ ok: false, error: "인보이스를 찾을 수 없습니다." });
+    expect(updateTable.update).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

@@ -46,6 +46,7 @@ function buildFallbackExtract(): ImportedContractExtract {
     amount: null,
     start_date: null,
     end_date: null,
+    plain_summary: null,
     clauses: REQUIRED_CONTRACT_CLAUSES.map((title) => ({
       title,
       body: "[검토 필요]",
@@ -108,6 +109,7 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
   const [amount, setAmount] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [plainSummary, setPlainSummary] = useState("");
   const [clauses, setClauses] = useState<ContractClauseInput[]>(
     buildFallbackExtract().clauses,
   );
@@ -124,6 +126,7 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
     setAmount(nextExtract.amount ? String(nextExtract.amount) : "");
     setStartDate(nextExtract.start_date ?? "");
     setEndDate(nextExtract.end_date ?? "");
+    setPlainSummary(nextExtract.plain_summary ?? "");
     setClauses(
       nextExtract.clauses.length > 0
         ? nextExtract.clauses
@@ -219,6 +222,7 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
           amount: Number(amount),
           start_date: startDate,
           end_date: endDate,
+          plain_summary: plainSummary,
           clauses,
         }),
       );
@@ -443,6 +447,23 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
               />
             </div>
 
+            <div className="grid gap-sm">
+              <label
+                htmlFor="import-plain-summary"
+                className="text-sm font-medium text-text-body"
+              >
+                평문요약
+              </label>
+              <textarea
+                id="import-plain-summary"
+                rows={3}
+                value={plainSummary}
+                onChange={(event) => setPlainSummary(event.target.value)}
+                placeholder="계약 전체를 2~3문장으로 요약합니다. 비워 두면 표시하지 않습니다."
+                className="rounded-sm border border-slate-300 bg-white px-md py-sm text-sm leading-relaxed text-text-primary focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30"
+              />
+            </div>
+
             <Input
               label="계약 금액"
               type="number"
@@ -524,26 +545,6 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
                         value={clause.body}
                         onChange={(event) =>
                           updateClause(index, { body: event.target.value })
-                        }
-                        className="rounded-sm border border-slate-300 bg-white px-md py-sm text-sm leading-relaxed text-text-primary focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30"
-                      />
-                    </div>
-
-                    <div className="grid gap-sm">
-                      <label
-                        htmlFor={`import-clause-summary-${index}`}
-                        className="text-sm font-medium text-text-body"
-                      >
-                        {clause.title} 평문요약
-                      </label>
-                      <textarea
-                        id={`import-clause-summary-${index}`}
-                        rows={3}
-                        value={clause.plain_summary}
-                        onChange={(event) =>
-                          updateClause(index, {
-                            plain_summary: event.target.value,
-                          })
                         }
                         className="rounded-sm border border-slate-300 bg-white px-md py-sm text-sm leading-relaxed text-text-primary focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30"
                       />

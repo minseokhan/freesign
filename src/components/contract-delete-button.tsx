@@ -3,11 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { deleteClient } from "@/app/(dashboard)/clients/actions";
+import { deleteContract } from "@/app/(dashboard)/contracts/actions";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
-export function ClientDeleteButton({ clientId }: { clientId: string }) {
+export function ContractDeleteButton({ contractId }: { contractId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,21 +25,21 @@ export function ClientDeleteButton({ clientId }: { clientId: string }) {
       </Button>
       <ConfirmDialog
         open={open}
-        title="클라이언트를 삭제할까요?"
-        description="계약과 인보이스 기록은 보존됩니다."
+        title="계약을 삭제할까요?"
+        description="목록에서 사라지며, 발행한 인보이스 기록은 보존됩니다."
         isPending={isPending}
         error={error}
         onConfirm={() => {
           setError(null);
           startTransition(async () => {
-            const result = await deleteClient(clientId);
+            const result = await deleteContract(contractId);
 
             if (!result.ok) {
               setError(result.error);
               return;
             }
 
-            router.push("/clients");
+            router.push("/contracts");
             router.refresh();
           });
         }}

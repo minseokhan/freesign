@@ -10,6 +10,7 @@ import { createV1SignatureProvider } from "@/services/signature/provider";
 import {
   createContractDraft,
   createImportedContract,
+  deleteContract,
   transitionContractStatus,
   updateContractClauses,
 } from "../actions";
@@ -601,6 +602,7 @@ describe("contract draft server actions", () => {
         end_date: validInput.end_date,
         status: "signed",
         clauses: validClauses,
+        plain_summary: null,
         doc_hash: expectedDocHash,
       });
       expect(payload).not.toHaveProperty("source_pdf_url");
@@ -723,6 +725,43 @@ describe("contract draft server actions", () => {
     expect(assertOwned).not.toHaveBeenCalled();
     expect(insertTable.insert).not.toHaveBeenCalled();
     expect(storageFrom).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("soft-deletes a contract with deleted_at update after ownership check", async () => {
+    const updateTable = createUpdateTableMock();
+    const supabase = {
+      from: vi.fn().mockReturnValue(updateTable),
+    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>;
+    vi.mocked(createSupabaseClient).mockResolvedValue(supabase);
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-14T09:00:00.000Z"));
+
+    const result = await deleteContract("contract-1");
+
+    expect(result).toEqual({ ok: true, id: "contract-1" });
+    expect(assertOwned).toHaveBeenCalledWith(supabase, "contracts", "contract-1");
+    expect(updateTable.update).toHaveBeenCalledWith({
+      deleted_at: "2026-07-14T09:00:00.000Z",
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts");
+    expect(revalidatePath).toHaveBeenCalledWith("/contracts/contract-1");
+
+    vi.useRealTimers();
+  });
+
+  it("rejects contract deletion when ownership check fails", async () => {
+    const updateTable = createUpdateTableMock();
+    const supabase = {
+      from: vi.fn().mockReturnValue(updateTable),
+    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>;
+    vi.mocked(createSupabaseClient).mockResolvedValue(supabase);
+    vi.mocked(assertOwned).mockResolvedValueOnce(false);
+
+    const result = await deleteContract("contract-1");
+
+    expect(result).toEqual({ ok: false, error: "계약을 찾을 수 없습니다." });
+    expect(updateTable.update).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

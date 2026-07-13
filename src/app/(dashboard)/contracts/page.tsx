@@ -201,7 +201,10 @@ export default async function ContractsPage({
                   <th scope="col" className="px-xl py-md">
                     기간
                   </th>
-                  <th scope="col" className="px-xl py-md text-right">
+                  <th
+                    scope="col"
+                    className="whitespace-nowrap px-xl py-md text-right"
+                  >
                     상세
                   </th>
                 </tr>
@@ -229,10 +232,10 @@ export default async function ContractsPage({
                     <td className="px-xl py-lg">
                       <ContractStatusBadge status={contract.status} />
                     </td>
-                    <td className="px-xl py-lg text-text-body">
+                    <td className="whitespace-nowrap px-xl py-lg text-text-body">
                       {formatPeriod(contract.start_date, contract.end_date)}
                     </td>
-                    <td className="px-xl py-lg text-right">
+                    <td className="whitespace-nowrap px-xl py-lg text-right">
                       <Link
                         href={`/contracts/${contract.id}`}
                         className="text-sm font-medium text-brand-primary hover:text-brand-hover"

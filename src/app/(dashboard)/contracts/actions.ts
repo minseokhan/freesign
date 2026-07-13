@@ -278,6 +278,8 @@ export async function createImportedContract(
     // 불러오기 계약은 별도 서명 단계 없이 저장 즉시 성사(signed)로 안착한다.
     status: "signed",
     clauses: parsed.clauses as Json,
+    // 계약 전체 평문요약은 조항별 복제 대신 계약 레벨에 1회만 저장한다.
+    plain_summary: parsed.plain_summary,
     doc_hash: docHash,
   } satisfies ContractInsert;
 
@@ -480,6 +482,37 @@ export async function transitionContractStatus(
   } satisfies ContractEventInsert;
 
   await supabase.from("contract_events").insert(eventPayload);
+
+  revalidatePath("/contracts");
+  revalidatePath(`/contracts/${id}`);
+
+  return { ok: true, id: data.id };
+}
+
+export async function deleteContract(id: string): Promise<ContractActionResult> {
+  await requireUser();
+
+  if (!id.trim()) {
+    return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const owned = await assertOwned(supabase, "contracts", id);
+
+  if (!owned) {
+    return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  const { data, error } = await supabase
+    .from("contracts")
+    .update({ deleted_at: new Date().toISOString() } satisfies ContractUpdate)
+    .eq("id", id)
+    .select("id")
+    .single();
+
+  if (error) {
+    return dbError(error);
+  }
 
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${id}`);
