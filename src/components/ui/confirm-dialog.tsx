@@ -78,9 +78,14 @@ export function ConfirmDialog({
           {title}
         </h2>
         {description ? (
-          <p className="mt-sm text-sm leading-relaxed text-text-muted">
-            {description}
-          </p>
+          <div className="mt-sm space-y-xs text-sm leading-relaxed text-text-muted">
+            {description
+              .split(/(?<=\.)\s+/)
+              .filter((sentence) => sentence.length > 0)
+              .map((sentence, index) => (
+                <p key={index}>{sentence}</p>
+              ))}
+          </div>
         ) : null}
         {error ? <p className="mt-sm text-sm text-red-600">{error}</p> : null}
         <div className="mt-xl flex justify-end gap-sm">
