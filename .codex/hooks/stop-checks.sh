@@ -17,11 +17,48 @@ if [ ! -f package.json ]; then
   exit 0
 fi
 
-if OUTPUT=$(npm run lint 2>&1 && npm run build 2>&1 && npm run test 2>&1); then
+run_check() {
+  local NAME="$1"
+  shift
+  local OUT
+
+  if OUT=$("$@" 2>&1); then
+    CHECK_LOG="${CHECK_LOG}
+## ${NAME}: 통과
+${OUT}"
+    return 0
+  fi
+
+  FAILED_STAGE="$NAME"
+  FAILED_OUTPUT="$OUT"
+  return 1
+}
+
+CHECK_LOG=""
+FAILED_STAGE=""
+FAILED_OUTPUT=""
+
+if run_check "lint" npm run lint &&
+   run_check "build" npm run build &&
+   run_check "test" npm run test; then
   echo '{}'
   exit 0
 fi
 
-jq -cn --arg r "품질 검사(lint/build/test) 실패. 아래 오류를 수정한 뒤 계속하라:
-$OUTPUT" '{decision: "block", reason: $r}'
+HINT=""
+if echo "$FAILED_OUTPUT" | grep -qE 'listen EPERM: operation not permitted 127\.0\.0\.1'; then
+  HINT="
+
+분류: 샌드박스 로컬 리스닝 권한 문제
+조치: 코드 실패가 아닐 수 있습니다. 필요한 경우 샌드박스 밖에서 테스트를 재실행하세요."
+fi
+
+jq -cn --arg r "품질 검사(lint/build/test) 실패.
+실패 단계: ${FAILED_STAGE}${HINT}
+
+통과한 단계:
+${CHECK_LOG}
+
+실패 출력:
+${FAILED_OUTPUT}" '{decision: "block", reason: $r}'
 exit 0

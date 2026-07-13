@@ -379,6 +379,30 @@ class TestCheckoutBranch:
 
 
 # ---------------------------------------------------------------------------
+# _check_clean_tree
+# ---------------------------------------------------------------------------
+
+class TestCheckCleanTree:
+    def test_reports_unrelated_dirty_files_as_protected_excluded(self, executor, capsys):
+        executor._run_git = lambda *args: MagicMock(
+            returncode=0,
+            stdout=" M .mcp.json\n M phases/0-mvp/index.json\n?? notes.txt\n",
+            stderr="",
+        )
+
+        with pytest.raises(SystemExit) as exc_info:
+            executor._check_clean_tree()
+
+        captured = capsys.readouterr()
+        assert exc_info.value.code == 1
+        assert "보호 대상" in captured.out
+        assert "step 커밋에서 제외" in captured.out
+        assert ".mcp.json" in captured.out
+        assert "notes.txt" in captured.out
+        assert "phases/0-mvp/index.json" not in captured.out
+
+
+# ---------------------------------------------------------------------------
 # _commit_step (mocked)
 # ---------------------------------------------------------------------------
 

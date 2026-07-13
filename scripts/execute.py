@@ -171,6 +171,7 @@ class StepExecutor:
             return
 
         print("\n  ⚠ 워킹트리에 phase 와 무관한 미커밋 변경이 있습니다:")
+        print("  보호 대상: 아래 파일은 현재 step 커밋에서 제외되어야 합니다.")
         for line in unrelated[:20]:
             print(f"    {line}")
         if len(unrelated) > 20:
@@ -180,7 +181,7 @@ class StepExecutor:
             print("  --allow-dirty 지정됨: 위 변경들도 step 커밋에 포함될 수 있습니다.")
             return
 
-        print("  이 변경들은 step 커밋에 섞여 들어갑니다. commit 또는 stash 후 다시 실행하세요.")
+        print("  작업 대상 제외됨: commit 또는 stash 후 다시 실행하세요.")
         print("  (의도적으로 함께 커밋하려면 --allow-dirty)")
         sys.exit(1)
 
