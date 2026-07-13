@@ -164,7 +164,16 @@ export function InvoiceForm({
             type="text"
             inputMode="numeric"
             error={errors.amount?.message}
-            {...register("amount")}
+            {...register("amount", {
+              // 표시값은 "5,000,000"처럼 콤마가 포함되므로, RHF가 blur·submit 시 DOM
+              // 값을 읽어들일 때 콤마를 제거해 숫자로 정규화한다. 없으면 z.coerce.number가
+              // "5,000,000"을 NaN으로 보고 "Invalid input"으로 거부한다.
+              setValueAs: (value) => {
+                const digits = String(value ?? "").replace(/[^\d]/g, "");
+
+                return digits === "" ? "" : Number(digits);
+              },
+            })}
             value={formatAmountInput(amount)}
             onChange={(event) => {
               const digits = event.target.value.replace(/[^\d]/g, "");
