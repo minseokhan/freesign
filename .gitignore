@@ -22,3 +22,6 @@ phases/**/step*-output.json
 playwright-report/
 test-results/
 e2e/.auth/
+
+# Vercel
+.vercel

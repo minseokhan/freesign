@@ -17,7 +17,7 @@
 - CRITICAL: **모든 사용자 데이터는 RLS `USING` + `WITH CHECK (user_id = (select auth.uid()))` 둘 다** 스코프. Server Action은 **client 입력 전용 zod allowlist**(도메인 필드만)만 받고, `user_id`는 항상 `getUser()`에서, 서버 소유 필드(`status`·`paid_at`·`doc_hash`·`signature_meta`·`is_demo`·금액 스냅샷·pdf 경로)는 client 입력 금지. **FK 참조**(invoice→contract/client)는 Server Action에서 소유권 재조회 검증 후 insert(FK는 RLS 우회).
 - CRITICAL: 전자서명·결제는 `services/`의 **v1 전용 Provider 인터페이스** 뒤로만 접근. AI 계약서 결과는 항상 "초안"으로 취급·면책 노출, AI는 필수 게이트가 아닌 보강(실패 시 골격 폴백).
 - 상태 전이(계약 status·인보이스 결제)는 **append-only 이벤트 로그에 함께 기록**(도메인 UPDATE 후 이벤트 INSERT, 순차). status 변경을 쓰기 순서 앞쪽에 두지 말 것(부분 실패 시 미완 방지).
-- `deleted_at IS NULL` 필터는 RLS가 아니라 **공용 쿼리 헬퍼**에서(복원·감사·CSV 보존). Storage는 private 버킷 + `{user_id}/...` 경로, DB엔 key만 저장·읽기는 단기 signed URL.
+- `deleted_at IS NULL` 필터는 RLS가 아니라 **공용 쿼리 헬퍼**에서(복원·감사·CSV 보존). **단 계약(contracts)은 예외로 물리 삭제**(ADR-008, 마이그레이션 0013): 삭제 시 딸린 인보이스는 `contract_id`를 `SET NULL`로 끊고 `invoices.contract_snapshot`(jsonb, 서버 소유 필드)에 삭제 시점 계약 요약(`title`·`amount`·`start_date`·`end_date`)을 남겨 추적한다. 인보이스·클라이언트는 soft-delete 유지. Storage는 private 버킷 + `{user_id}/...` 경로, DB엔 key만 저장·읽기는 단기 signed URL.
 - 서버 인가는 `getUser()`(`getSession()` 아님). middleware는 토큰 갱신 전용(보안 경계 아님).
 - 컴포넌트는 `components/`, 타입은 `types/`, 순수 함수는 `lib/`(집계는 SQL, 변환만 JS)에 분리.
 - 그 밖의 보안·데이터 접근·상태 전이 규칙은 `docs/ARCHITECTURE.md`(데이터 모델 규칙·데이터 흐름·패턴)·`docs/ADR.md` 참조.
