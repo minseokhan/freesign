@@ -25,3 +25,7 @@ e2e/.auth/
 
 # Vercel
 .vercel
+
+# lighthouse-loop 실행 산출물 (생성물 — 도구만 추적)
+scripts/lighthouse-loop/reports/
+scripts/lighthouse-loop/journal.jsonl
