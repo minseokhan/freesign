@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { profileInputSchema, type ProfileInput } from "@/lib/validation/profile";
@@ -25,13 +26,6 @@ function validationError(error: z.ZodError): ProfileActionResult {
     ok: false,
     error: "입력값을 확인해 주세요.",
     fieldErrors: flattened.fieldErrors,
-  };
-}
-
-function dbError(error: { message?: string }): ProfileActionResult {
-  return {
-    ok: false,
-    error: error.message ?? "요청을 처리하지 못했습니다.",
   };
 }
 

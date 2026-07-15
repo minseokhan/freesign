@@ -2,6 +2,7 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { extractContractFromPdf } from "@/services/ai/contract-import";
 
 export const runtime = "nodejs";
@@ -11,6 +12,14 @@ const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024;
 
 export async function POST(request: Request) {
   await requireUser();
+
+  const limit = await checkRateLimit(RATE_LIMITS.aiPdfParse);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+    );
+  }
 
   try {
     const formData = await request.formData();

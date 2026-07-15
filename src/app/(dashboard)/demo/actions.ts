@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { calcWithholding } from "@/lib/tax";
@@ -36,13 +37,6 @@ const demoClauses = [
     needs_review: true,
   },
 ] satisfies Json[];
-
-function dbError(error: { message?: string } | null | undefined): ActionResult {
-  return {
-    ok: false,
-    error: error?.message ?? "요청을 처리하지 못했습니다.",
-  };
-}
 
 function revalidateDemoPaths() {
   revalidatePath("/dashboard");

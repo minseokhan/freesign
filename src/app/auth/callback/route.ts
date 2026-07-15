@@ -1,18 +1,7 @@
 import { NextResponse } from "next/server";
 
+import { getSafeRedirectPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
-
-function isSafeInternalPath(path: string | null): path is string {
-  return Boolean(path?.startsWith("/") && !path.startsWith("//"));
-}
-
-function getRedirectPath(path: string | null) {
-  if (isSafeInternalPath(path)) {
-    return path;
-  }
-
-  return "/dashboard";
-}
 
 function redirectToLogin(requestUrl: URL) {
   const loginUrl = new URL("/login", requestUrl.origin);
@@ -40,7 +29,10 @@ export async function GET(request: Request) {
     return redirectToLogin(requestUrl);
   }
 
-  const redirectPath = getRedirectPath(requestUrl.searchParams.get("next"));
+  const redirectPath = getSafeRedirectPath(
+    requestUrl.searchParams.get("next"),
+    requestUrl.origin,
+  );
 
   return NextResponse.redirect(new URL(redirectPath, requestUrl.origin));
 }

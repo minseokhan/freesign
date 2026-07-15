@@ -327,11 +327,36 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_events: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: number
+          user_id: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: never
+          user_id: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: never
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      consume_rate_limit: {
+        Args: { p_bucket: string; p_max: number; p_window_seconds: number }
+        Returns: Json
+      }
       import_signed_contract_with_event: {
         Args: {
           p_actor: string

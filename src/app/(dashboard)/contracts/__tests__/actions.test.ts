@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { GENERIC_ACTION_ERROR } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -652,7 +653,7 @@ describe("contract draft server actions", () => {
       ),
     );
 
-    expect(result).toEqual({ ok: false, error: "storage unavailable" });
+    expect(result).toEqual({ ok: false, error: GENERIC_ACTION_ERROR });
     expect(rpc).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
   });

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import {
   CONTRACT_STATUSES,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/contract-status";
 import { toContractClauses } from "@/lib/contracts/draft";
 import { assertOwned } from "@/lib/db";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
   contractClausesInputSchema,
@@ -49,13 +51,6 @@ function validationError(error: z.ZodError): ContractActionResult {
     ok: false,
     error: "입력값을 확인해 주세요.",
     fieldErrors: error.flatten().fieldErrors,
-  };
-}
-
-function dbError(error: { message?: string }): ContractActionResult {
-  return {
-    ok: false,
-    error: error.message ?? "요청을 처리하지 못했습니다.",
   };
 }
 
@@ -122,6 +117,12 @@ export async function createContractDraft(
   input: unknown,
 ): Promise<ContractActionResult> {
   const user = await requireUser();
+
+  const limit = await checkRateLimit(RATE_LIMITS.aiDraft);
+  if (!limit.allowed) {
+    return { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." };
+  }
+
   const parsed = parseContractInput(input);
 
   if ("ok" in parsed) {

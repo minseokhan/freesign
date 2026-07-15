@@ -1,6 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { GENERIC_ACTION_ERROR } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
@@ -115,7 +116,7 @@ describe("profile server actions", () => {
       default_withholding_type: "none",
     });
 
-    expect(result).toEqual({ ok: false, error: "upsert failed" });
+    expect(result).toEqual({ ok: false, error: GENERIC_ACTION_ERROR });
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 });

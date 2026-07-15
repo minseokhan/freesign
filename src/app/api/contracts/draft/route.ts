@@ -2,12 +2,22 @@ import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
 import { toContractDraftPreview } from "@/lib/contracts/draft";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { contractDraftInputSchema } from "@/lib/validation/contract";
 import { generateContractDraft } from "@/services/ai/contract-draft";
 
 export async function POST(request: Request) {
   const user = await requireUser();
+
+  const limit = await checkRateLimit(RATE_LIMITS.aiDraft);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { ok: false, error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = contractDraftInputSchema.safeParse(body);
 
