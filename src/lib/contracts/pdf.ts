@@ -17,6 +17,13 @@ export type ContractPdfSignature = {
   ua: string;
 };
 
+// 맞서명(v2) 상대방 서명 슬롯 — 이미지는 DB 저장 base64 data URI(ADR-009 예외).
+export type ContractPdfCounterpartySignature = {
+  imageDataUri: string | null;
+  name: string;
+  signedAtLabel: string;
+};
+
 export type ContractPdfModel = {
   title: string;
   clientName: string;
@@ -30,6 +37,8 @@ export type ContractPdfModel = {
   docHash: string;
   signature: ContractPdfSignature | null;
   signatureImageDataUri: string | null;
+  // 상대방 서명이 있으면 owner 서명 아래에 함께 표기한다(없으면 기존 단독 레이아웃 불변).
+  counterpartySignature?: ContractPdfCounterpartySignature | null;
   disclaimer: string;
 };
 
@@ -50,12 +59,14 @@ type MapContractPdfPropsInput = {
   contract: ContractPdfRow;
   clientName: string | null;
   signatureImageDataUri: string | null;
+  counterpartySignature?: ContractPdfCounterpartySignature | null;
 };
 
 export function mapContractPdfProps({
   contract,
   clientName,
   signatureImageDataUri,
+  counterpartySignature = null,
 }: MapContractPdfPropsInput): ContractPdfModel {
   return {
     title: contract.title,
@@ -71,6 +82,7 @@ export function mapContractPdfProps({
     docHash: contract.doc_hash ?? "서명 전 문서 해시 없음",
     signature: normalizeSignature(contract.signature_meta),
     signatureImageDataUri,
+    counterpartySignature,
     disclaimer: CONTRACT_PDF_DISCLAIMER,
   };
 }

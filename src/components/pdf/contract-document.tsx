@@ -280,6 +280,24 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
               <Text style={styles.signatureMeta}>서명 메타데이터 없음</Text>
             )}
           </View>
+          {/* 맞서명(v2) 상대방 서명 — 없으면 기존 owner 단독 레이아웃 그대로. */}
+          {document.counterpartySignature ? (
+            <View style={styles.signatureBox}>
+              {document.counterpartySignature.imageDataUri ? (
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image does not support DOM alt props.
+                <Image
+                  src={document.counterpartySignature.imageDataUri}
+                  style={styles.signatureImage}
+                />
+              ) : (
+                <Text>저장된 상대방 서명 이미지가 없습니다.</Text>
+              )}
+              <Text style={styles.signatureMeta}>
+                상대방 서명자: {document.counterpartySignature.name}
+                {"\n"}서명 시각: {document.counterpartySignature.signedAtLabel}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <Text

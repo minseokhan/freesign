@@ -1,7 +1,7 @@
 import { revalidatePath } from "next/cache";
-import { renderToBuffer } from "@react-pdf/renderer";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { renderContractPdf } from "@/lib/contracts/render-pdf";
 import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
@@ -12,12 +12,8 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-vi.mock("@react-pdf/renderer", () => ({
-  renderToBuffer: vi.fn(),
-}));
-
-vi.mock("@/components/pdf/contract-document", () => ({
-  ContractDocument: vi.fn(() => null),
+vi.mock("@/lib/contracts/render-pdf", () => ({
+  renderContractPdf: vi.fn(),
 }));
 
 vi.mock("@/lib/auth", () => ({
@@ -105,7 +101,7 @@ describe("GET /api/contracts/[id]/pdf", () => {
       user as Awaited<ReturnType<typeof requireUser>>,
     );
     vi.mocked(assertOwned).mockResolvedValue(true);
-    vi.mocked(renderToBuffer).mockResolvedValue(Buffer.from("%PDF-1.7"));
+    vi.mocked(renderContractPdf).mockResolvedValue(Buffer.from("%PDF-1.7"));
   });
 
   it("runs in node with a longer PDF render duration", () => {
@@ -151,7 +147,7 @@ describe("GET /api/contracts/[id]/pdf", () => {
     expect(storage.download).toHaveBeenCalledWith(
       "user-123/contract-1/signature.png",
     );
-    expect(renderToBuffer).toHaveBeenCalled();
+    expect(renderContractPdf).toHaveBeenCalled();
     expect(storage.upload).toHaveBeenCalledWith(
       "user-123/contract-1/contract.pdf",
       Buffer.from("%PDF-1.7"),
@@ -183,6 +179,6 @@ describe("GET /api/contracts/[id]/pdf", () => {
     });
 
     expect(response.status).toBe(404);
-    expect(renderToBuffer).not.toHaveBeenCalled();
+    expect(renderContractPdf).not.toHaveBeenCalled();
   });
 });

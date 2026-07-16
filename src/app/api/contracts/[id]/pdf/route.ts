@@ -1,11 +1,9 @@
-import { createElement } from "react";
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
 
-import { ContractDocument } from "@/components/pdf/contract-document";
 import { requireUser } from "@/lib/auth";
 import { mapContractPdfProps } from "@/lib/contracts/pdf";
+import { renderContractPdf } from "@/lib/contracts/render-pdf";
 import { assertOwned, notDeleted } from "@/lib/db";
 import {
   captureServerException,
@@ -87,10 +85,7 @@ export async function GET(_request: Request, context: RouteContext) {
     clientName: contract.client?.name ?? null,
     signatureImageDataUri,
   });
-  const pdfElement = createElement(ContractDocument, {
-    document,
-  }) as Parameters<typeof renderToBuffer>[0];
-  const pdfBuffer = await renderToBuffer(pdfElement);
+  const pdfBuffer = await renderContractPdf(document);
   const contractPdfKey = `${user.id}/${contract.id}/contract.pdf`;
 
   const { error: uploadError } = await supabase.storage
