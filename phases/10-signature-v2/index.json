@@ -64,7 +64,7 @@
       "status": "completed",
       "started_at": "2026-07-17T07:36:35+0900",
       "summary": "완결증명서 PDF — lib/contracts/certificate.ts 순수 매핑(buildCertificateProps: counterparty 없으면 null, owner 우선 정렬·이벤트 시각순·consent/meta 방어 파싱·TSA sha256 지문, owner IP/UA는 contracts.signature_meta 폴백), certificate-document.tsx(doc_hash 전문·신원확인 수준 명시·TSA 미확보 표기·과대표시 금지 면책), render-pdf.ts로 renderContractPdf/renderCertificatePdf 공용 추출(기존 pdf route 리팩토링·응답 불변, step 8 첨부 재사용 지점), owner 전용 /api/contracts/[id]/certificate(nodejs, 미완결 409·비소유 404, TSA URL은 env). contract-document에 상대 서명 optional 슬롯 추가(owner 단독 레이아웃 불변), 테스트 13건",
-      "completed_at": "2026-07-17T07:47:30+0900"
+      "completed_at": "2026-07-17T07:48:02+0900"
     },
     {
       "step": 8,
