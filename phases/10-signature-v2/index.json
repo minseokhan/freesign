@@ -32,7 +32,7 @@
       "status": "completed",
       "started_at": "2026-07-17T06:50:18+0900",
       "summary": "services/email 어댑터 신설 — Resend REST(fetch 직접, SDK 없이, 첨부 매핑, 무throw {ok,error})·dev 콘솔 폴백·RESEND_API_KEY 유무 팩토리 분기, 서명요청·완결(doc_hash 전문) 한국어 템플릿(전 삽입값 HTML 이스케이프), env에 RESEND_API_KEY/EMAIL_FROM optional 스키마, 유닛 테스트 16건",
-      "completed_at": "2026-07-17T06:56:30+0900"
+      "completed_at": "2026-07-17T06:59:52+0900"
     },
     {
       "step": 4,
