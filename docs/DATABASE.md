@@ -17,9 +17,11 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 
 | 타입 | 값 | 용도 |
 |------|-----|------|
-| `contract_status` | `draft`, `signed`, `active`, `done`, `canceled` | 계약 상태 |
+| `contract_status` | `draft`, `sent`, `signed`, `active`, `done`, `canceled` | 계약 상태. `sent`는 맞서명 요청 발송 후 상대 서명 대기(0017) |
 | `withholding_type` | `wt_3_3`, `wt_8_8`, `none` | 원천징수 유형(사업소득 3.3% / 기타소득 8.8% / 없음) |
 | `payment_status` | `draft`, `unpaid`, `paid` | 인보이스 결제 상태 |
+| `signature_request_status` | `pending`, `completed`, `revoked` | 서명 요청 상태(0018) |
+| `contract_signature_party` | `owner`, `counterparty` | 서명 당사자 구분(0018) |
 
 ---
 
@@ -119,6 +121,55 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 
 ---
 
+## signature_requests — 맞서명 요청 (0018)
+
+owner가 상대방에게 보낸 서명 요청. 원문 토큰은 발송 순간에만 존재하고 DB엔 SHA-256 해시만 저장한다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | uuid PK | 요청 식별자 |
+| `user_id` | uuid FK→auth.users | 계약 소유자 |
+| `contract_id` | uuid FK→contracts (ON DELETE CASCADE) | 대상 계약. 미서명 요청은 계약과 함께 소멸 |
+| `token_hash` | text NOT NULL UNIQUE | 서명 토큰의 SHA-256 해시(32~128자 CHECK) |
+| `recipient_email` / `recipient_name` | text | 수신자(이메일 필수, 길이 CHECK) |
+| `status` | signature_request_status, 기본 `pending` | 요청 상태. `(contract_id) WHERE status='pending'` partial unique로 계약당 대기 1건 |
+| `frozen_doc_hash` | text NOT NULL | 발송 시점에 동결한 문서 해시(64자). 서명 시점 일치 검증 |
+| `expires_at` | timestamptz NOT NULL | 만료(발송 후 14일) |
+| `first_viewed_at` / `completed_at` | timestamptz | 최초 열람·완결 시각 |
+| `sent_tsa_token` / `completion_tsa_token` | text | RFC 3161 TST base64(발송·완결 시점, 커밋 후 best-effort. 완결 토큰은 write-once) |
+| `created_at` | timestamptz | 생성 시각 |
+
+---
+
+## contract_signatures — 서명 증거 (0018)
+
+계약별 서명자 증거. **update/delete RLS 정책이 없어 불변** — 되돌리기·삭제로 지워지지 않는다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | uuid PK | 서명 식별자 |
+| `user_id` | uuid FK→auth.users | 계약 소유자(스코프 기준, 서명자가 아님) |
+| `contract_id` | uuid FK→contracts (ON DELETE CASCADE) | 대상 계약(단 counterparty 서명 존재 시 계약 삭제 자체가 트리거로 차단됨) |
+| `request_id` | uuid FK→signature_requests (SET NULL) | 유발한 서명 요청. counterparty는 요청당 1건(partial unique) |
+| `party` | contract_signature_party | `owner` / `counterparty` |
+| `signer_email` / `signer_name` | text | 서명자 신원(이메일 소유확인 수준) |
+| `signature_image_path` | text | owner 서명의 Storage key |
+| `signature_image_data` | text | counterparty 서명 PNG base64(≤256KB CHECK). anon은 Storage RLS를 못 쓰므로 DB 저장 — "DB엔 key만" 규칙의 명시적 예외(ADR-009) |
+| `doc_hash` | text NOT NULL | 서명 시점 문서 해시(64자) |
+| `consent` | jsonb | 동의 캡처(전자서명·개인정보, 동의 시각) |
+| `meta` | jsonb | ip/ua 등 감사 메타 |
+| `signed_at` | timestamptz | 서명 시각 |
+
+> `signature_image_path` XOR `signature_image_data` CHECK — 정확히 하나만 존재.
+
+---
+
+## anon_rate_limit_events — 비로그인 레이트리밋 (0018)
+
+공개 서명 표면(anon RPC)용 IP 해시 기반 레이트리밋 카운터. 기존 `rate_limit_events`는 `user_id NOT NULL`이라 별도 테이블. RLS만 활성(정책 없음) — 접근은 `consume_anon_rate_limit()` DEFINER 함수로만.
+
+---
+
 ## profiles — 사용자 프로필/설정
 
 사용자별 기본 설정. `user_id`가 곧 PK(1:1).
@@ -137,9 +188,10 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 
 ## RLS (Row Level Security)
 
-`clients`·`contracts`·`invoices`·`contract_events`·`invoice_events`·`profiles` 모두 RLS 활성화.
+`clients`·`contracts`·`invoices`·`contract_events`·`invoice_events`·`profiles`·`signature_requests`·`contract_signatures`·`anon_rate_limit_events` 모두 RLS 활성화.
 
-- **select/insert/update**: 모든 테이블에 `user_id = auth.uid()` 정책(`USING` + `WITH CHECK` 둘 다).
+- **select/insert/update**: 모든 테이블에 `user_id = auth.uid()` 정책(`USING` + `WITH CHECK` 둘 다). 예외: `contract_signatures`는 select/insert만(update/delete 없음 = 불변 증거), `anon_rate_limit_events`는 정책 없음(DEFINER 함수 전용).
+- **anon**: 어떤 테이블에도 anon 정책이 없다. 비로그인 서명자는 SECURITY DEFINER RPC(§ 맞서명 함수) 경유로만 접근(ADR-009).
 - **delete**: 대부분 소프트 삭제만이라 삭제 정책 없음. 예외 (1) 데모 데이터는 `is_demo = true` 조건으로 삭제 허용(`*_delete_demo_own`), events의 데모 삭제는 상위 계약/인보이스가 `is_demo = true`인지 EXISTS로 확인. (2) **계약(contracts)은 물리 삭제**라 소유자 delete 정책 `contracts_delete_own`(상태·is_demo 무관, `contracts_delete_demo_own`은 이 정책의 부분집합이므로 제거). 계약 삭제 시 `contract_events`는 CASCADE, `invoices.contract_id`는 SET NULL로 DB가 처리(참조 액션은 RLS 우회).
 - 서버 인가는 `getUser()` 사용, FK 참조(invoice→contract/client)는 Server Action에서 소유권 재조회 후 insert(FK는 RLS 우회하므로).
 
@@ -166,6 +218,11 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 | `idx_invoices_user_client` | invoices(user_id, client_id) | 고객별 인보이스 |
 | `idx_contract_events_contract_created_at` | contract_events(contract_id, created_at) | 계약 이벤트 타임라인 |
 | `idx_invoice_events_invoice_created_at` | invoice_events(invoice_id, created_at) | 인보이스 이벤트 타임라인 |
+| `signature_requests_one_pending_per_contract` | signature_requests(contract_id) WHERE status = 'pending' (UNIQUE) | 계약당 대기 요청 1건 강제 |
+| `signature_requests_owner_contract_created_at` | signature_requests(user_id, contract_id, created_at) | 계약별 요청 조회 |
+| `contract_signatures_contract_signed_at` | contract_signatures(contract_id, signed_at) | 계약별 서명 열거 |
+| `contract_signatures_one_counterparty_per_request` | contract_signatures(request_id) WHERE party = 'counterparty' (UNIQUE) | 요청당 상대 서명 1건 강제 |
+| `anon_rate_limit_events_lookup` | anon_rate_limit_events(ip_hash, bucket, created_at) | 레이트리밋 윈도우 조회 |
 
 ---
 
@@ -191,7 +248,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 
 상태 전이·발행·서명·불러오기는 도메인 UPDATE/INSERT와 이벤트 로그 INSERT를 **단일 트랜잭션 함수**로 원자적으로 처리한다(부분 실패 방지, 대상 행 `for update` 락). Server Action이 소유권 검증 후 호출한다. (0012 마이그레이션)
 
-- `transition_contract_status_with_event(...)` → 계약 status 전이 + `contract_events` 기록. `p_reset_signature_artifacts` 플래그로 signed→draft 되돌릴 때 서명 아티팩트(서명 이미지·doc_hash·signature_meta) 초기화.
+- `transition_contract_status_with_event(...)` → 계약 status 전이 + `contract_events` 기록. `p_reset_signature_artifacts` 플래그로 signed→draft 되돌릴 때 서명 아티팩트(서명 이미지·doc_hash·signature_meta) 초기화. **to=draft & counterparty 서명 존재 시 raise**(0019, 앱 가드와 동일 규칙의 DB 이중 가드).
 - `sign_contract_with_event(...)` → status=signed + doc_hash/signature_meta 기록 + 이벤트(`contract.signed`).
 - `import_signed_contract_with_event(...)` → 불러온 계약을 서명 없이 signed로 삽입 + 이벤트(`contract.imported`). doc_hash는 원본 PDF 바이트 기준.
 - `issue_invoice_with_event(...)` → 인보이스 발행(금액 스냅샷) + 이벤트.
@@ -199,6 +256,26 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 
 ---
 
+## 맞서명 함수 (SQL RPC, 0019·0020)
+
+모두 `search_path = public, pg_temp` 고정, `revoke from public` 후 필요한 롤에만 grant. **anon grant 함수는 SECURITY DEFINER**로 RLS를 우회하는 유일한 경계라 반환 필드 최소화·입력 상한을 지킨다(ADR-009).
+
+**authenticated (owner 발송 플로우)**
+- `send_signature_request_with_event(...)` → draft→sent + owner 서명 기록(contracts flat 컬럼 + `contract_signatures`) + `signature_requests` INSERT + 이벤트(`signature_request.sent`), 원자적.
+- `revoke_signature_request_with_event(...)` → pending 철회 + sent→draft + owner 서명 아티팩트 리셋 + 이벤트. DEFINER지만 함수 안에서 `auth.uid()` 소유 검증(contract_signatures 무DELETE 정책 때문에 INVOKER 불가).
+
+**anon (비로그인 서명자, 전부 DEFINER)**
+- `get_signing_session(p_token_hash)` → 상태별 최소 필드 jsonb(무효 null / 만료·철회 state만 / pending 계약 열람 필드 / completed 다운로드 필드). pending 유효 시 `first_viewed_at` 1회 기록 + 이벤트(`signature_request.viewed`).
+- `complete_counterparty_signature_with_event(...)` → FOR UPDATE 잠금 → pending·미만료·contract=sent·doc_hash==frozen_doc_hash 검증 → counterparty 서명 INSERT + 요청 completed + sent→signed + 이벤트(`contract.counterparty_signed`), 단일 트랜잭션.
+- `get_certificate_data(p_token_hash)` → 완결 계약의 완결증명서 데이터(교부용).
+- `get_signed_contract_data(p_token_hash)` → 완결 계약의 PDF 렌더 데이터(owner 서명 이미지는 미반환, 메타만).
+- `store_completion_tsa_token(p_token_hash, p_token)` → 완결 TSA 토큰 write-once 저장(커밋 후 best-effort).
+- `consume_anon_rate_limit(ip_hash, bucket, limit, window_seconds)` → IP 해시 기반 윈도우 카운트, 초과 시 false(0018).
+
+---
+
 ## 트리거
 
 `set_updated_at()` — `clients`·`contracts`·`invoices`·`profiles`의 UPDATE 시 `updated_at`을 `now()`로 갱신. events 테이블에는 없음.
+
+`block_contract_delete_with_counterparty_signature()` — contracts BEFORE DELETE. counterparty 서명이 존재하면 raise(0018). 계약 물리 삭제(ADR-008)의 예외인 증거 보존 최후 방어선 — 앱 레이어(`deleteContract`) 사전 체크와 이중 가드(ADR-009).

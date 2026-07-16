@@ -94,22 +94,30 @@ FreeSign v1 간이 서명은 **계약을 무효로 만드는 문제는 없지만
 - 인정전자서명 사업자를 쓰면 2-3의 "추정력" 이점에 근접
 
 #### A-2. 제3자 신뢰 타임스탬프(TSA) / 무결성 앵커링 ★
+> ✅ **구현 완료(phase 10, ADR-009)** — `src/services/timestamp/provider.ts`(RFC 3161 어댑터, `TSA_URL` env로 공인 TSA 교체 가능). 발송 시점 `frozen_doc_hash`·완결 시점 결합 다이제스트를 `signature_requests.sent_tsa_token`/`completion_tsa_token`에 best-effort 스탬프. counterparty 서명 존재 시 삭제·draft 되돌리기 차단(불변 증거, 무효화는 '취소' 전이) — 앱 가드(`src/app/(dashboard)/contracts/actions.ts`) + DB 트리거/RPC 가드(`supabase/migrations/0018`·`0019`). 완료 이메일의 doc_hash 전문 + PDF 첨부 배포가 보조 앵커.
+
 "운영자가 나중에 안 바꿨다"를 외부로 증명.
 - `doc_hash`를 공인 TSA(예: 한국정보인증 등) 또는 최소한 외부 불변 저장소에 봉인
 - 저비용 대안: 해시를 append-only·write-once 저장(WORM 버킷)하고, 서명 시점 이후 수정 불가하도록 잠금
 - 되돌리기(`signed → draft`)로 서명 아티팩트를 지우는 현재 동작은 증거 보존 관점에선 위험 — v2에선 **삭제 대신 무효화 이벤트로 남기고 원본 해시는 보존** 검토
 
 #### A-3. 완결증명서(Audit Trail Certificate) 발급 ★
+> ✅ **구현 완료(phase 10)** — `src/components/pdf/certificate-document.tsx` + `src/lib/contracts/certificate.ts`(순수 매핑). owner 발급 `src/app/api/contracts/[id]/certificate/route.ts`, 상대방 교부 `src/app/api/sign/[token]/certificate/route.ts`. doc_hash 전문·서명자별 신원확인 수준("이메일 링크 소유 확인")·이벤트 타임라인·TSA 블록(미확보 시 명시) 포함, 완료 이메일에 PDF 첨부 배포.
+
 서명 완료 시 표준 포맷의 증명서 PDF 자동 생성.
 - 포함: 문서 해시, 서명자 신원(인증 수단), 서명 시각(TSA 타임스탬프), IP/UA, 동의 이력, 문서 각 페이지 지문
 - 계약 PDF에 이 증명서를 첨부 → 분쟁 시 단일 증거물로 제출 가능
 
 #### A-4. 양자 서명(맞서명) 및 서명 요청 링크
+> ✅ **구현 완료(phase 10)** — 발송 Server Actions `src/app/(dashboard)/contracts/signature-actions.ts`(서명하고 요청 보내기·재발송·철회), 공개 서명 페이지 `src/app/(public)/sign/[token]/page.tsx` + `POST /api/sign/[token]`. 서명은 `contract_signatures`(party: owner/counterparty, 불변 증거), 요청은 `signature_requests`(토큰 SHA-256 해시만 저장, 만료 14일)에 기록. 단, 본인확인은 **이메일 링크 소유확인 수준**(본인인증 승급은 A-1 후속) — legalEffect `mutual`로 표기.
+
 현재는 소유자 단독 서명. 실계약은 **상대방도 서명**해야 성립 증거가 완성된다.
 - 서명 요청 이메일/링크 → 상대방이 본인인증 후 서명
 - 서명 순서·각자 서명 시각·각자 신원을 이벤트 로그에 기록
 
 #### A-5. 서명 시 명시적 동의 캡처
+> ✅ **구현 완료(phase 10)** — owner(`src/components/signature-request-form.tsx`)·상대방(`src/components/counterparty-sign-form.tsx`) 모두 전자서명 사용 동의 + 개인정보 수집·이용 동의 2종을 필수 체크로 캡처(zod `literal(true)`), `contract_signatures.consent`(jsonb)에 동의 시각과 함께 저장, 완결증명서에 표기.
+
 - "본 전자서명을 나의 서명으로 사용하는 데 동의" 체크 → 전자서명법 제3조의 "당사자 합의"를 명문화
 - 개인정보 수집·이용 동의도 이 시점에 캡처
 

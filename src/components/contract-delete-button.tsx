@@ -26,7 +26,7 @@ export function ContractDeleteButton({ contractId }: { contractId: string }) {
       <ConfirmDialog
         open={open}
         title="계약을 삭제할까요?"
-        description="이 계약과 서명·이력·PDF가 완전히 삭제됩니다. 연결된 인보이스는 유지됩니다. 되돌릴 수 없습니다."
+        description="이 계약과 서명·이력·PDF가 완전히 삭제됩니다. 연결된 인보이스는 유지됩니다. 되돌릴 수 없습니다. 맞서명이 완료된 계약은 삭제할 수 없으며, 대신 '계약 취소'로 무효화해야 합니다."
         isPending={isPending}
         error={error}
         onConfirm={() => {

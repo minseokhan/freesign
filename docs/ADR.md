@@ -45,3 +45,14 @@
 **이유**: 정산 증빙·감사·세금 CSV는 삭제 후에도 보존돼야 하므로 물리 삭제 대신 soft-delete. 데모는 "채우기/지우기"로 비파괴 탐색을 지원. RLS에 필터를 넣으면 soft-delete 행이 복원·감사에서 사라져 목적과 충돌.
 **트레이드오프**: 모든 공용 쿼리가 헬퍼를 거쳐야 함(직접 조회 시 삭제 행 노출 위험). FK `ON DELETE RESTRICT` + 앱 레이어 하위 존재 검사로 부모 삭제를 막아야 하는 복잡도. 데모 삭제는 이벤트 선삭제 순서를 지켜야 FK RESTRICT와 충돌하지 않음.
 **갱신(2026-07-14)**: 계약(contracts)만 이 결정을 뒤집어 **물리(hard) 삭제**로 전환한다(인보이스·클라이언트는 soft-delete 유지). 계약은 소유자가 상태와 무관하게 삭제할 수 있고, 삭제 시 (1) 딸린 인보이스는 보존하되 `contract_id`를 `ON DELETE SET NULL`로 끊고 삭제 시점의 계약 핵심 정보(제목·금액·기간)를 `invoices.contract_snapshot(jsonb)`에 스냅샷으로 남겨 맥락 없는 고아를 방지, (2) 계약 감사 이벤트(`contract_events`)는 `ON DELETE CASCADE`로 함께 제거(append-only delete 정책 부재를 cascade가 우회), (3) Storage 아티팩트는 best-effort로 제거한다. **이유**: 계약은 인보이스와 달리 그 자체가 세금 신고 대상이 아니고, 미성사·오입력 계약을 완전히 지우려는 실제 요구가 있어 soft-delete 잔존이 오히려 노이즈. 증빙 체인의 핵심인 "왜 받았는지"는 인보이스 스냅샷이 대신 보존한다. 관련 정책: `contracts_delete_own`(소유자 delete), `contract_artifacts_delete_own`(Storage delete). 마이그레이션 `0013_contract_hard_delete.sql`.
+
+### ADR-009: 쌍방 전자서명 v2 — sent 상태·anon DEFINER RPC 경계·증거 보존
+**결정**: 상대방(비로그인) 맞서명을 자체 구현하며(마이그레이션 `0017`~`0020`, `docs/SIGNATURE_V2_PLAN.md`) 다음 다섯 가지를 확정한다.
+1. **`sent` 상태 도입** — 상태 머신을 draft → sent → signed로 확장(`contract_status`에 `sent` 추가). 발송 즉시 조항 편집이 잠기고(`updateContractClauses`는 draft만 허용), 조인 없이 목록·전이 가드를 처리한다. sent/signed 진입은 일반 상태 전이 UI가 아닌 전용 절차(발송/서명 RPC)에서만 허용.
+2. **anon 접근은 SECURITY DEFINER RPC 경계** — 비로그인 서명자는 테이블에 직접 접근할 수 없고(anon RLS 정책 없음), `search_path = public, pg_temp` 고정 + anon grant된 DEFINER 함수(`get_signing_session`·`complete_counterparty_signature_with_event`·`get_certificate_data`·`store_completion_tsa_token`·`get_signed_contract_data`·`consume_anon_rate_limit`)로만 통과한다. CLAUDE.md의 "요청 경로 service_role 금지"를 지키면서 RLS 우회 표면을 함수 몇 개로 국한.
+3. **상대 서명 이미지는 DB 저장(base64 text, ≤256KB CHECK)** — "Storage엔 파일, DB엔 key만" 규칙의 **명시적 예외**. anon은 Storage RLS를 통과할 수 없고(토큰 검증을 storage 정책으로 표현 불가), 캔버스 PNG는 ~30KB라 실용적이며 서명 행과 증거가 결합된다.
+4. **counterparty 서명 존재 시 계약 삭제 차단** — ADR-008의 계약 물리 삭제에 예외를 둔다. 상대방 서명은 상대방의 증거이므로 소유자가 일방 파기할 수 없다. 앱 레이어 사전 체크(UX 안내) + DB BEFORE DELETE 트리거(최후 방어선) 이중 가드, signed→draft 되돌리기도 동일하게 차단(앱 가드 + RPC 가드). 무효화가 필요하면 삭제 대신 '취소' 상태 전이를 쓴다. `contract_signatures`는 update/delete 정책이 없는 불변 증거 테이블.
+5. **TimestampProvider(RFC 3161) 어댑터** — "운영자가 해시를 나중에 조작하지 않았다"를 제3자 TSA 토큰(TST)으로 증명(`services/timestamp/`, 기본 freeTSA.org, `TSA_URL` env로 국내 공인 TSA 교체 가능). 발송 시점(frozen_doc_hash)과 완결 시점(결합 다이제스트) 2회 스탬프하며, RPC 커밋 후 best-effort — 실패해도 서명 플로우를 막지 않고 완결증명서에 "타임스탬프 미확보"로 명시한다(과대표시 금지).
+
+**이유**: 외부 서명 SaaS 없이(건당 비용 0원) "이메일 소유확인 + 발송 시점 해시 동결 + 감사추적 + 완결증명서 + TSA"로 입증력의 실체를 재현한다(`docs/LEGAL_SIGNATURE.md`). legalEffect는 "효력 있음/없음" 이분법 대신 입증력 단계(`record` 단독 기록 / `mutual` 맞서명)로 표기한다.
+**트레이드오프**: anon DEFINER RPC는 신규 공격 표면(반환 필드 최소화·입력 상한·search_path 고정·레이트리밋으로 완화, advisor 재점검 필요). 이메일 소유확인 수준이라 토큰 URL 소지자가 서명 가능(본인인증 승급은 확장 지점만 확보). 서명 이미지 DB 저장으로 행 크기 증가. 무료 공용 TSA는 국내 공인 TSA 대비 법원 관행 신뢰도가 낮음(엔드포인트 교체로 승급 가능).

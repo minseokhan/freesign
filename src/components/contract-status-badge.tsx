@@ -16,6 +16,7 @@ export const CONTRACT_STATUSES = [
 export const CONTRACT_STATUS_OPTIONS = [
   { value: "all", label: "전체" },
   { value: "draft", label: "초안" },
+  { value: "sent", label: "서명 대기" },
   { value: "signed", label: "서명완료" },
   { value: "active", label: "진행중" },
   { value: "done", label: "완료" },

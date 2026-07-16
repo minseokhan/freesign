@@ -398,10 +398,7 @@ export async function transitionContractStatus(
     return { ok: false, error: "허용되지 않는 계약 상태입니다." };
   }
 
-  // TODO(signature-v2-step1): remove the cast after database types include "sent".
-  const sentStatus = "sent" as ContractStatus;
-
-  if (parsedStatus.data === "signed" || parsedStatus.data === sentStatus) {
+  if (parsedStatus.data === "signed" || parsedStatus.data === "sent") {
     return {
       ok: false,
       error: "서명 관련 전이는 전용 절차에서만 처리할 수 있습니다.",
@@ -424,10 +421,41 @@ export async function transitionContractStatus(
     return { ok: false, error: "계약을 찾을 수 없습니다." };
   }
 
+  // 맞서명(counterparty) 서명 존재 시 draft 되돌리기 차단 — DB 이중 가드(0019 RPC)와
+  // 동일 규칙의 앱 레이어 사전 안내. ctx는 to=draft에서만 판정에 쓰이므로 그때만 조회한다.
+  let hasCounterpartySignature = false;
+
+  if (parsedStatus.data === "draft") {
+    const { data: counterpartySignature, error: signatureError } =
+      await supabase
+        .from("contract_signatures")
+        .select("id")
+        .eq("contract_id", id)
+        .eq("party", "counterparty")
+        .limit(1)
+        .maybeSingle();
+
+    if (signatureError) {
+      return dbError(signatureError);
+    }
+
+    hasCounterpartySignature = counterpartySignature !== null;
+  }
+
   const fromStatus = contract.status as ContractStatus;
-  const transition = getContractStatusTransition(fromStatus, parsedStatus.data);
+  const transition = getContractStatusTransition(fromStatus, parsedStatus.data, {
+    hasCounterpartySignature,
+  });
 
   if (!transition.allowed) {
+    if (parsedStatus.data === "draft" && hasCounterpartySignature) {
+      return {
+        ok: false,
+        error:
+          "맞서명이 완료된 계약은 초안으로 되돌릴 수 없습니다. 대신 '취소'로 무효화하세요.",
+      };
+    }
+
     return {
       ok: false,
       error: "허용되지 않는 계약 상태 전이입니다.",
@@ -474,6 +502,28 @@ export async function deleteContract(id: string): Promise<ContractActionResult> 
 
   if (!owned) {
     return { ok: false, error: "계약을 찾을 수 없습니다." };
+  }
+
+  // 맞서명(counterparty) 서명이 존재하면 삭제 불가 — 불변 증거 보존(ADR-009).
+  // DB 트리거(0018)가 최후 방어선이고, 이 체크는 UX용 사전 안내다.
+  const { data: counterpartySignature, error: signatureError } = await supabase
+    .from("contract_signatures")
+    .select("id")
+    .eq("contract_id", id)
+    .eq("party", "counterparty")
+    .limit(1)
+    .maybeSingle();
+
+  if (signatureError) {
+    return dbError(signatureError);
+  }
+
+  if (counterpartySignature) {
+    return {
+      ok: false,
+      error:
+        "맞서명이 완료된 계약은 삭제할 수 없습니다. 대신 '취소'로 무효화하세요.",
+    };
   }
 
   // 계약은 물리 삭제한다. 삭제 후에는 조회할 수 없으므로 스냅샷용 핵심 정보와

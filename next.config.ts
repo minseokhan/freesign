@@ -73,6 +73,13 @@ const nextConfig: NextConfig = {
       "./node_modules/fontkit/**/*",
       "./node_modules/@swc/helpers/**/*",
     ],
+    // step 7 owner용 완결증명서 라우트도 PDF를 렌더한다.
+    "/api/contracts/[id]/certificate": [
+      "./public/fonts/Pretendard-Regular.ttf",
+      "./node_modules/@react-pdf/**/*",
+      "./node_modules/fontkit/**/*",
+      "./node_modules/@swc/helpers/**/*",
+    ],
     // step 8 공개 서명 표면 — 완료 이메일 첨부·교부 라우트도 PDF를 렌더한다.
     "/api/sign/[token]": [
       "./public/fonts/Pretendard-Regular.ttf",

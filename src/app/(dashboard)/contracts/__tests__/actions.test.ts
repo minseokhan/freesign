@@ -63,6 +63,7 @@ function createMaybeSingleQuery(data: unknown) {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
   };
 }
@@ -468,9 +469,13 @@ describe("contract draft server actions", () => {
 
   it("clears signature artifacts when rolling a signed contract back to draft", async () => {
     const contractQuery = createContractStatusReadQuery("signed");
+    // 맞서명 없음 → draft 되돌리기 허용.
+    const counterpartyQuery = createMaybeSingleQuery(null);
     const rpc = createRpcMock();
     const supabase = {
-      from: vi.fn(() => contractQuery),
+      from: vi.fn((table: string) =>
+        table === "contract_signatures" ? counterpartyQuery : contractQuery,
+      ),
       rpc,
     };
     vi.mocked(createSupabaseClient).mockResolvedValue(
@@ -492,6 +497,33 @@ describe("contract draft server actions", () => {
         },
       }),
     );
+  });
+
+  it("blocks rolling back to draft when a counterparty signature exists", async () => {
+    const contractQuery = createContractStatusReadQuery("signed");
+    // 맞서명 존재 → draft 되돌리기는 무효화(취소)로 유도한다(DB 이중 가드와 동일 규칙).
+    const counterpartyQuery = createMaybeSingleQuery({ id: "signature-1" });
+    const rpc = createRpcMock();
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === "contract_signatures" ? counterpartyQuery : contractQuery,
+      ),
+      rpc,
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await transitionContractStatus("contract-1", "draft");
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        "맞서명이 완료된 계약은 초안으로 되돌릴 수 없습니다. 대신 '취소'로 무효화하세요.",
+    });
+    expect(counterpartyQuery.eq).toHaveBeenCalledWith("party", "counterparty");
+    expect(rpc).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -689,6 +721,7 @@ describe("contract draft server actions", () => {
   function createHardDeleteMocks(
     contractOverride: Record<string, unknown> = {},
     storageRemoveError: { message: string } | null = null,
+    counterpartySignature: Record<string, unknown> | null = null,
   ) {
     const calls: string[] = [];
     const contractData = {
@@ -701,6 +734,7 @@ describe("contract draft server actions", () => {
       source_pdf_url: null,
       ...contractOverride,
     };
+    const counterpartyQuery = createMaybeSingleQuery(counterpartySignature);
     const readQuery = {
       select: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
@@ -723,6 +757,7 @@ describe("contract draft server actions", () => {
     const storageFrom = vi.fn().mockReturnValue({ remove });
     const supabase = {
       from: vi.fn((table: string) => {
+        if (table === "contract_signatures") return counterpartyQuery;
         if (table === "invoices") return { update: invoiceUpdate };
         const contractCalls = supabase.from.mock.calls.filter(
           ([name]) => name === "contracts",
@@ -735,6 +770,7 @@ describe("contract draft server actions", () => {
     return {
       calls,
       supabase,
+      counterpartyQuery,
       invoiceUpdate,
       invoiceUpdateEq,
       contractDelete,
@@ -743,6 +779,32 @@ describe("contract draft server actions", () => {
       remove,
     };
   }
+
+  it("blocks deletion when a counterparty signature exists and suggests cancellation", async () => {
+    const mocks = createHardDeleteMocks({}, null, { id: "signature-1" });
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      mocks.supabase as unknown as Awaited<
+        ReturnType<typeof createSupabaseClient>
+      >,
+    );
+
+    const result = await deleteContract("contract-1");
+
+    expect(result).toEqual({
+      ok: false,
+      error:
+        "맞서명이 완료된 계약은 삭제할 수 없습니다. 대신 '취소'로 무효화하세요.",
+    });
+    expect(mocks.counterpartyQuery.eq).toHaveBeenCalledWith(
+      "party",
+      "counterparty",
+    );
+    // 삭제 절차(스냅샷·물리 삭제·Storage 정리)가 하나도 실행되지 않아야 한다.
+    expect(mocks.invoiceUpdate).not.toHaveBeenCalled();
+    expect(mocks.contractDelete).not.toHaveBeenCalled();
+    expect(mocks.storageFrom).not.toHaveBeenCalled();
+    expect(revalidatePath).not.toHaveBeenCalled();
+  });
 
   it("hard-deletes a contract: snapshots invoices, deletes the row, then removes storage artifacts in order", async () => {
     const mocks = createHardDeleteMocks();

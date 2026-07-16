@@ -1,5 +1,6 @@
 # 쌍방 전자서명 v2 계획
 
+> ✅ **구현 완료(phase 10, 2026-07-17)** — `phases/10-signature-v2/` step 0~9로 전체 구현. 결정 기록은 `docs/ADR.md` ADR-009.
 > 작성: 2026-07-16. 실행은 별도 지시 후 진행.
 > 관련 문서: `docs/LEGAL_SIGNATURE.md`(법적 검토·v2 구상 원본), `docs/ADR.md`(ADR-003 provider 어댑터), `docs/DATABASE.md`
 

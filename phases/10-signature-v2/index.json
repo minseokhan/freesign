@@ -77,7 +77,10 @@
     {
       "step": 9,
       "name": "guards-docs",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-17T08:27:00+0900",
+      "summary": "마무리 정합 — deleteContract·transitionContractStatus에 counterparty 서명 존재 앱 가드(무효화 유도 메시지, DB 트리거·RPC와 이중 가드, 테스트 2건 추가로 총 503 그린), 계약 목록 필터에 sent 추가·상세 서명 카드에 legalEffect 표기(기록용 서명 / 양 당사자 동의 서명 · 이메일 소유확인 수준)·doc_hash 축약(title 전문)·완결증명서 다운로드 링크, 삭제 다이얼로그 문구 갱신, owner certificate 라우트 outputFileTracingIncludes 폰트 트레이싱 추가(step 8 이월), 문서 갱신(ADR-009 5개 결정·LEGAL_SIGNATURE §A-2/3/4/5 구현 표시·DATABASE.md 신규 테이블 3종+RPC 7종+트리거·SIGNATURE_V2_PLAN 완료 표기)",
+      "completed_at": "2026-07-17T08:40:00+0900"
     }
   ],
   "created_at": "2026-07-17T06:12:22+0900"

@@ -96,6 +96,10 @@ function formatDate(date: string) {
   return `${year}.${month}.${day}`;
 }
 
+function shortenHash(hash: string) {
+  return `${hash.slice(0, 16)}…${hash.slice(-8)}`;
+}
+
 function isClause(value: Json): value is {
   title: string;
   body: string;
@@ -256,6 +260,25 @@ export default async function ContractDetailPage({
     }
 
     signatureRequest = requestData as SignatureRequestRow | null;
+  }
+
+  // 맞서명(counterparty) 서명 존재 여부 — legalEffect 표기·완결증명서 링크 분기 기준.
+  let hasCounterpartySignature = false;
+
+  if (contract.status !== "draft") {
+    const { data: counterpartyData, error: counterpartyError } = await supabase
+      .from("contract_signatures")
+      .select("id")
+      .eq("contract_id", contract.id)
+      .eq("party", "counterparty")
+      .limit(1)
+      .maybeSingle();
+
+    if (counterpartyError) {
+      throw counterpartyError;
+    }
+
+    hasCounterpartySignature = counterpartyData !== null;
   }
 
   const events = (eventData ?? []) as ContractEventRow[];
@@ -452,12 +475,52 @@ export default async function ContractDetailPage({
                   signatureMeta ? formatDate(signatureMeta.signed_at) : null
                 }
               />
+              <DetailItem
+                label="서명 구분"
+                value={
+                  hasCounterpartySignature
+                    ? "양 당사자 동의 서명 · 이메일 소유확인 수준"
+                    : "기록용 서명"
+                }
+              />
+              {contract.doc_hash ? (
+                <div>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                    문서 지문 (SHA-256)
+                  </dt>
+                  {/* 전문은 title 툴팁과 상단 기본 정보 카드에서 복사할 수 있다(LEGAL §B). */}
+                  <dd
+                    className="mt-xs font-mono text-sm leading-relaxed text-text-body"
+                    title={contract.doc_hash}
+                  >
+                    {shortenHash(contract.doc_hash)}
+                  </dd>
+                </div>
+              ) : null}
             </dl>
-            <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-              v1 간이 서명은 기록용 서명입니다. 서명 후 조항은 읽기
-              전용이며, 수정하려면 초안으로 되돌린 뒤 다시 서명해야
-              합니다. 강한 법적 증거가 필요하면 인증 서명이 필요합니다.
-            </div>
+            {hasCounterpartySignature ? (
+              <>
+                <Link
+                  href={`/api/contracts/${contract.id}/certificate`}
+                  target="_blank"
+                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+                >
+                  완결증명서 PDF
+                </Link>
+                <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
+                  양 당사자 동의 서명은 이메일 링크 소유확인 수준의
+                  전자서명입니다. 맞서명이 완료된 계약은 삭제하거나 초안으로
+                  되돌릴 수 없으며, 무효화가 필요하면 &lsquo;계약 취소&rsquo;를
+                  사용하세요.
+                </div>
+              </>
+            ) : (
+              <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
+                v1 간이 서명은 기록용 서명입니다. 서명 후 조항은 읽기
+                전용이며, 수정하려면 초안으로 되돌린 뒤 다시 서명해야
+                합니다. 강한 법적 증거가 필요하면 인증 서명이 필요합니다.
+              </div>
+            )}
           </div>
         ) : (
           <p className="mt-xl text-sm leading-relaxed text-text-muted">
