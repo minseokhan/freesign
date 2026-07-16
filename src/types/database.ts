@@ -496,6 +496,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_counterparty_signature_with_event: {
+        Args: {
+          p_consent: Json
+          p_ip: string
+          p_signature_image_data: string
+          p_signer_name: string | null
+          p_token_hash: string
+          p_ua: string
+        }
+        Returns: Json
+      }
       consume_anon_rate_limit: {
         Args: {
           p_bucket: string
@@ -507,6 +518,14 @@ export type Database = {
       }
       consume_rate_limit: {
         Args: { p_bucket: string; p_max: number; p_window_seconds: number }
+        Returns: Json
+      }
+      get_certificate_data: {
+        Args: { p_token_hash: string }
+        Returns: Json
+      }
+      get_signing_session: {
+        Args: { p_token_hash: string }
         Returns: Json
       }
       import_signed_contract_with_event: {
@@ -541,6 +560,27 @@ export type Database = {
           p_net_amount: number
           p_withholding_amount: number
           p_withholding_type: Database["public"]["Enums"]["withholding_type"]
+        }
+        Returns: string
+      }
+      revoke_signature_request_with_event: {
+        Args: { p_actor: string; p_meta?: Json; p_request_id: string }
+        Returns: string
+      }
+      send_signature_request_with_event: {
+        Args: {
+          p_actor: string
+          p_consent: Json
+          p_contract_id: string
+          p_doc_hash: string
+          p_meta?: Json
+          p_recipient_email: string
+          p_recipient_name: string | null
+          p_signature_image_path: string
+          p_signature_meta: Json
+          p_signer_email: string
+          p_signer_name: string | null
+          p_token_hash: string
         }
         Returns: string
       }

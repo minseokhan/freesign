@@ -21,7 +21,10 @@
     {
       "step": 2,
       "name": "rpc-migration",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-17T06:37:00+0900",
+      "summary": "발송·열람·완결·철회·증명서 RPC 5종(0019, anon은 DEFINER 3종으로 국한·입력 상한·최소 필드 반환)과 transition draft 되돌리기 counterparty 이중 가드, embedded-postgres 테스트 18건·Functions 타입 반영. revoke는 contract_signatures 무DELETE정책(불변 증거) 때문에 spec의 INVOKER 대신 auth.uid() 검증 내장 DEFINER(authenticated 전용)로 구현",
+      "completed_at": "2026-07-17T06:47:30+0900"
     },
     {
       "step": 3,
