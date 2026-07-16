@@ -56,7 +56,7 @@
       "status": "completed",
       "started_at": "2026-07-17T07:25:21+0900",
       "summary": "owner 발송 UI — signature-pad에서 순수 캔버스만 signature-canvas.tsx로 추출(제어 컴포넌트, onChange+clear 핸들, auth/데이터 의존 없음·기존 단독 서명 UX 불변), 서명 요청 폼(RHF+zod, 액션 allowlist 정합, 전자서명·개인정보 동의 2종 미체크 시 제출 차단) 신설, 계약 상세 draft에 단독 서명|상대방 서명 요청 탭·sent에 요청 현황 카드(수신자·만료일·열람 시각 RSC 직접 조회)+재발송·철회(confirm) 컨트롤, 폼 유닛 테스트 6건",
-      "completed_at": "2026-07-17T07:36:30+0900"
+      "completed_at": "2026-07-17T07:36:34+0900"
     },
     {
       "step": 7,
