@@ -1,4 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const captureServerException = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/lib/posthog-server", () => ({
+  captureServerException: (...args: unknown[]) =>
+    captureServerException(...args),
+}));
 
 import { contractClausesSchema } from "@/lib/validation/contract";
 import {
@@ -27,6 +34,30 @@ function createMockClient(input: unknown): AnthropicMessagesClient {
 }
 
 describe("extractContractFromPdf", () => {
+  beforeEach(() => {
+    captureServerException.mockClear();
+  });
+
+  it("폴백 시 마지막 에러를 PostHog로 캡처한다", async () => {
+    const failingClient: AnthropicMessagesClient = {
+      messages: {
+        create: vi.fn().mockRejectedValue(new Error("overloaded")),
+      },
+    };
+
+    const extracted = await extractContractFromPdf("base64-pdf", {
+      client: failingClient,
+      retryCount: 0,
+      backoffMs: 0,
+    });
+
+    expect(extracted.source).toBe("fallback");
+    expect(captureServerException).toHaveBeenCalledTimes(1);
+    const [captured, , properties] = captureServerException.mock.calls[0];
+    expect((captured as Error).message).toBe("overloaded");
+    expect(properties).toEqual({ feature: "ai_contract_import" });
+  });
+
   it("returns normalized AI extraction when Claude returns valid tool input", async () => {
     const rawClauses = REQUIRED_CONTRACT_CLAUSES.map((title) => ({
       title,

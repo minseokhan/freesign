@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { AppSidebar } from "@/components/app-sidebar";
+import { PostHogIdentify } from "@/components/posthog-identify";
 import { UserMenu } from "@/components/user-menu";
 import { requireUser } from "@/lib/auth";
 
@@ -25,6 +26,7 @@ export default async function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-surface-page md:flex">
+      <PostHogIdentify userId={user.id} email={user.email} name={displayName} />
       <AppSidebar />
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 border-b border-surface-border bg-white">

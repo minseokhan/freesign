@@ -6,6 +6,7 @@ import { z } from "zod";
 import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { assertOwned, notDeleted } from "@/lib/db";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { calcWithholding } from "@/lib/tax";
 import {
@@ -114,6 +115,10 @@ export async function createInvoice(
   revalidatePath(`/contracts/${parsed.contract_id}`);
   revalidatePath(`/invoices/${data}`);
 
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "invoice_created", properties: { invoice_id: data, contract_id: parsed.contract_id } });
+  await posthog.flush();
+
   return { ok: true, id: data };
 }
 
@@ -198,11 +203,15 @@ export async function setInvoicePayment(
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
 
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "invoice_payment_marked", properties: { invoice_id: data, to_status: nextStatus } });
+  await posthog.flush();
+
   return { ok: true, id: data };
 }
 
 export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {
-  await requireUser();
+  const user = await requireUser();
 
   if (!id.trim()) {
     return { ok: false, error: "인보이스를 찾을 수 없습니다." };
@@ -228,6 +237,10 @@ export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {
 
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${id}`);
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "invoice_deleted", properties: { invoice_id: data.id } });
+  await posthog.flush();
 
   return { ok: true, id: data.id };
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import posthog from "posthog-js";
 
 import { signOut } from "@/app/(auth)/actions";
 import { cn } from "@/lib/utils";
@@ -93,7 +94,7 @@ export function UserMenu({ name, email, avatarUrl }: UserMenuProps) {
             <p className="truncate text-xs text-text-muted">{email}</p>
           </div>
           <div role="menu" aria-label="계정 메뉴" className="p-1">
-            <form action={signOut}>
+            <form action={signOut} onSubmit={() => posthog.reset()}>
               <button
                 type="submit"
                 role="menuitem"

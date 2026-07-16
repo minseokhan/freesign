@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
 import { toContractDraftPreview } from "@/lib/contracts/draft";
+import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { contractDraftInputSchema } from "@/lib/validation/contract";
@@ -41,6 +45,9 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (clientError) {
+    await captureServerException(clientError, user.id, {
+      route: "contracts/draft",
+    });
     return NextResponse.json(
       { ok: false, error: clientError.message },
       { status: 500 },
@@ -61,6 +68,9 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (profileError) {
+    await captureServerException(profileError, user.id, {
+      route: "contracts/draft",
+    });
     return NextResponse.json(
       { ok: false, error: profileError.message },
       { status: 500 },
@@ -76,6 +86,11 @@ export async function POST(request: Request) {
     endDate: parsed.data.end_date,
     dueDate: parsed.data.due_date,
   });
+
+  // source(ai|skeleton)로 AI 가용률을 관측한다. 저장 전 이탈도 이 이벤트로 보인다.
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_draft_previewed", properties: { source: draft.source } });
+  await posthog.flush();
 
   return NextResponse.json({
     ok: true,

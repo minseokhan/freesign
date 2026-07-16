@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
+import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
 import { serializeTaxLedgerCsv, type ReportLedgerRow } from "@/lib/reports-csv";
 import { createClient } from "@/lib/supabase/server";
 
@@ -25,7 +29,7 @@ type ReportRpcClient = {
 };
 
 export async function GET(request: Request) {
-  await requireUser();
+  const user = await requireUser();
 
   const yearResult = parseReportYear(new URL(request.url).searchParams.get("year"));
 
@@ -43,6 +47,7 @@ export async function GET(request: Request) {
   });
 
   if (error) {
+    await captureServerException(error, user.id, { route: "reports" });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -57,6 +62,10 @@ export async function GET(request: Request) {
     netAmount: toAmount(row.net_amount),
   }));
   const csv = serializeTaxLedgerCsv(rows);
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "report_exported", properties: { year: yearResult.year, row_count: rows.length } });
+  await posthog.flush();
 
   return new NextResponse(csv, {
     headers: {

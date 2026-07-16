@@ -7,6 +7,10 @@ import { ContractDocument } from "@/components/pdf/contract-document";
 import { requireUser } from "@/lib/auth";
 import { mapContractPdfProps } from "@/lib/contracts/pdf";
 import { assertOwned, notDeleted } from "@/lib/db";
+import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -66,6 +70,7 @@ export async function GET(_request: Request, context: RouteContext) {
   ).maybeSingle();
 
   if (error) {
+    await captureServerException(error, user.id, { route: "contracts/pdf" });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -96,6 +101,9 @@ export async function GET(_request: Request, context: RouteContext) {
     });
 
   if (uploadError) {
+    await captureServerException(uploadError, user.id, {
+      route: "contracts/pdf",
+    });
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
@@ -105,11 +113,18 @@ export async function GET(_request: Request, context: RouteContext) {
     .eq("id", contract.id);
 
   if (updateError) {
+    await captureServerException(updateError, user.id, {
+      route: "contracts/pdf",
+    });
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${contract.id}`);
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_pdf_downloaded", properties: { contract_id: contract.id } });
+  await posthog.flush();
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {

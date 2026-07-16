@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 
 import { getAnthropicEnv } from "@/lib/env";
+import { captureServerException } from "@/lib/posthog-server";
 import { REQUIRED_CONTRACT_CLAUSES } from "@/lib/validation/contract";
 
 export { REQUIRED_CONTRACT_CLAUSES };
@@ -111,9 +112,14 @@ export async function generateContractDraft(
   let client: AnthropicMessagesClient;
   try {
     client = options.client ?? createAnthropicClient();
-  } catch {
+  } catch (error) {
+    await captureServerException(error, undefined, {
+      feature: "ai_contract_draft",
+    });
     return skeleton;
   }
+
+  let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -130,14 +136,22 @@ export async function generateContractDraft(
           source: "ai",
         };
       }
-    } catch {
+    } catch (error) {
       // Claude is an enhancement, not a gate. Exhaust retries, then return skeleton.
+      lastError = error;
     }
 
     if (attempt < maxAttempts) {
       await sleep(backoffMs * attempt);
     }
   }
+
+  // 폴백은 조용히 넘어가지 않고 에러 트래킹에 남긴다(키 누락·API 장애 조기 발견).
+  await captureServerException(
+    lastError ?? new Error("Claude 초안 응답이 스키마와 불일치해 골격으로 폴백"),
+    undefined,
+    { feature: "ai_contract_draft" },
+  );
 
   return skeleton;
 }

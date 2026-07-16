@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { calcWithholding } from "@/lib/tax";
 import type { Database, Json } from "@/types/database";
@@ -177,6 +178,10 @@ export async function seedDemoData(): Promise<ActionResult> {
 
   revalidateDemoPaths();
 
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "demo_seeded" });
+  await posthog.flush();
+
   return { ok: true };
 }
 
@@ -270,6 +275,10 @@ export async function clearDemoData(): Promise<ActionResult> {
   }
 
   revalidateDemoPaths();
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "demo_cleared" });
+  await posthog.flush();
 
   return { ok: true };
 }

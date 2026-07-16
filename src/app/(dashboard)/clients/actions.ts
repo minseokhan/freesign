@@ -6,6 +6,7 @@ import { z } from "zod";
 import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
+import { getPostHogClient } from "@/lib/posthog-server";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { clientInputSchema, type ClientInput } from "@/lib/validation/client";
 import type { Database } from "@/types/database";
@@ -76,6 +77,10 @@ export async function createClient(input: unknown): Promise<ClientActionResult> 
   }
 
   revalidatePath("/clients");
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "client_created", properties: { client_id: data.id } });
+  await posthog.flush();
 
   return { ok: true, id: data.id };
 }

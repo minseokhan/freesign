@@ -9,6 +9,10 @@ import {
   type InvoicePdfBankAccount,
   mapInvoicePdfProps,
 } from "@/lib/invoices/pdf";
+import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -77,6 +81,7 @@ export async function GET(_request: Request, context: RouteContext) {
   ).maybeSingle();
 
   if (error) {
+    await captureServerException(error, user.id, { route: "invoices/pdf" });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -94,6 +99,9 @@ export async function GET(_request: Request, context: RouteContext) {
     .maybeSingle();
 
   if (profileError) {
+    await captureServerException(profileError, user.id, {
+      route: "invoices/pdf",
+    });
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
 
@@ -109,6 +117,10 @@ export async function GET(_request: Request, context: RouteContext) {
     document,
   }) as Parameters<typeof renderToBuffer>[0];
   const pdfBuffer = await renderToBuffer(pdfElement);
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "invoice_pdf_downloaded", properties: { invoice_id: invoice.id } });
+  await posthog.flush();
 
   return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {

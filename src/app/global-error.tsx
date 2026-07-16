@@ -1,13 +1,22 @@
 "use client";
 
+import { useEffect } from "react";
+import posthog from "posthog-js";
+
 import { Button } from "@/components/ui/button";
 
 export default function GlobalError({
+  error,
   reset,
 }: {
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    // 에러 바운더리가 잡은 렌더링 예외는 window.onerror에 도달하지 않으므로 명시 캡처한다.
+    posthog.captureException(error);
+  }, [error]);
+
   return (
     <html lang="ko">
       <body>

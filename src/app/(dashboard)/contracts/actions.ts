@@ -6,6 +6,10 @@ import { z } from "zod";
 import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
+import {
   CONTRACT_STATUSES,
   getContractStatusTransition,
   type ContractStatus,
@@ -215,6 +219,10 @@ export async function createContractDraft(
     revalidatePath("/contracts");
     revalidatePath(`/contracts/${data.id}`);
 
+    const posthog = getPostHogClient();
+    posthog.capture({ distinctId: user.id, event: "contract_draft_created", properties: { contract_id: data.id, is_update: true, draft_source: draft.source } });
+    await posthog.flush();
+
     return { ok: true, id: data.id };
   }
 
@@ -235,6 +243,10 @@ export async function createContractDraft(
   }
 
   revalidatePath("/contracts");
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_draft_created", properties: { contract_id: data.id, is_update: false, draft_source: draft.source } });
+  await posthog.flush();
 
   return { ok: true, id: data.id };
 }
@@ -302,6 +314,10 @@ export async function createImportedContract(
   }
 
   revalidatePath("/contracts");
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_imported", properties: { contract_id: data } });
+  await posthog.flush();
 
   return { ok: true, id: data };
 }
@@ -436,11 +452,15 @@ export async function transitionContractStatus(
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${id}`);
 
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_status_changed", properties: { contract_id: data, from_status: fromStatus, to_status: parsedStatus.data } });
+  await posthog.flush();
+
   return { ok: true, id: data };
 }
 
 export async function deleteContract(id: string): Promise<ContractActionResult> {
-  await requireUser();
+  const user = await requireUser();
 
   if (!id.trim()) {
     return { ok: false, error: "계약을 찾을 수 없습니다." };
@@ -515,12 +535,20 @@ export async function deleteContract(id: string): Promise<ContractActionResult> 
 
     if (removeError) {
       console.error("계약 Storage 아티팩트 정리 실패", removeError);
+      await captureServerException(removeError, user.id, {
+        route: "contracts/delete",
+        context: "storage_cleanup",
+      });
     }
   }
 
   revalidatePath("/contracts");
   revalidatePath("/dashboard");
   revalidatePath("/invoices");
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_deleted", properties: { contract_id: id } });
+  await posthog.flush();
 
   return { ok: true, id };
 }

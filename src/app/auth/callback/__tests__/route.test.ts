@@ -3,15 +3,30 @@ import { GET } from "../route";
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
   exchangeCodeForSession: vi.fn(),
+  identify: vi.fn(),
+  capture: vi.fn(),
+  flush: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createClient: mocks.createClient,
 }));
 
+vi.mock("@/lib/posthog-server", () => ({
+  getPostHogClient: () => ({
+    identify: mocks.identify,
+    capture: mocks.capture,
+    flush: mocks.flush,
+  }),
+}));
+
 describe("OAuth callback route", () => {
   beforeEach(() => {
-    mocks.exchangeCodeForSession.mockResolvedValue({ error: null });
+    mocks.exchangeCodeForSession.mockResolvedValue({
+      error: null,
+      data: { user: { id: "user-1" } },
+    });
+    mocks.flush.mockResolvedValue(undefined);
     mocks.createClient.mockResolvedValue({
       auth: {
         exchangeCodeForSession: mocks.exchangeCodeForSession,
@@ -32,6 +47,11 @@ describe("OAuth callback route", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost:3000/dashboard",
     );
+    expect(mocks.identify).toHaveBeenCalledWith({ distinctId: "user-1" });
+    expect(mocks.capture).toHaveBeenCalledWith({
+      distinctId: "user-1",
+      event: "user_signed_in",
+    });
   });
 
   it("redirects to a safe internal next path after successful exchange", async () => {

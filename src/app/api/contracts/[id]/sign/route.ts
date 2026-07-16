@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { requireUser } from "@/lib/auth";
 import { canTransitionContractStatus } from "@/lib/contract-status";
+import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
 import { createV1SignatureProvider } from "@/services/signature/provider";
 import type { Database, Json } from "@/types/database";
@@ -56,6 +60,9 @@ export async function POST(request: Request, context: RouteContext) {
     .maybeSingle();
 
   if (contractError) {
+    await captureServerException(contractError, user.id, {
+      route: "contracts/sign",
+    });
     return NextResponse.json({ error: contractError.message }, { status: 500 });
   }
 
@@ -82,6 +89,9 @@ export async function POST(request: Request, context: RouteContext) {
     });
 
   if (uploadError) {
+    await captureServerException(uploadError, user.id, {
+      route: "contracts/sign",
+    });
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
@@ -119,11 +129,18 @@ export async function POST(request: Request, context: RouteContext) {
   );
 
   if (signError) {
+    await captureServerException(signError, user.id, {
+      route: "contracts/sign",
+    });
     return NextResponse.json({ error: signError.message }, { status: 500 });
   }
 
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${id}`);
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_signed", properties: { contract_id: id } });
+  await posthog.flush();
 
   return NextResponse.json({
     ok: true,

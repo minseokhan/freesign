@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { normalizeImportedClauses } from "@/lib/contracts/draft";
 import { getAnthropicEnv } from "@/lib/env";
+import { captureServerException } from "@/lib/posthog-server";
 import type { ContractClauseInput } from "@/lib/validation/contract";
 import {
   ANTHROPIC_CONTRACT_MODEL,
@@ -80,9 +81,14 @@ export async function extractContractFromPdf(
   let client: AnthropicMessagesClient;
   try {
     client = options.client ?? createAnthropicClient();
-  } catch {
+  } catch (error) {
+    await captureServerException(error, undefined, {
+      feature: "ai_contract_import",
+    });
     return fallback;
   }
+
+  let lastError: unknown = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
@@ -97,14 +103,22 @@ export async function extractContractFromPdf(
           source: "ai",
         };
       }
-    } catch {
+    } catch (error) {
       // Claude is an enhancement, not a gate. Exhaust retries, then return fallback.
+      lastError = error;
     }
 
     if (attempt < maxAttempts) {
       await sleep(backoffMs * attempt);
     }
   }
+
+  // 폴백은 조용히 넘어가지 않고 에러 트래킹에 남긴다(키 누락·API 장애 조기 발견).
+  await captureServerException(
+    lastError ?? new Error("Claude PDF 추출 응답이 스키마와 불일치해 폴백"),
+    undefined,
+    { feature: "ai_contract_import" },
+  );
 
   return fallback;
 }

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
 import { assertOwned, notDeleted } from "@/lib/db";
+import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -22,7 +26,7 @@ type RouteContext = {
 };
 
 export async function GET(_request: Request, context: RouteContext) {
-  await requireUser();
+  const user = await requireUser();
   const { id } = await context.params;
 
   if (!id.trim()) {
@@ -41,6 +45,9 @@ export async function GET(_request: Request, context: RouteContext) {
   ).maybeSingle();
 
   if (error) {
+    await captureServerException(error, user.id, {
+      route: "contracts/source-pdf",
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -58,6 +65,11 @@ export async function GET(_request: Request, context: RouteContext) {
     .createSignedUrl(contract.source_pdf_url, SIGNED_URL_TTL_SECONDS);
 
   if (signedError || !signed?.signedUrl) {
+    await captureServerException(
+      signedError ?? new Error("원본 계약서 signed URL 생성 실패"),
+      user.id,
+      { route: "contracts/source-pdf" },
+    );
     return NextResponse.json(
       {
         error: signedError?.message ?? "원본 계약서 PDF를 불러오지 못했습니다.",
@@ -65,6 +77,10 @@ export async function GET(_request: Request, context: RouteContext) {
       { status: 500 },
     );
   }
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "contract_source_pdf_downloaded", properties: { contract_id: contract.id } });
+  await posthog.flush();
 
   return NextResponse.redirect(signed.signedUrl);
 }

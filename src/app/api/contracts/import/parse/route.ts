@@ -2,6 +2,10 @@ import { Buffer } from "node:buffer";
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
+import {
+  captureServerException,
+  getPostHogClient,
+} from "@/lib/posthog-server";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { extractContractFromPdf } from "@/services/ai/contract-import";
 
@@ -11,7 +15,7 @@ export const maxDuration = 60;
 const MAX_PDF_SIZE_BYTES = 5 * 1024 * 1024;
 
 export async function POST(request: Request) {
-  await requireUser();
+  const user = await requireUser();
 
   const limit = await checkRateLimit(RATE_LIMITS.aiPdfParse);
   if (!limit.allowed) {
@@ -49,8 +53,17 @@ export async function POST(request: Request) {
     const base64 = Buffer.from(await file.arrayBuffer()).toString("base64");
     const extracted = await extractContractFromPdf(base64);
 
+    // source(ai|fallback)로 파싱 품질을 관측한다. 이후 contract_imported와 퍼널 연결.
+    const posthog = getPostHogClient();
+    posthog.capture({ distinctId: user.id, event: "contract_pdf_parsed", properties: { source: extracted.source } });
+    await posthog.flush();
+
     return NextResponse.json({ extracted });
   } catch (error) {
+    await captureServerException(error, user.id, {
+      route: "contracts/import/parse",
+    });
+
     return NextResponse.json(
       {
         error:

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { getPostHogClient } from "@/lib/posthog-server";
 import { getSafeRedirectPath } from "@/lib/safe-redirect";
 import { createClient } from "@/lib/supabase/server";
 
@@ -20,10 +21,17 @@ export async function GET(request: Request) {
 
   try {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error, data } = await supabase.auth.exchangeCodeForSession(code);
 
     if (error) {
       return redirectToLogin(requestUrl);
+    }
+
+    if (data.user) {
+      const posthog = getPostHogClient();
+      posthog.identify({ distinctId: data.user.id });
+      posthog.capture({ distinctId: data.user.id, event: "user_signed_in" });
+      await posthog.flush();
     }
   } catch {
     return redirectToLogin(requestUrl);

@@ -1,4 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const captureServerException = vi.fn().mockResolvedValue(undefined);
+
+vi.mock("@/lib/posthog-server", () => ({
+  captureServerException: (...args: unknown[]) =>
+    captureServerException(...args),
+}));
 
 import {
   ANTHROPIC_CONTRACT_MODEL,
@@ -53,6 +60,10 @@ describe("buildSkeletonContractDraft", () => {
 });
 
 describe("generateContractDraft", () => {
+  beforeEach(() => {
+    captureServerException.mockClear();
+  });
+
   it("returns a validated AI draft when Claude returns schema-conformant tool input", async () => {
     const aiResult = {
       title: "블루스튜디오 용역계약서 초안",
@@ -108,6 +119,43 @@ describe("generateContractDraft", () => {
     expect(draft.source).toBe("skeleton");
     expect(draft.needs_review).toBe(true);
     expect(client.messages.create).toHaveBeenCalledTimes(3);
+  });
+
+  it("폴백 시 마지막 에러를 PostHog로 캡처하고, AI 성공 시에는 캡처하지 않는다", async () => {
+    const failingClient: AnthropicMessagesClient = {
+      messages: {
+        create: vi.fn().mockRejectedValue(new Error("timeout")),
+      },
+    };
+
+    await generateContractDraft(input, {
+      client: failingClient,
+      retryCount: 0,
+      backoffMs: 0,
+    });
+
+    expect(captureServerException).toHaveBeenCalledTimes(1);
+    const [captured, , properties] = captureServerException.mock.calls[0];
+    expect((captured as Error).message).toBe("timeout");
+    expect(properties).toEqual({ feature: "ai_contract_draft" });
+
+    captureServerException.mockClear();
+
+    const aiResult = {
+      title: "정상 초안",
+      body: REQUIRED_CONTRACT_CLAUSES.map(
+        (clause) => `${clause}: 정상 문구입니다.`,
+      ).join("\n\n"),
+      plain_summary: "정상 요약입니다.",
+      needs_review: false,
+    };
+
+    await generateContractDraft(input, {
+      client: createMockClient(aiResult),
+      retryCount: 0,
+    });
+
+    expect(captureServerException).not.toHaveBeenCalled();
   });
 
   it("returns AI output after a bounded retry succeeds", async () => {
