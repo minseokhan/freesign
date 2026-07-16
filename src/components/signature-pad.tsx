@@ -3,82 +3,31 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import {
+  SignatureCanvas,
+  type SignatureCanvasHandle,
+} from "@/components/signature-canvas";
+
 type SignaturePadProps = {
   contractId: string;
 };
 
 export function SignaturePad({ contractId }: SignaturePadProps) {
   const router = useRouter();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const canvasRef = useRef<SignatureCanvasHandle>(null);
+  const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(
+    null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function getPoint(event: React.PointerEvent<HTMLCanvasElement>) {
-    const canvas = event.currentTarget;
-    const rect = canvas.getBoundingClientRect();
-
-    return {
-      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
-      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
-    };
-  }
-
-  function startDrawing(event: React.PointerEvent<HTMLCanvasElement>) {
-    const canvas = event.currentTarget;
-    const context = canvas.getContext("2d");
-
-    if (!context) return;
-
-    const point = getPoint(event);
-    canvas.setPointerCapture(event.pointerId);
-    context.beginPath();
-    context.moveTo(point.x, point.y);
-    context.lineWidth = 3;
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.strokeStyle = "#0f172a";
-    setIsDrawing(true);
-    setIsDirty(true);
-  }
-
-  function draw(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (!isDrawing) return;
-
-    const canvas = event.currentTarget;
-    const context = canvas.getContext("2d");
-
-    if (!context) return;
-
-    const point = getPoint(event);
-    context.lineTo(point.x, point.y);
-    context.stroke();
-  }
-
-  function stopDrawing(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-
-    setIsDrawing(false);
-  }
-
   function clearSignature() {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-
-    if (!canvas || !context) return;
-
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    setIsDirty(false);
+    canvasRef.current?.clear();
     setError(null);
   }
 
   async function submitSignature() {
-    const canvas = canvasRef.current;
-
-    if (!canvas || !isDirty) {
+    if (!signatureDataUrl) {
       setError("서명을 먼저 입력해 주세요.");
       return;
     }
@@ -92,7 +41,7 @@ export function SignaturePad({ contractId }: SignaturePadProps) {
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        signatureDataUrl: canvas.toDataURL("image/png"),
+        signatureDataUrl,
       }),
     });
 
@@ -122,18 +71,11 @@ export function SignaturePad({ contractId }: SignaturePadProps) {
         >
           서명 입력
         </label>
-        <canvas
+        <SignatureCanvas
           id="signature-canvas"
           ref={canvasRef}
-          width={720}
-          height={240}
-          role="img"
-          aria-label="서명 입력 캔버스"
           className="mt-sm h-48 w-full touch-none rounded-sm border border-surface-border-strong bg-white"
-          onPointerDown={startDrawing}
-          onPointerMove={draw}
-          onPointerUp={stopDrawing}
-          onPointerCancel={stopDrawing}
+          onChange={setSignatureDataUrl}
         />
       </div>
       {error ? (

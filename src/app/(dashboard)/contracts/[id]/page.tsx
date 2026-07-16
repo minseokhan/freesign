@@ -8,7 +8,8 @@ import {
   ContractStatusBadge,
   getContractStatusMeta,
 } from "@/components/contract-status-badge";
-import { SignaturePad } from "@/components/signature-pad";
+import { ContractSignatureTabs } from "@/components/contract-signature-tabs";
+import { SignatureRequestControls } from "@/components/signature-request-controls";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -44,6 +45,11 @@ type ContractRow = Pick<
 type ContractEventRow = Pick<
   Database["public"]["Tables"]["contract_events"]["Row"],
   "id" | "actor" | "from_status" | "to_status" | "event_type" | "created_at"
+>;
+
+type SignatureRequestRow = Pick<
+  Database["public"]["Tables"]["signature_requests"]["Row"],
+  "id" | "recipient_email" | "recipient_name" | "expires_at" | "first_viewed_at"
 >;
 
 type ContractClause = {
@@ -234,6 +240,24 @@ export default async function ContractDetailPage({
     throw eventError;
   }
 
+  // sent 계약의 대기 중 서명 요청 현황 — RSC에서 RLS 스코프로 직접 조회한다.
+  let signatureRequest: SignatureRequestRow | null = null;
+
+  if (contract.status === "sent") {
+    const { data: requestData, error: requestError } = await supabase
+      .from("signature_requests")
+      .select("id,recipient_email,recipient_name,expires_at,first_viewed_at")
+      .eq("contract_id", contract.id)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (requestError) {
+      throw requestError;
+    }
+
+    signatureRequest = requestData as SignatureRequestRow | null;
+  }
+
   const events = (eventData ?? []) as ContractEventRow[];
   const clauses = normalizeClauses(contract.clauses);
   // 계약 전체 요약이 있으면(새 계약) 상단에 1회만 노출하고 조항별 요약은 생략한다.
@@ -408,7 +432,7 @@ export default async function ContractDetailPage({
         </div>
         {contract.status === "draft" ? (
           <div className="mt-xl">
-            <SignaturePad contractId={contract.id} />
+            <ContractSignatureTabs contractId={contract.id} />
           </div>
         ) : signatureImageUrl ? (
           <div className="mt-xl space-y-lg">
@@ -442,6 +466,45 @@ export default async function ContractDetailPage({
         )}
       </Card>
       )}
+
+      {signatureRequest ? (
+        <Card>
+          <div className="border-b border-surface-border pb-lg">
+            <h3 className="text-lg font-semibold text-text-primary">
+              상대방 서명 요청 현황
+            </h3>
+            <p className="mt-xs text-sm leading-relaxed text-text-muted">
+              상대방이 이메일의 서명 링크로 서명하면 계약이 서명완료 상태가
+              됩니다.
+            </p>
+          </div>
+          <dl className="mt-xl grid gap-lg sm:grid-cols-2">
+            <DetailItem
+              label="수신자 이메일"
+              value={signatureRequest.recipient_email}
+            />
+            <DetailItem
+              label="수신자 이름"
+              value={signatureRequest.recipient_name}
+            />
+            <DetailItem
+              label="만료일"
+              value={formatDate(signatureRequest.expires_at)}
+            />
+            <DetailItem
+              label="열람 시각"
+              value={
+                signatureRequest.first_viewed_at
+                  ? formatDate(signatureRequest.first_viewed_at)
+                  : "아직 열람 전"
+              }
+            />
+          </dl>
+          <div className="mt-xl">
+            <SignatureRequestControls contractId={contract.id} />
+          </div>
+        </Card>
+      ) : null}
 
       <Card>
         <div className="border-b border-surface-border pb-lg">
