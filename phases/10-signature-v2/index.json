@@ -7,7 +7,8 @@
       "name": "signing-domain",
       "status": "completed",
       "started_at": "2026-07-17T06:12:22+0900",
-      "summary": "서명 토큰 해시 유틸, sent 상태 전이 도메인 로직, legalEffect record/mutual 타입 기반을 추가"
+      "summary": "서명 토큰 해시 유틸, sent 상태 전이 도메인 로직, legalEffect record/mutual 타입 기반을 추가",
+      "completed_at": "2026-07-17T06:17:09+0900"
     },
     {
       "step": 1,
