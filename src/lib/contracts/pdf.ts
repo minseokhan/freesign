@@ -1,7 +1,7 @@
 import type { Json } from "@/types/database";
 
 export const CONTRACT_PDF_DISCLAIMER =
-  "이 문서는 FreeSign v1 간이 서명 기록용 PDF입니다. AI 초안은 법적 자문이 아니며, v1 간이 서명은 법적 효력을 보장하지 않습니다. 계약 확정 전 전문가 검토를 권장합니다.";
+  "이 문서는 FreeSign v1 간이 서명 기록용 PDF입니다. AI 초안은 법적 자문이 아니며, v1 간이 서명은 강한 법적 증거를 보장하지 않습니다. 계약 확정 전 전문가 검토를 권장합니다.";
 
 export type ContractPdfClause = {
   title: string;

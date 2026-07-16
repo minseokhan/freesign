@@ -12,7 +12,7 @@ export interface V1SignatureResult {
   provider: "v1";
   docHash: string;
   signatureImagePath: string;
-  legalEffect: "none";
+  legalEffect: "record" | "mutual";
 }
 
 export interface SignatureProvider {
@@ -36,7 +36,7 @@ export function createV1SignatureProvider(): SignatureProvider {
         provider: "v1",
         docHash: this.computeDocHash(input.clauses),
         signatureImagePath: input.signatureImagePath,
-        legalEffect: "none",
+        legalEffect: "record",
       };
     },
   };

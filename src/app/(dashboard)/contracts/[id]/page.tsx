@@ -430,9 +430,9 @@ export default async function ContractDetailPage({
               />
             </dl>
             <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-              v1 간이 서명은 법적 효력이 없는 기록용 서명입니다. 서명 후
-              조항은 읽기 전용이며, 수정하려면 초안으로 되돌린 뒤 다시
-              서명해야 합니다.
+              v1 간이 서명은 기록용 서명입니다. 서명 후 조항은 읽기
+              전용이며, 수정하려면 초안으로 되돌린 뒤 다시 서명해야
+              합니다. 강한 법적 증거가 필요하면 인증 서명이 필요합니다.
             </div>
           </div>
         ) : (

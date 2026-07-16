@@ -118,12 +118,12 @@ export async function POST(request: Request, context: RouteContext) {
       p_actor: user.id,
       p_event_type: "signed",
       p_meta: {
-      provider: "v1",
-      legalEffect: "none",
-      doc_hash: docHash,
-      signature_image_path: signatureImagePath,
-      ip: signatureMeta.ip,
-      ua: signatureMeta.ua,
+        provider: "v1",
+        legalEffect: "record",
+        doc_hash: docHash,
+        signature_image_path: signatureImagePath,
+        ip: signatureMeta.ip,
+        ua: signatureMeta.ua,
       },
     },
   );
@@ -145,7 +145,7 @@ export async function POST(request: Request, context: RouteContext) {
   return NextResponse.json({
     ok: true,
     id: updatedContractId,
-    legalEffect: "none",
+    legalEffect: "record",
   });
 }
 

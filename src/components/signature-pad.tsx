@@ -111,8 +111,9 @@ export function SignaturePad({ contractId }: SignaturePadProps) {
   return (
     <div className="space-y-lg">
       <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-        v1 간이 서명은 법적 효력이 없는 기록용 서명입니다. 문서 해시와
-        서버 기록으로 무결성 확인 원리만 재현합니다.
+        v1 간이 서명은 기록용 서명입니다. 문서 해시와 서버 기록으로
+        무결성 확인 원리만 재현하며, 강한 법적 증거가 필요하면 인증
+        서명이 필요합니다.
       </div>
       <div>
         <label

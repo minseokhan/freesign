@@ -90,6 +90,7 @@ describe("POST /api/contracts/[id]/sign", () => {
     );
     vi.mocked(createV1SignatureProvider).mockReturnValue({
       computeDocHash: vi.fn().mockReturnValue("provider-doc-hash"),
+      computeFileHash: vi.fn(),
       createSignatureResult: vi.fn(),
     });
   });
@@ -110,7 +111,7 @@ describe("POST /api/contracts/[id]/sign", () => {
         p_event_type: "signed",
         p_meta: expect.objectContaining({
           provider: "v1",
-          legalEffect: "none",
+          legalEffect: "record",
           doc_hash: "provider-doc-hash",
           signature_image_path: "user-123/contract-1/signature.png",
           ip: "203.0.113.10",

@@ -398,10 +398,13 @@ export async function transitionContractStatus(
     return { ok: false, error: "허용되지 않는 계약 상태입니다." };
   }
 
-  if (parsedStatus.data === "signed") {
+  // TODO(signature-v2-step1): remove the cast after database types include "sent".
+  const sentStatus = "sent" as ContractStatus;
+
+  if (parsedStatus.data === "signed" || parsedStatus.data === sentStatus) {
     return {
       ok: false,
-      error: "서명 완료 전이는 서명 절차에서만 처리할 수 있습니다.",
+      error: "서명 관련 전이는 전용 절차에서만 처리할 수 있습니다.",
     };
   }
 
