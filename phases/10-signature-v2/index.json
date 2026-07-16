@@ -1,0 +1,16 @@
+{
+  "project": "FreeSign",
+  "phase": "10-signature-v2",
+  "steps": [
+    { "step": 0, "name": "signing-domain", "status": "pending" },
+    { "step": 1, "name": "schema-migration", "status": "pending" },
+    { "step": 2, "name": "rpc-migration", "status": "pending" },
+    { "step": 3, "name": "email-provider", "status": "pending" },
+    { "step": 4, "name": "timestamp-provider", "status": "pending" },
+    { "step": 5, "name": "send-action", "status": "pending" },
+    { "step": 6, "name": "send-ui", "status": "pending" },
+    { "step": 7, "name": "certificate-pdf", "status": "pending" },
+    { "step": 8, "name": "public-sign", "status": "pending" },
+    { "step": 9, "name": "guards-docs", "status": "pending" }
+  ]
+}
