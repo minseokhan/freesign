@@ -11,12 +11,9 @@ export type ContractStatusTransitionContext = {
   hasCounterpartySignature?: boolean;
 };
 
-// TODO(signature-v2-step1): remove this cast after database types include "sent".
-const SENT_STATUS = "sent" as ContractStatus;
-
 export const CONTRACT_STATUSES = [
   "draft",
-  SENT_STATUS,
+  "sent",
   "signed",
   "active",
   "done",
@@ -24,8 +21,8 @@ export const CONTRACT_STATUSES = [
 ] as const satisfies readonly ContractStatus[];
 
 const forwardTransitions: Partial<Record<ContractStatus, ContractStatus[]>> = {
-  draft: ["signed", SENT_STATUS, "canceled"],
-  [SENT_STATUS]: ["signed", "draft", "canceled"],
+  draft: ["signed", "sent", "canceled"],
+  sent: ["signed", "draft", "canceled"],
   signed: ["active", "draft", "canceled"],
   active: ["done", "canceled"],
 };
@@ -57,6 +54,6 @@ export function getAvailableContractStatusTransitions(
   from: ContractStatus,
 ): ContractStatus[] {
   return (forwardTransitions[from] ?? []).filter(
-    (status) => status !== "signed" && status !== SENT_STATUS,
+    (status) => status !== "signed" && status !== "sent",
   );
 }

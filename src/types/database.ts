@@ -9,6 +9,27 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      anon_rate_limit_events: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: number
+          ip_hash: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: never
+          ip_hash: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: never
+          ip_hash?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           channel: string
@@ -91,6 +112,69 @@ export type Database = {
             columns: ["contract_id"]
             isOneToOne: false
             referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contract_signatures: {
+        Row: {
+          consent: Json
+          contract_id: string
+          doc_hash: string
+          id: string
+          meta: Json
+          party: Database["public"]["Enums"]["contract_signature_party"]
+          request_id: string | null
+          signature_image_data: string | null
+          signature_image_path: string | null
+          signed_at: string
+          signer_email: string | null
+          signer_name: string | null
+          user_id: string
+        }
+        Insert: {
+          consent?: Json
+          contract_id: string
+          doc_hash: string
+          id?: string
+          meta?: Json
+          party: Database["public"]["Enums"]["contract_signature_party"]
+          request_id?: string | null
+          signature_image_data?: string | null
+          signature_image_path?: string | null
+          signed_at?: string
+          signer_email?: string | null
+          signer_name?: string | null
+          user_id: string
+        }
+        Update: {
+          consent?: Json
+          contract_id?: string
+          doc_hash?: string
+          id?: string
+          meta?: Json
+          party?: Database["public"]["Enums"]["contract_signature_party"]
+          request_id?: string | null
+          signature_image_data?: string | null
+          signature_image_path?: string | null
+          signed_at?: string
+          signer_email?: string | null
+          signer_name?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_signatures_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contract_signatures_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "signature_requests"
             referencedColumns: ["id"]
           },
         ]
@@ -348,11 +432,79 @@ export type Database = {
         }
         Relationships: []
       }
+      signature_requests: {
+        Row: {
+          completed_at: string | null
+          completion_tsa_token: string | null
+          contract_id: string
+          created_at: string
+          expires_at: string
+          first_viewed_at: string | null
+          frozen_doc_hash: string
+          id: string
+          recipient_email: string
+          recipient_name: string | null
+          sent_tsa_token: string | null
+          status: Database["public"]["Enums"]["signature_request_status"]
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completion_tsa_token?: string | null
+          contract_id: string
+          created_at?: string
+          expires_at: string
+          first_viewed_at?: string | null
+          frozen_doc_hash: string
+          id?: string
+          recipient_email: string
+          recipient_name?: string | null
+          sent_tsa_token?: string | null
+          status?: Database["public"]["Enums"]["signature_request_status"]
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          completion_tsa_token?: string | null
+          contract_id?: string
+          created_at?: string
+          expires_at?: string
+          first_viewed_at?: string | null
+          frozen_doc_hash?: string
+          id?: string
+          recipient_email?: string
+          recipient_name?: string | null
+          sent_tsa_token?: string | null
+          status?: Database["public"]["Enums"]["signature_request_status"]
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signature_requests_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      consume_anon_rate_limit: {
+        Args: {
+          p_bucket: string
+          p_ip_hash: string
+          p_limit: number
+          p_window_seconds: number
+        }
+        Returns: boolean
+      }
       consume_rate_limit: {
         Args: { p_bucket: string; p_max: number; p_window_seconds: number }
         Returns: Json
@@ -429,8 +581,10 @@ export type Database = {
       }
     }
     Enums: {
-      contract_status: "draft" | "signed" | "active" | "done" | "canceled"
+      contract_signature_party: "owner" | "counterparty"
+      contract_status: "draft" | "sent" | "signed" | "active" | "done" | "canceled"
       payment_status: "draft" | "unpaid" | "paid"
+      signature_request_status: "pending" | "completed" | "revoked"
       withholding_type: "wt_3_3" | "wt_8_8" | "none"
     }
     CompositeTypes: {
@@ -556,8 +710,10 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      contract_status: ["draft", "signed", "active", "done", "canceled"],
+      contract_signature_party: ["owner", "counterparty"],
+      contract_status: ["draft", "sent", "signed", "active", "done", "canceled"],
       payment_status: ["draft", "unpaid", "paid"],
+      signature_request_status: ["pending", "completed", "revoked"],
       withholding_type: ["wt_3_3", "wt_8_8", "none"],
     },
   },

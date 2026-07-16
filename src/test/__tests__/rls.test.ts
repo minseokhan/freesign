@@ -25,24 +25,30 @@ describe("RLS policies", () => {
         from pg_class
         where relnamespace = 'public'::regnamespace
           and relname in (
+            'anon_rate_limit_events',
             'clients',
+            'contract_signatures',
             'contracts',
             'invoices',
             'contract_events',
             'invoice_events',
-            'profiles'
+            'profiles',
+            'signature_requests'
           )
         order by relname
       `,
     );
 
     expect(rlsResult.rows).toEqual([
+      { relname: "anon_rate_limit_events", relrowsecurity: true },
       { relname: "clients", relrowsecurity: true },
       { relname: "contract_events", relrowsecurity: true },
+      { relname: "contract_signatures", relrowsecurity: true },
       { relname: "contracts", relrowsecurity: true },
       { relname: "invoice_events", relrowsecurity: true },
       { relname: "invoices", relrowsecurity: true },
       { relname: "profiles", relrowsecurity: true },
+      { relname: "signature_requests", relrowsecurity: true },
     ]);
 
     const policyResult = await pool.query<{ tablename: string; commands: string[] }>(
@@ -59,10 +65,12 @@ describe("RLS policies", () => {
     expect(policyResult.rows).toEqual([
       { tablename: "clients", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "contract_events", commands: ["DELETE", "INSERT", "SELECT"] },
+      { tablename: "contract_signatures", commands: ["INSERT", "SELECT"] },
       { tablename: "contracts", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "invoice_events", commands: ["DELETE", "INSERT", "SELECT"] },
       { tablename: "invoices", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "profiles", commands: ["INSERT", "SELECT", "UPDATE"] },
+      { tablename: "signature_requests", commands: ["INSERT", "SELECT", "UPDATE"] },
     ]);
   });
 
