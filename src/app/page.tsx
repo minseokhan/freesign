@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
@@ -6,10 +7,17 @@ import { FlowWalkthrough } from "@/components/landing/flow-walkthrough";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { MenuGallery } from "@/components/landing/menu-gallery";
 import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
+import { buildSoftwareApplicationJsonLd } from "@/lib/seo";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -23,6 +31,12 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-surface-page">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildSoftwareApplicationJsonLd()),
+        }}
+      />
       <LandingHeader isAuthenticated={isAuthenticated} />
 
       <main>

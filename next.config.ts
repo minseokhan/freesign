@@ -17,6 +17,11 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // 스트리밍 메타데이터 비활성화: 동적 페이지에서도 메타 태그를 항상 <head>에
+  // 블로킹으로 내보낸다. 기본값은 JS 실행 봇에게 <body>로 스트리밍하는데,
+  // 네이버 Yeti 등 국내 크롤러가 기본 UA 목록에 없어 메타를 놓칠 수 있다.
+  // 이 앱의 메타데이터는 정적 상수라 블로킹 비용이 없다.
+  htmlLimitedBots: /.*/,
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

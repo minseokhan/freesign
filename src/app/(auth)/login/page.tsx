@@ -1,8 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Logo } from "@/components/logo";
 import { getPublicEnv } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "로그인",
+  alternates: {
+    canonical: "/login",
+  },
+};
 
 type LoginPageProps = {
   searchParams?: Promise<{
