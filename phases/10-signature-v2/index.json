@@ -13,7 +13,10 @@
     {
       "step": 1,
       "name": "schema-migration",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-17T06:29:33+0900",
+      "summary": "sent enum·signature_requests·contract_signatures(불변 증거) 테이블·owner RLS·counterparty 서명 삭제 차단 트리거·anon 레이트리밋(consume_anon_rate_limit) 마이그레이션과 타입·enum 확장에 따른 상태 배지 타입 정합 수정",
+      "completed_at": "2026-07-17T06:38:30+0900"
     },
     {
       "step": 2,

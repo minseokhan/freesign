@@ -6,6 +6,7 @@ export type ContractStatus = Database["public"]["Enums"]["contract_status"];
 
 export const CONTRACT_STATUSES = [
   "draft",
+  "sent",
   "signed",
   "active",
   "done",
@@ -32,6 +33,11 @@ const contractStatusMeta: Record<ContractStatus, ContractStatusMeta> = {
     label: "초안",
     variant: "neutral",
     className: "bg-status-neutral-bg text-slate-600",
+  },
+  sent: {
+    label: "서명 대기",
+    variant: "warning",
+    className: "bg-status-waiting-bg text-amber-700",
   },
   signed: {
     label: "서명완료",
