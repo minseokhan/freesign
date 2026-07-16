@@ -16,9 +16,15 @@ export const anthropicEnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1),
 });
 
+export const emailEnvSchema = z.object({
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM: z.string().min(1).optional(),
+});
+
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export type AnthropicEnv = z.infer<typeof anthropicEnvSchema>;
+export type EmailEnv = z.infer<typeof emailEnvSchema>;
 
 function formatEnvError(scope: "public" | "server", error: z.ZodError) {
   const keys = error.issues
@@ -59,6 +65,16 @@ export function parseAnthropicEnv(env: EnvInput): AnthropicEnv {
   return result.data;
 }
 
+export function parseEmailEnv(env: EnvInput): EmailEnv {
+  const result = emailEnvSchema.safeParse(env);
+
+  if (!result.success) {
+    throw new Error(formatEnvError("server", result.error));
+  }
+
+  return result.data;
+}
+
 export function getPublicEnv() {
   return parsePublicEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -84,5 +100,17 @@ export function getAnthropicEnv() {
 
   return parseAnthropicEnv({
     ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+  });
+}
+
+export function getEmailEnv() {
+  if (typeof window !== "undefined") {
+    throw new Error("Server environment variables are not available in browser code.");
+  }
+
+  // 빈 문자열은 미설정으로 취급(optional min(1) 스키마 위반 방지).
+  return parseEmailEnv({
+    RESEND_API_KEY: process.env.RESEND_API_KEY || undefined,
+    EMAIL_FROM: process.env.EMAIL_FROM || undefined,
   });
 }
