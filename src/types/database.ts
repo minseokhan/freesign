@@ -524,6 +524,10 @@ export type Database = {
         Args: { p_token_hash: string }
         Returns: Json
       }
+      get_signed_contract_data: {
+        Args: { p_token_hash: string }
+        Returns: Json
+      }
       get_signing_session: {
         Args: { p_token_hash: string }
         Returns: Json
@@ -607,6 +611,10 @@ export type Database = {
           p_signature_meta: Json
         }
         Returns: string
+      }
+      store_completion_tsa_token: {
+        Args: { p_token: string; p_token_hash: string }
+        Returns: boolean
       }
       transition_contract_status_with_event: {
         Args: {

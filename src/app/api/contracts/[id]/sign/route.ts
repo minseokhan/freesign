@@ -8,6 +8,7 @@ import {
   captureServerException,
   getPostHogClient,
 } from "@/lib/posthog-server";
+import { getRequestIp, getRequestUserAgent } from "@/lib/request-meta";
 import { createClient } from "@/lib/supabase/server";
 import { createV1SignatureProvider } from "@/services/signature/provider";
 import type { Database, Json } from "@/types/database";
@@ -105,7 +106,7 @@ export async function POST(request: Request, context: RouteContext) {
     signer: user.email ?? user.id,
     signed_at: new Date().toISOString(),
     ip: getRequestIp(request),
-    ua: request.headers.get("user-agent") ?? "unknown",
+    ua: getRequestUserAgent(request),
   };
 
   const { data: updatedContractId, error: signError } = await supabase.rpc(
@@ -153,14 +154,4 @@ function decodePngDataUrl(dataUrl: string): Uint8Array {
   const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
 
   return Uint8Array.from(Buffer.from(base64, "base64"));
-}
-
-function getRequestIp(request: Request): string {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-
-  if (forwardedFor) {
-    return forwardedFor.split(",")[0]?.trim() || "unknown";
-  }
-
-  return request.headers.get("x-real-ip") ?? "unknown";
 }

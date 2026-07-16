@@ -23,7 +23,25 @@ const nextConfig: NextConfig = {
   // 이 앱의 메타데이터는 정적 상수라 블로킹 비용이 없다.
   htmlLimitedBots: /.*/,
   async headers() {
-    return [{ source: "/(.*)", headers: securityHeaders }];
+    return [
+      { source: "/(.*)", headers: securityHeaders },
+      // 공개 서명 표면: 토큰 URL 유출 방지(no-referrer) + 검색 색인 금지.
+      // 같은 키는 뒤 규칙이 우선하므로 전역 Referrer-Policy를 덮어쓴다.
+      {
+        source: "/sign/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+      {
+        source: "/api/sign/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+    ];
   },
   async rewrites() {
     return [
@@ -50,6 +68,25 @@ const nextConfig: NextConfig = {
       "./node_modules/@swc/helpers/**/*",
     ],
     "/api/invoices/[id]/pdf": [
+      "./public/fonts/Pretendard-Regular.ttf",
+      "./node_modules/@react-pdf/**/*",
+      "./node_modules/fontkit/**/*",
+      "./node_modules/@swc/helpers/**/*",
+    ],
+    // step 8 공개 서명 표면 — 완료 이메일 첨부·교부 라우트도 PDF를 렌더한다.
+    "/api/sign/[token]": [
+      "./public/fonts/Pretendard-Regular.ttf",
+      "./node_modules/@react-pdf/**/*",
+      "./node_modules/fontkit/**/*",
+      "./node_modules/@swc/helpers/**/*",
+    ],
+    "/api/sign/[token]/pdf": [
+      "./public/fonts/Pretendard-Regular.ttf",
+      "./node_modules/@react-pdf/**/*",
+      "./node_modules/fontkit/**/*",
+      "./node_modules/@swc/helpers/**/*",
+    ],
+    "/api/sign/[token]/certificate": [
       "./public/fonts/Pretendard-Regular.ttf",
       "./node_modules/@react-pdf/**/*",
       "./node_modules/fontkit/**/*",

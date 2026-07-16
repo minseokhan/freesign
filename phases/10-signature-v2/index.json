@@ -69,7 +69,10 @@
     {
       "step": 8,
       "name": "public-sign",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-17T08:05:00+0900",
+      "summary": "공개 서명 표면 — /sign/[token] RSC(get_signing_session 분기 렌더, noindex·no-referrer는 layout metadata+next.config 헤더)·counterparty-sign-form(동의 2종 게이트)·POST /api/sign/[token](anon 레이트리밋 counterparty_sign 5/60→zod allowlist(PNG ≤200KB·literal(true))→complete RPC 단일 호출(에러코드→404/409/410 매핑)→커밋 후 best-effort: TSA 결합 다이제스트(computeCompletionDigest)+write-once 저장 RPC·양측 완료 이메일(PDF 2종 첨부, 실패 시 링크 폴백)·posthog distinctId=owner)·교부 GET pdf/certificate 라우트(certificate_download 버킷 10/60). 신규 마이그레이션 0020(anon DEFINER 2종: store_completion_tsa_token write-once, get_signed_contract_data — owner 서명 이미지는 미반환·메타만), lib/request-meta(기존 sign route도 공용화)·signing-digest·supabase/anon(쿠키리스)·contracts/public-sign(jsonb→PDF props 순수 매핑). 테스트 37건 추가(총 501 그린). 주의: 0018~0020 원격 미적용(MCP apply_migration 수동 필요), step 7 owner certificate 라우트는 outputFileTracingIncludes에 폰트 트레이싱 항목이 없음(Vercel PDF 폰트 누락 가능)",
+      "completed_at": "2026-07-17T08:24:00+0900"
     },
     {
       "step": 9,
