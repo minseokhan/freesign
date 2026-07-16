@@ -45,7 +45,10 @@
     {
       "step": 5,
       "name": "send-action",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-17T07:12:18+0900",
+      "summary": "owner 발송 플로우 Server Action 3종(signature-actions.ts) — sendSignatureRequest(zod allowlist·signature_send 레이트리밋·소유/draft 재검증·기존 sign route와 동일한 owner PNG Storage 업로드·computeDocHash 후 send_signature_request_with_event RPC 원자 커밋, 커밋 후 TSA sent_tsa_token·이메일은 best-effort로 실패 비전파, raw 토큰은 서명 URL에만 존재), resendSignatureRequestEmail(신규 토큰 재발급+만료 14일 연장+재발송), revokeSignatureRequest(revoke RPC, Storage 파일은 기존 리셋 경로와 동일하게 유지), 유닛 테스트 16건",
+      "completed_at": "2026-07-17T07:25:30+0900"
     },
     {
       "step": 6,
