@@ -37,7 +37,9 @@
     {
       "step": 4,
       "name": "timestamp-provider",
-      "status": "pending"
+      "status": "completed",
+      "started_at": "2026-07-17T07:07:47+0900",
+      "summary": "services/timestamp 어댑터 신설 — RFC 3161 TimeStampReq DER 수동 조립(buildTimeStampReq 순수 함수, 외부 ASN.1 의존 없이), PKIStatus granted/grantedWithMods 최소 확인 후 응답 원문 base64 보존(검증은 openssl ts -verify 문서화), 5초 타임아웃·전 실패 무throw null(best-effort), TSA_URL env 미설정 시 noop 폴백, env에 TSA_URL optional 스키마, 유닛 테스트 14건"
     },
     {
       "step": 5,

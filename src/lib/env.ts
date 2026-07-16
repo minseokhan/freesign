@@ -21,10 +21,15 @@ export const emailEnvSchema = z.object({
   EMAIL_FROM: z.string().min(1).optional(),
 });
 
+export const timestampEnvSchema = z.object({
+  TSA_URL: z.string().url().optional(),
+});
+
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export type AnthropicEnv = z.infer<typeof anthropicEnvSchema>;
 export type EmailEnv = z.infer<typeof emailEnvSchema>;
+export type TimestampEnv = z.infer<typeof timestampEnvSchema>;
 
 function formatEnvError(scope: "public" | "server", error: z.ZodError) {
   const keys = error.issues
@@ -75,6 +80,16 @@ export function parseEmailEnv(env: EnvInput): EmailEnv {
   return result.data;
 }
 
+export function parseTimestampEnv(env: EnvInput): TimestampEnv {
+  const result = timestampEnvSchema.safeParse(env);
+
+  if (!result.success) {
+    throw new Error(formatEnvError("server", result.error));
+  }
+
+  return result.data;
+}
+
 export function getPublicEnv() {
   return parsePublicEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -112,5 +127,16 @@ export function getEmailEnv() {
   return parseEmailEnv({
     RESEND_API_KEY: process.env.RESEND_API_KEY || undefined,
     EMAIL_FROM: process.env.EMAIL_FROM || undefined,
+  });
+}
+
+export function getTimestampEnv() {
+  if (typeof window !== "undefined") {
+    throw new Error("Server environment variables are not available in browser code.");
+  }
+
+  // 빈 문자열은 미설정으로 취급 — TSA_URL 없음 = noop provider (기본 공용 TSA 자동 적용 안 함).
+  return parseTimestampEnv({
+    TSA_URL: process.env.TSA_URL || undefined,
   });
 }
