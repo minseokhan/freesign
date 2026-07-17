@@ -10,6 +10,8 @@ import type { Json } from "@/types/database";
 const DOC_HASH = "a".repeat(64);
 const IMAGE_DATA_URL =
   "data:image/png;base64," + Buffer.from("counterparty-png").toString("base64");
+const OWNER_IMAGE_DATA_URL =
+  "data:image/png;base64," + Buffer.from("owner-png").toString("base64");
 
 function signedContractData(): Json {
   return {
@@ -35,6 +37,12 @@ function signedContractData(): Json {
         ua: "OwnerAgent",
       },
     },
+    owner_signature: {
+      signer_name: "한프리",
+      signer_email: "owner@example.test",
+      signed_at: "2026-07-16T09:00:00.000Z",
+      signature_image_data: OWNER_IMAGE_DATA_URL,
+    },
     counterparty_signature: {
       signer_name: "김담당",
       signer_email: "counterparty@example.test",
@@ -51,6 +59,12 @@ function certificateData(): Json {
       title: "웹사이트 구축",
       clauses: [],
       doc_hash: DOC_HASH,
+      signature_meta: {
+        signer: "owner@example.test",
+        signed_at: "2026-07-16T09:00:00.000Z",
+        ip: "198.51.100.1",
+        ua: "OwnerAgent",
+      },
     },
     signatures: [
       {
@@ -106,8 +120,8 @@ describe("parseSignedContractData", () => {
     expect(parsed?.model.clientName).toBe("발주사");
     expect(parsed?.model.docHash).toBe(DOC_HASH);
     expect(parsed?.model.clauses).toHaveLength(1);
-    // owner 서명 이미지는 Storage key라 anon 렌더에는 포함하지 않는다(메타만).
-    expect(parsed?.model.signatureImageDataUri).toBeNull();
+    // 0022부터 owner 서명 base64 사본(owner_signature)을 이미지로 렌더한다.
+    expect(parsed?.model.signatureImageDataUri).toBe(OWNER_IMAGE_DATA_URL);
     expect(parsed?.model.signature?.signer).toBe("owner@example.test");
     expect(parsed?.model.counterpartySignature).toMatchObject({
       imageDataUri: IMAGE_DATA_URL,
@@ -145,6 +159,10 @@ describe("parseCertificateData", () => {
       "counterparty",
     ]);
     expect(props?.timeline).toHaveLength(2);
+    // owner 행 meta가 비어 있어도 contract.signature_meta 폴백으로 ip/ua를 표기한다(0022).
+    const ownerSigner = props?.signers.find((signer) => signer.party === "owner");
+    expect(ownerSigner?.ip).toBe("198.51.100.1");
+    expect(ownerSigner?.ua).toBe("OwnerAgent");
     expect(props?.tsa.tsaUrl).toBe("https://tsa.example.test/tsr");
     expect(props?.tsa.sent.present).toBe(true);
     expect(props?.tsa.completion.present).toBe(false);

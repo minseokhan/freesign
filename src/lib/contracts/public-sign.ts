@@ -81,6 +81,9 @@ export function parseSignedContractData(
   }
 
   const docHash = asString(contract.doc_hash);
+  const owner = isJsonObject(data.owner_signature)
+    ? data.owner_signature
+    : null;
   const counterparty = isJsonObject(data.counterparty_signature)
     ? data.counterparty_signature
     : null;
@@ -109,8 +112,8 @@ export function parseSignedContractData(
       signature_meta: contract.signature_meta ?? null,
     },
     clientName: asString(data.client_name),
-    // owner 서명 이미지는 Storage key라 anon에 반환되지 않는다 — 메타만 표기.
-    signatureImageDataUri: null,
+    // 0022부터 owner 서명 base64 사본이 owner_signature로 내려온다(구 계약은 null → 메타만 표기).
+    signatureImageDataUri: owner ? asString(owner.signature_image_data) : null,
     counterpartySignature,
   });
 
@@ -157,7 +160,8 @@ export function parseCertificateData(
       ?.signer_email ?? null;
 
   return buildCertificateProps({
-    contract: { id, title, doc_hash: docHash },
+    // signature_meta는 owner 행 meta가 비어 있는 계약의 ip/ua 폴백(0022).
+    contract: { id, title, doc_hash: docHash, signature_meta: contract.signature_meta ?? null },
     signatures,
     request: {
       recipient_email: counterpartyEmail ?? "",
