@@ -329,7 +329,10 @@ export default async function ContractDetailPage({
             ) : null}
             {isImported ? <SourcePdfLink contractId={contract.id} /> : null}
             <PdfLink contractId={contract.id} />
-            <ContractDeleteButton contractId={contract.id} />
+            <ContractDeleteButton
+              contractId={contract.id}
+              blocked={hasCounterpartySignature}
+            />
           </div>
         </div>
       </div>
@@ -470,7 +473,7 @@ export default async function ContractDetailPage({
                 value={
                   hasCounterpartySignature
                     ? "양 당사자 동의 서명 · 이메일 소유확인 수준"
-                    : "기록용 서명"
+                    : "내 서명 · 상대방 서명 대기 중"
                 }
               />
               {contract.doc_hash ? (
@@ -506,9 +509,9 @@ export default async function ContractDetailPage({
               </>
             ) : (
               <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-                v1 간이 서명은 기록용 서명입니다. 서명 후 조항은 읽기
-                전용이며, 수정하려면 초안으로 되돌린 뒤 다시 서명해야
-                합니다. 강한 법적 증거가 필요하면 인증 서명이 필요합니다.
+                아직 상대방 서명 전입니다. 위 서명은 요청자 본인 서명이며,
+                상대방이 이메일 링크로 서명을 완료하면 양 당사자 동의
+                서명으로 계약이 체결됩니다.
               </div>
             )}
           </div>
@@ -608,6 +611,11 @@ export default async function ContractDetailPage({
                 status={cancelTransition}
                 label={transitionLabels[cancelTransition] ?? "상태 변경"}
                 variant="danger"
+                confirm={{
+                  title: "계약을 취소할까요?",
+                  description:
+                    "계약이 취소 상태로 무효화됩니다. 이력에 취소 기록이 남으며, 되돌릴 수 없습니다.",
+                }}
               />
             ) : null}
           </div>

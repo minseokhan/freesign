@@ -13,6 +13,8 @@ type ConfirmDialogProps = {
   pendingLabel?: string;
   isPending?: boolean;
   error?: string | null;
+  // 실행 불가 안내 모드 — 위험 버튼·취소 버튼을 숨기고 중립 "확인" 버튼 하나만 노출한다.
+  confirmOnly?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -26,6 +28,7 @@ export function ConfirmDialog({
   pendingLabel = "삭제 중",
   isPending = false,
   error = null,
+  confirmOnly = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -89,23 +92,31 @@ export function ConfirmDialog({
         ) : null}
         {error ? <p className="mt-sm text-sm text-red-600">{error}</p> : null}
         <div className="mt-xl flex justify-end gap-sm">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={isPending}
-            onClick={onCancel}
-          >
-            {cancelLabel}
-          </Button>
-          <Button
-            type="button"
-            variant="danger"
-            className="bg-red-50 hover:bg-red-100"
-            disabled={isPending}
-            onClick={onConfirm}
-          >
-            {isPending ? pendingLabel : confirmLabel}
-          </Button>
+          {confirmOnly ? (
+            <Button type="button" variant="primary" onClick={onConfirm}>
+              {confirmLabel}
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={isPending}
+                onClick={onCancel}
+              >
+                {cancelLabel}
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                className="bg-red-50 hover:bg-red-100"
+                disabled={isPending}
+                onClick={onConfirm}
+              >
+                {isPending ? pendingLabel : confirmLabel}
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

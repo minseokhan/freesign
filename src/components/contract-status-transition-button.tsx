@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { transitionContractStatus } from "@/app/(dashboard)/contracts/actions";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { ContractStatus } from "@/lib/contract-status";
 
 type ContractStatusTransitionButtonProps = {
@@ -11,6 +12,8 @@ type ContractStatusTransitionButtonProps = {
   status: ContractStatus;
   label: string;
   variant: "primary" | "danger";
+  // 지정 시 버튼 클릭이 바로 전이하지 않고 확인 모달을 먼저 띄운다(계약 취소 등 되돌리기 힘든 전이).
+  confirm?: { title: string; description: string };
 };
 
 function getButtonClassName(
@@ -28,13 +31,35 @@ export function ContractStatusTransitionButton({
   status,
   label,
   variant,
+  confirm,
 }: ContractStatusTransitionButtonProps) {
   const router = useRouter();
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
+  const [open, setOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const runTransition = () => {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await transitionContractStatus(contractId, status);
+
+      if (!result.ok) {
+        setMessage({ type: "error", text: result.error });
+        setOpen(false);
+        return;
+      }
+
+      setOpen(false);
+      setMessage({
+        type: "success",
+        text: "계약 상태를 변경했습니다.",
+      });
+      router.refresh();
+    });
+  };
 
   return (
     <div className="grid gap-sm">
@@ -43,21 +68,12 @@ export function ContractStatusTransitionButton({
         className={getButtonClassName(variant)}
         disabled={isPending}
         onClick={() => {
-          setMessage(null);
-          startTransition(async () => {
-            const result = await transitionContractStatus(contractId, status);
+          if (confirm) {
+            setOpen(true);
+            return;
+          }
 
-            if (!result.ok) {
-              setMessage({ type: "error", text: result.error });
-              return;
-            }
-
-            setMessage({
-              type: "success",
-              text: "계약 상태를 변경했습니다.",
-            });
-            router.refresh();
-          });
+          runTransition();
         }}
       >
         {isPending ? "변경 중" : label}
@@ -73,6 +89,22 @@ export function ContractStatusTransitionButton({
         >
           {message.text}
         </p>
+      ) : null}
+      {confirm ? (
+        <ConfirmDialog
+          open={open}
+          title={confirm.title}
+          description={confirm.description}
+          confirmLabel={label}
+          pendingLabel="처리 중"
+          isPending={isPending}
+          onConfirm={runTransition}
+          onCancel={() => {
+            if (!isPending) {
+              setOpen(false);
+            }
+          }}
+        />
       ) : null}
     </div>
   );
