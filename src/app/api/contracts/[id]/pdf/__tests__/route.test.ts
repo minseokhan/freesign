@@ -64,12 +64,30 @@ const contract = {
   },
 };
 
+const counterpartySignatureRow = {
+  signer_name: "김담당",
+  signer_email: "counterparty@example.test",
+  signed_at: "2026-07-17T01:00:00.000Z",
+  signature_image_data:
+    "data:image/png;base64," + Buffer.from("counterparty-png").toString("base64"),
+};
+
 function createReadQuery() {
   return {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data: contract, error: null }),
+  };
+}
+
+function createSignatureQuery(row: typeof counterpartySignatureRow | null) {
+  return {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: row, error: null }),
   };
 }
 
@@ -112,10 +130,15 @@ describe("GET /api/contracts/[id]/pdf", () => {
   it("renders, uploads, stores only the private PDF key, and returns PDF bytes", async () => {
     const readQuery = createReadQuery();
     const updateQuery = createUpdateQuery();
+    const signatureQuery = createSignatureQuery(counterpartySignatureRow);
     const storage = createStorage();
     const supabase = {
       storage,
       from: vi.fn((table: string) => {
+        if (table === "contract_signatures") {
+          return signatureQuery;
+        }
+
         if (table !== "contracts") {
           throw new Error(`Unexpected table: ${table}`);
         }
@@ -148,6 +171,16 @@ describe("GET /api/contracts/[id]/pdf", () => {
       "user-123/contract-1/signature.png",
     );
     expect(renderContractPdf).toHaveBeenCalled();
+    // 맞서명 계약은 상대방 서명 슬롯이 함께 렌더된다(0022).
+    expect(renderContractPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        counterpartySignature: {
+          imageDataUri: counterpartySignatureRow.signature_image_data,
+          name: "김담당",
+          signedAtLabel: expect.any(String),
+        },
+      }),
+    );
     expect(storage.upload).toHaveBeenCalledWith(
       "user-123/contract-1/contract.pdf",
       Buffer.from("%PDF-1.7"),

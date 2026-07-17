@@ -2,7 +2,11 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
-import { mapContractPdfProps } from "@/lib/contracts/pdf";
+import {
+  mapContractPdfProps,
+  toCounterpartySignature,
+  type CounterpartySignatureRow,
+} from "@/lib/contracts/pdf";
 import { renderContractPdf } from "@/lib/contracts/render-pdf";
 import { assertOwned, notDeleted } from "@/lib/db";
 import {
@@ -80,10 +84,31 @@ export async function GET(_request: Request, context: RouteContext) {
   const signatureImageDataUri = contract.signature_image_path
     ? await downloadSignatureImageDataUri(supabase, contract.signature_image_path)
     : null;
+
+  // 맞서명 계약이면 상대방 서명(DB base64)을 owner 서명 아래에 함께 렌더한다(0022).
+  const { data: counterpartyData, error: counterpartyError } = await supabase
+    .from("contract_signatures")
+    .select("signer_name,signer_email,signed_at,signature_image_data")
+    .eq("contract_id", contract.id)
+    .eq("party", "counterparty")
+    .order("signed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (counterpartyError) {
+    await captureServerException(counterpartyError, user.id, {
+      route: "contracts/pdf",
+    });
+    return NextResponse.json({ error: counterpartyError.message }, { status: 500 });
+  }
+
   const document = mapContractPdfProps({
     contract,
     clientName: contract.client?.name ?? null,
     signatureImageDataUri,
+    counterpartySignature: toCounterpartySignature(
+      (counterpartyData ?? null) as CounterpartySignatureRow | null,
+    ),
   });
   const pdfBuffer = await renderContractPdf(document);
   const contractPdfKey = `${user.id}/${contract.id}/contract.pdf`;

@@ -55,6 +55,28 @@ type ContractPdfRow = {
   signature_meta: Json;
 };
 
+export type CounterpartySignatureRow = {
+  signer_name: string | null;
+  signer_email: string | null;
+  signed_at: string;
+  signature_image_data: string | null;
+};
+
+/** contract_signatures counterparty 행 → PDF 상대방 서명 슬롯. */
+export function toCounterpartySignature(
+  row: CounterpartySignatureRow | null,
+): ContractPdfCounterpartySignature | null {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    imageDataUri: row.signature_image_data,
+    name: row.signer_name ?? row.signer_email ?? "상대방",
+    signedAtLabel: formatDateTime(row.signed_at),
+  };
+}
+
 type MapContractPdfPropsInput = {
   contract: ContractPdfRow;
   clientName: string | null;
