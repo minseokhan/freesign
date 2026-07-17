@@ -7,6 +7,7 @@ type SignedContractData = {
   owner_user_id: string;
   client_name: string | null;
   contract: Record<string, unknown>;
+  owner_signature: Record<string, unknown> | null;
   counterparty_signature: Record<string, unknown> | null;
 };
 
@@ -19,6 +20,8 @@ describe("public sign RPCs (0020)", () => {
   const RECIPIENT_EMAIL = "public-sign-counterparty@example.test";
   const SIGNATURE_IMAGE_DATA =
     "data:image/png;base64," + Buffer.from("counterparty-png").toString("base64");
+  const OWNER_SIGNATURE_IMAGE_DATA =
+    "data:image/png;base64," + Buffer.from("owner-png").toString("base64");
   const TSA_TOKEN = Buffer.from("timestamp-token").toString("base64");
 
   beforeAll(async () => {
@@ -81,7 +84,7 @@ describe("public sign RPCs (0020)", () => {
           '{"signer":"public-sign-owner@example.test","ip":"198.51.100.1","ua":"OwnerAgent"}'::jsonb,
           'public-sign-owner@example.test', 'Owner Han',
           '{"electronic_signature":true,"privacy":true}'::jsonb,
-          $6, '{}'::jsonb
+          $6, '{}'::jsonb, $7
         ) as id
       `,
       [
@@ -91,6 +94,7 @@ describe("public sign RPCs (0020)", () => {
         `${userA}/${contractId}/signature.png`,
         docHash,
         userA,
+        OWNER_SIGNATURE_IMAGE_DATA,
       ],
     );
 
@@ -218,6 +222,12 @@ describe("public sign RPCs (0020)", () => {
           ip: "198.51.100.1",
           ua: "OwnerAgent",
         },
+      });
+      expect(data?.owner_signature).toEqual({
+        signer_name: "Owner Han",
+        signer_email: OWNER_EMAIL,
+        signed_at: expect.any(String),
+        signature_image_data: OWNER_SIGNATURE_IMAGE_DATA,
       });
       expect(data?.counterparty_signature).toEqual({
         signer_name: "Counterparty Kim",

@@ -23,6 +23,8 @@ describe("signature request RPCs", () => {
   const RECIPIENT_EMAIL = "rpc-counterparty@example.test";
   const SIGNATURE_IMAGE_DATA =
     "data:image/png;base64," + Buffer.from("counterparty-png").toString("base64");
+  const OWNER_SIGNATURE_IMAGE_DATA =
+    "data:image/png;base64," + Buffer.from("owner-png").toString("base64");
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: inject("pgConnectionString") });
@@ -83,13 +85,21 @@ describe("signature request RPCs", () => {
         select send_signature_request_with_event(
           $1, $2, $3, 'Counterparty Kim',
           $4, $5,
-          '{"signer":"rpc-owner@example.test"}'::jsonb,
+          '{"signer":"rpc-owner@example.test","ip":"198.51.100.7","ua":"OwnerAgent"}'::jsonb,
           'rpc-owner@example.test', 'Owner Han',
           '{"electronic_signature":true,"privacy":true}'::jsonb,
-          $6, '{}'::jsonb
+          $6, '{}'::jsonb, $7
         ) as id
       `,
-      [contractId, tokenHash, RECIPIENT_EMAIL, `${userId}/${contractId}/signature.png`, docHash, userId],
+      [
+        contractId,
+        tokenHash,
+        RECIPIENT_EMAIL,
+        `${userId}/${contractId}/signature.png`,
+        docHash,
+        userId,
+        OWNER_SIGNATURE_IMAGE_DATA,
+      ],
     );
 
     return { requestId: result.rows[0].id, tokenHash, docHash };
@@ -140,11 +150,14 @@ describe("signature request RPCs", () => {
       expect(contract.rows[0].doc_hash).toBe(docHash);
       expect(contract.rows[0].signature_meta).toEqual({
         signer: "rpc-owner@example.test",
+        ip: "198.51.100.7",
+        ua: "OwnerAgent",
       });
 
       const ownerSignature = await pool.query(
         `
-          select party, request_id, signer_email, signature_image_path, doc_hash
+          select party, request_id, signer_email, signature_image_path,
+            signature_image_data, doc_hash, meta
           from contract_signatures where contract_id = $1
         `,
         [contractId],
@@ -155,7 +168,9 @@ describe("signature request RPCs", () => {
           request_id: requestId,
           signer_email: "rpc-owner@example.test",
           signature_image_path: `${userA}/${contractId}/signature.png`,
+          signature_image_data: OWNER_SIGNATURE_IMAGE_DATA,
           doc_hash: docHash,
+          meta: { ip: "198.51.100.7", ua: "OwnerAgent" },
         },
       ]);
 
@@ -193,6 +208,76 @@ describe("signature request RPCs", () => {
           event_type: "signature_request.sent",
         },
       ]);
+    });
+
+    it("accepts calls without owner signature image data (구 배포 호환)", async () => {
+      const contractId = await insertContractAs();
+      const result = await runAs<{ id: string }>(
+        pool,
+        userA,
+        `
+          select send_signature_request_with_event(
+            p_contract_id => $1::uuid,
+            p_token_hash => $2,
+            p_recipient_email => $3,
+            p_recipient_name => 'Counterparty Kim',
+            p_signature_image_path => $4,
+            p_doc_hash => $5,
+            p_signature_meta => '{"signer":"rpc-owner@example.test"}'::jsonb,
+            p_signer_email => 'rpc-owner@example.test',
+            p_signer_name => 'Owner Han',
+            p_consent => '{}'::jsonb,
+            p_actor => $6
+          ) as id
+        `,
+        [
+          contractId,
+          randomHash64(),
+          RECIPIENT_EMAIL,
+          `${userA}/${contractId}/signature.png`,
+          randomHash64(),
+          userA,
+        ],
+      );
+      expect(result.rows[0].id).toBeTruthy();
+
+      const ownerSignature = await pool.query(
+        `
+          select signature_image_data, meta
+          from contract_signatures where contract_id = $1
+        `,
+        [contractId],
+      );
+      expect(ownerSignature.rows).toEqual([
+        { signature_image_data: null, meta: {} },
+      ]);
+    });
+
+    it("rejects malformed owner signature image data", async () => {
+      const contractId = await insertContractAs();
+
+      await expect(
+        runAs(
+          pool,
+          userA,
+          `
+            select send_signature_request_with_event(
+              $1, $2, $3, 'Counterparty Kim',
+              $4, $5,
+              '{}'::jsonb, 'rpc-owner@example.test', 'Owner Han',
+              '{}'::jsonb, $6, '{}'::jsonb, 'not-a-png'
+            )
+          `,
+          [
+            contractId,
+            randomHash64(),
+            RECIPIENT_EMAIL,
+            `${userA}/${contractId}/signature.png`,
+            randomHash64(),
+            userA,
+          ],
+        ),
+      ).rejects.toThrow(/signature image/i);
     });
 
     it("rejects non-draft contracts", async () => {
@@ -560,6 +645,11 @@ describe("signature request RPCs", () => {
         title: "RPC signature contract",
         clauses: [{ title: "제1조", body: "본문" }],
         doc_hash: docHash,
+        signature_meta: {
+          signer: "rpc-owner@example.test",
+          ip: "198.51.100.7",
+          ua: "OwnerAgent",
+        },
       });
       expect(data.signatures.map((s) => s.party)).toEqual(["owner", "counterparty"]);
       expect(data.events.map((e) => e.event_type)).toEqual([

@@ -23,9 +23,11 @@ import type { Json } from "@/types/database";
 
 const CONTRACT_ARTIFACTS_BUCKET = "contract-artifacts";
 const SIGNING_REQUEST_TTL_MS = 14 * 24 * 60 * 60 * 1000; // 만료 14일(0019 RPC와 동일)
-// 기존 sign route와 동일한 PNG data URL 형식 + 길이 상한(counterparty DB CHECK 256KB와 동급 수준).
+// 기존 sign route와 동일한 PNG data URL 형식 + 길이 상한.
+// 0022부터 base64 사본이 contract_signatures.signature_image_data(CHECK 256KB)에도
+// 저장되므로 DB 제약과 동일하게 맞춘다.
 const PNG_DATA_URL_PATTERN = /^data:image\/png;base64,[A-Za-z0-9+/=]+$/;
-const MAX_SIGNATURE_DATA_URL_LENGTH = 360_000;
+const MAX_SIGNATURE_DATA_URL_LENGTH = 262_144;
 
 // client 입력 전용 allowlist — user_id·status·doc_hash 등 서버 소유 필드는 받지 않는다.
 const sendSignatureRequestInputSchema = z.object({
@@ -247,6 +249,8 @@ export async function sendSignatureRequest(
       p_recipient_email: parsed.data.recipientEmail,
       p_recipient_name: parsed.data.recipientName ?? null,
       p_signature_image_path: signatureImagePath,
+      // 상대방 교부용 PDF에 owner 서명을 함께 표기하기 위한 base64 사본(0022).
+      p_signature_image_data: parsed.data.signatureDataUrl,
       p_doc_hash: docHash,
       p_signature_meta: signatureMeta as Json,
       p_signer_email: user.email ?? user.id,

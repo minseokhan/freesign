@@ -580,6 +580,7 @@ export type Database = {
           p_meta?: Json
           p_recipient_email: string
           p_recipient_name: string | null
+          p_signature_image_data?: string | null
           p_signature_image_path: string
           p_signature_meta: Json
           p_signer_email: string
