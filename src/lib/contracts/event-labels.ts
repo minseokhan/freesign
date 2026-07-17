@@ -5,7 +5,7 @@ export const CONTRACT_EVENT_LABELS: Record<string, string> = {
   "signature_request.viewed": "상대방 열람",
   "signature_request.revoked": "서명 요청 철회",
   "contract.counterparty_signed": "상대방 서명(완결)",
-  signed: "간이 서명 완료",
+  signed: "서명 완료",
   "contract.status_changed": "계약 상태 변경",
   "contract.imported": "기존 계약 불러오기(성사)",
 };

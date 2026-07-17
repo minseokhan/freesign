@@ -16,7 +16,7 @@ describe("contractEventLabel", () => {
   });
 
   it("keeps existing v1 labels and falls back to the raw type", () => {
-    expect(contractEventLabel("signed")).toBe("간이 서명 완료");
+    expect(contractEventLabel("signed")).toBe("서명 완료");
     expect(contractEventLabel("contract.status_changed")).toBe("계약 상태 변경");
     expect(contractEventLabel("contract.imported")).toBe(
       "기존 계약 불러오기(성사)",

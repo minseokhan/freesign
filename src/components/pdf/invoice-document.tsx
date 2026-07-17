@@ -166,7 +166,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
     <Document
       title={document.title}
       author="FreeSign"
-      subject="FreeSign v1 invoice PDF"
+      subject="FreeSign invoice PDF"
       language="ko-KR"
     >
       <Page size="A4" style={styles.page}>
@@ -246,7 +246,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `FreeSign v1 기록용 인보이스 PDF · ${pageNumber} / ${totalPages}`
+            `FreeSign 인보이스 기록용 PDF · ${pageNumber} / ${totalPages}`
           }
           fixed
         />
