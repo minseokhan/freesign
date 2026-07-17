@@ -8,7 +8,7 @@ import {
   ContractStatusBadge,
   getContractStatusMeta,
 } from "@/components/contract-status-badge";
-import { ContractSignatureTabs } from "@/components/contract-signature-tabs";
+import { SignatureRequestForm } from "@/components/signature-request-form";
 import { SignatureRequestControls } from "@/components/signature-request-controls";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -439,13 +439,13 @@ export default async function ContractDetailPage({
         <div className="border-b border-surface-border pb-lg">
           <h3 className="text-lg font-semibold text-text-primary">서명</h3>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            v1 간이 서명은 private Storage에 저장하고, 문서 해시는 Provider로
-            산출합니다.
+            내 서명과 함께 상대방에게 이메일 서명 요청을 보내 양 당사자
+            서명으로 계약을 체결합니다.
           </p>
         </div>
         {contract.status === "draft" ? (
           <div className="mt-xl">
-            <ContractSignatureTabs contractId={contract.id} />
+            <SignatureRequestForm contractId={contract.id} />
           </div>
         ) : signatureImageUrl ? (
           <div className="mt-xl space-y-lg">

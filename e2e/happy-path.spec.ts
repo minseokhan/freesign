@@ -116,12 +116,23 @@ test("runs the core settlement chain from client to paid invoice and report CSV"
   await page.mouse.move(canvasBox.x + 180, canvasBox.y + 140);
   await page.mouse.move(canvasBox.x + 280, canvasBox.y + 90);
   await page.mouse.up();
-  await page.getByRole("button", { name: "서명 완료" }).click();
 
-  await expect(page.getByText("서명완료").first()).toBeVisible({
+  // 쌍방 서명 요청 발송(단독 서명 플로우 제거됨) — 이메일은 best-effort라
+  // dev 환경에서 실패해도 요청 자체는 커밋된다.
+  await page.getByLabel("수신자 이메일").fill("counterparty@example.test");
+  await page.getByLabel("수신자 이름 (선택)").fill("김상대");
+  await page.getByLabel(/전자서명 사용 동의/).check();
+  await page.getByLabel(/개인정보 수집·이용 동의/).check();
+  await page.getByRole("button", { name: "서명하고 요청 보내기" }).click();
+
+  await expect(page.getByText("서명 대기").first()).toBeVisible({
     timeout: 30_000,
   });
-  await expect(page.getByText("간이 서명 완료")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "상대방 서명 요청 현황" }),
+  ).toBeVisible();
+  await expect(page.getByText("counterparty@example.test")).toBeVisible();
+  await expect(page.getByText("서명 요청 발송")).toBeVisible();
 
   await page.getByRole("link", { name: "인보이스 발행" }).click();
   await page.waitForURL(new RegExp(`/invoices/new\\?contract=${contractId}$`));
