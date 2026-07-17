@@ -234,7 +234,44 @@ describe("public sign RPCs (0020)", () => {
         signer_email: RECIPIENT_EMAIL,
         signed_at: expect.any(String),
         signature_image_data: SIGNATURE_IMAGE_DATA,
+        ip: "203.0.113.9",
+        ua: "vitest-ua",
       });
+    });
+  });
+
+  describe("complete_counterparty_signature_with_event 이름 검증(0023)", () => {
+    async function completeWithName(tokenHash: string, name: string) {
+      await runAsAnon(
+        pool,
+        `
+          select complete_counterparty_signature_with_event(
+            $1, $2, $3,
+            '{"electronic_signature":true,"privacy":true}'::jsonb,
+            '203.0.113.9', 'vitest-ua'
+          )
+        `,
+        [tokenHash, SIGNATURE_IMAGE_DATA, name],
+      );
+    }
+
+    it("요청서에 지정된 이름과 다르면 서명을 거부한다", async () => {
+      const contractId = await insertContractAs();
+      const { tokenHash } = await sendRequestAs(contractId);
+
+      await expect(completeWithName(tokenHash, "다른 사람")).rejects.toThrow(
+        /signer name mismatch/,
+      );
+    });
+
+    it("공백·대소문자만 다른 이름은 정규화 후 통과시킨다", async () => {
+      const contractId = await insertContractAs();
+      const { tokenHash } = await sendRequestAs(contractId);
+
+      // recipient_name 'Counterparty Kim' → 공백 제거·소문자 정규화 후 동일.
+      await expect(
+        completeWithName(tokenHash, "  counterpartykim  "),
+      ).resolves.toBeUndefined();
     });
   });
 });

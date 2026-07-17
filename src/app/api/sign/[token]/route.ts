@@ -115,6 +115,14 @@ function mapCompleteError(message: string): { status: number; error: string } {
     return { status: 404, error: "서명 요청을 찾을 수 없습니다." };
   }
 
+  if (message.includes("name mismatch")) {
+    return {
+      status: 400,
+      error:
+        "서명자 이름이 요청서에 지정된 이름과 일치하지 않습니다. 이름을 확인해 주세요.",
+    };
+  }
+
   if (message.includes("invalid")) {
     return { status: 400, error: "서명 데이터를 확인해 주세요." };
   }
