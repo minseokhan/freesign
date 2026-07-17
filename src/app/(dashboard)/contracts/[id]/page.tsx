@@ -16,6 +16,10 @@ import {
   getAvailableContractStatusTransitions,
   type ContractStatus,
 } from "@/lib/contract-status";
+import {
+  contractEventLabel,
+  formatContractEventActor,
+} from "@/lib/contracts/event-labels";
 import { notDeleted } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/types/database";
@@ -193,21 +197,6 @@ const transitionLabels: Partial<Record<ContractStatus, string>> = {
   canceled: "계약 취소",
 };
 
-function getEventDescription(event: ContractEventRow) {
-  if (event.event_type === "signed") {
-    return "간이 서명 완료";
-  }
-
-  if (event.event_type === "contract.status_changed") {
-    return "계약 상태 변경";
-  }
-
-  if (event.event_type === "contract.imported") {
-    return "기존 계약 불러오기(성사)";
-  }
-
-  return event.event_type;
-}
 
 export default async function ContractDetailPage({
   params,
@@ -651,7 +640,8 @@ export default async function ContractDetailPage({
                   <p className="text-sm font-medium text-text-primary">
                     {event.event_type === "contract.imported"
                       ? "계약 등록"
-                      : event.from_status
+                      : event.from_status &&
+                          event.from_status !== event.to_status
                         ? `${statusLabel(event.from_status)} → ${statusLabel(
                             event.to_status,
                           )}`
@@ -662,7 +652,8 @@ export default async function ContractDetailPage({
                   </time>
                 </div>
                 <p className="mt-xs text-sm leading-relaxed text-text-body">
-                  {getEventDescription(event)} · {event.actor}
+                  {contractEventLabel(event.event_type)} ·{" "}
+                  {formatContractEventActor(event.actor)}
                 </p>
               </li>
             ))}

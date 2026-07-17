@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 
+import { contractEventLabel } from "@/lib/contracts/event-labels";
 import type { Json } from "@/types/database";
 
 // 과대표시 금지 — 이 증명서는 감사추적 요약이며 법적 판단을 대신하지 않는다.
@@ -19,16 +20,6 @@ const UNKNOWN_LABEL = "기록 없음";
 const CONSENT_LABELS: Record<string, string> = {
   electronic_signature: "전자서명 사용 약정 동의",
   privacy: "개인정보 수집·이용 동의",
-};
-
-const EVENT_LABELS: Record<string, string> = {
-  "signature_request.sent": "서명 요청 발송",
-  "signature_request.viewed": "상대방 열람",
-  "signature_request.revoked": "서명 요청 철회",
-  "contract.counterparty_signed": "상대방 서명(완결)",
-  signed: "간이 서명 완료",
-  "contract.status_changed": "계약 상태 변경",
-  "contract.imported": "기존 계약 불러오기(성사)",
 };
 
 export type CertificateSignatureRow = {
@@ -136,7 +127,7 @@ export function buildCertificateProps(
   const timeline = [...input.events]
     .sort((a, b) => a.created_at.localeCompare(b.created_at))
     .map((event) => ({
-      label: EVENT_LABELS[event.event_type] ?? event.event_type,
+      label: contractEventLabel(event.event_type),
       actor: event.actor,
       atLabel: formatDateTime(event.created_at),
     }));
