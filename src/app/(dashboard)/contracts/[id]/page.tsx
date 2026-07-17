@@ -294,6 +294,7 @@ export default async function ContractDetailPage({
     : null;
   const statusTransitions = getAvailableContractStatusTransitions(
     contract.status,
+    { hasCounterpartySignature },
   ).filter((status) => status !== "signed");
   // 다음 단계 버튼을 2열 그리드에서 시계방향(진행/완료 → 인보이스 → 취소 → 초안 되돌리기)으로 배치.
   const forwardTransitions = statusTransitions.filter(

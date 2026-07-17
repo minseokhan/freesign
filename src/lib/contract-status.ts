@@ -22,7 +22,8 @@ export const CONTRACT_STATUSES = [
 
 const forwardTransitions: Partial<Record<ContractStatus, ContractStatus[]>> = {
   draft: ["signed", "sent", "canceled"],
-  sent: ["signed", "draft", "canceled"],
+  // sent→draft는 일반 전이가 아니라 철회 RPC(요청 revoke + 아티팩트 리셋) 전용.
+  sent: ["signed", "canceled"],
   signed: ["active", "draft", "canceled"],
   active: ["done", "canceled"],
 };
@@ -52,8 +53,13 @@ export function canTransitionContractStatus(
 
 export function getAvailableContractStatusTransitions(
   from: ContractStatus,
+  ctx: ContractStatusTransitionContext = {},
 ): ContractStatus[] {
   return (forwardTransitions[from] ?? []).filter(
-    (status) => status !== "signed" && status !== "sent",
+    (status) =>
+      status !== "signed" &&
+      status !== "sent" &&
+      // 맞서명 완료 계약은 초안 복귀 불가(0019 DB 가드와 동일) — 버튼도 숨긴다.
+      !(status === "draft" && ctx.hasCounterpartySignature === true),
   );
 }

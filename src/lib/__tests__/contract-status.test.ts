@@ -18,9 +18,10 @@ describe("contract status transitions", () => {
     expect(canTransitionContractStatus("active", "done")).toBe(true);
   });
 
-  it("allows signature request transitions from sent only to signed, draft, or canceled", () => {
+  it("allows signature request transitions from sent only to signed or canceled", () => {
     expect(canTransitionContractStatus(sent, "signed")).toBe(true);
-    expect(canTransitionContractStatus(sent, "draft")).toBe(true);
+    // sent→draft는 일반 전이가 아니라 철회 RPC(요청 revoke + 아티팩트 리셋) 전용.
+    expect(canTransitionContractStatus(sent, "draft")).toBe(false);
     expect(canTransitionContractStatus(sent, "canceled")).toBe(true);
     expect(canTransitionContractStatus(sent, "active")).toBe(false);
     expect(canTransitionContractStatus("active", sent)).toBe(false);
@@ -68,14 +69,6 @@ describe("contract status transitions", () => {
       resetSignatureArtifacts: false,
     });
     expect(
-      getContractStatusTransition(sent, "draft", {
-        hasCounterpartySignature: true,
-      }),
-    ).toEqual({
-      allowed: false,
-      resetSignatureArtifacts: false,
-    });
-    expect(
       getContractStatusTransition("signed", "draft", {
         hasCounterpartySignature: false,
       }),
@@ -85,20 +78,24 @@ describe("contract status transitions", () => {
     });
   });
 
-  it("resets owner signature artifacts when revoking a sent request back to draft", () => {
-    expect(getContractStatusTransition(sent, "draft")).toEqual({
-      allowed: true,
-      resetSignatureArtifacts: true,
-    });
-  });
-
   it("does not expose sent or signed entry transitions in user-selectable transitions", () => {
     expect(getAvailableContractStatusTransitions("draft")).toEqual([
       "canceled",
     ]);
-    expect(getAvailableContractStatusTransitions(sent)).toEqual([
+    // sent에서 초안 복귀는 '철회' 버튼(revoke RPC)으로만 — 일반 전이 목록에서 제외.
+    expect(getAvailableContractStatusTransitions(sent)).toEqual(["canceled"]);
+  });
+
+  it("hides the draft rollback from selectable transitions once countersigned", () => {
+    expect(getAvailableContractStatusTransitions("signed")).toEqual([
+      "active",
       "draft",
       "canceled",
     ]);
+    expect(
+      getAvailableContractStatusTransitions("signed", {
+        hasCounterpartySignature: true,
+      }),
+    ).toEqual(["active", "canceled"]);
   });
 });
