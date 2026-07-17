@@ -1,4 +1,16 @@
+import { setDefaultResultOrder } from "node:dns";
+import { setDefaultAutoSelectFamilyAttemptTimeout } from "node:net";
 import type { NextConfig } from "next";
+
+// dev 전용: /ingest→PostHog 리라이트 프록시의 ETIMEDOUT 방지 (2026-07 실측).
+// 1) IPv6 미작동 네트워크에서 AAAA 주소 우선 접속 시도를 피하도록 IPv4 우선.
+// 2) Happy Eyeballs 주소별 시도 타임아웃 기본 250ms가 미국 서버 TCP 연결(~244ms)과
+//    경계에 걸려 전 주소 실패(AggregateError) — 여유 있게 늘린다.
+// NODE_OPTIONS는 next-server 자식 프로세스에 전달되지 않아 config 로드 시점에 설정한다.
+if (process.env.NODE_ENV === "development") {
+  setDefaultResultOrder("ipv4first");
+  setDefaultAutoSelectFamilyAttemptTimeout(2000);
+}
 
 // 전 경로에 적용할 보안 응답 헤더.
 // 재무·전자서명 데이터를 다루므로 최소한의 하드닝을 프레임워크 레벨에서 강제한다.
