@@ -228,26 +228,26 @@ describe("mutual signature schema", () => {
     expect(deleteResult.rowCount).toBe(0);
   });
 
-  it("enforces exactly one signature image location", async () => {
+  it("requires at least one signature image location", async () => {
     const contractId = await insertContractAs();
 
-    await expect(
-      runAs(
-        pool,
-        userA,
-        `
-          insert into contract_signatures (
-            user_id, contract_id, party, signer_email,
-            signature_image_path, signature_image_data, doc_hash
-          )
-          values (
-            $1, $2, 'owner', 'owner@example.test',
-            'path/signature.png', 'data:image/png;base64,cG5n', repeat('c', 64)
-          )
-        `,
-        [userA, contractId],
-      ),
-    ).rejects.toThrow(/check constraint/i);
+    // 0022: owner 행은 Storage key와 base64 사본을 함께 가질 수 있다(둘 다 허용).
+    const bothResult = await runAs(
+      pool,
+      userA,
+      `
+        insert into contract_signatures (
+          user_id, contract_id, party, signer_email,
+          signature_image_path, signature_image_data, doc_hash
+        )
+        values (
+          $1, $2, 'owner', 'owner@example.test',
+          'path/signature.png', 'data:image/png;base64,cG5n', repeat('c', 64)
+        )
+      `,
+      [userA, contractId],
+    );
+    expect(bothResult.rowCount).toBe(1);
 
     await expect(
       runAs(
