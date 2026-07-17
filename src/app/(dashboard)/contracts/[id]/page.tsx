@@ -298,7 +298,7 @@ export default async function ContractDetailPage({
   const isImported = contract.source_pdf_url != null;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-xl">
+    <div className="mx-auto max-w-6xl space-y-xl">
       <div>
         <Link
           href="/contracts"
@@ -337,337 +337,345 @@ export default async function ContractDetailPage({
         </div>
       </div>
 
-      <Card>
-        <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">기본 정보</h3>
-          <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            계약의 금액, 기간, 현재 상태를 확인합니다.
-          </p>
-        </div>
-        <dl className="mt-xl grid gap-lg sm:grid-cols-2">
-          <DetailItem label="금액" value={formatCurrency(contract.amount)} />
-          <DetailItem
-            label="기간"
-            value={`${formatDate(contract.start_date)} - ${formatDate(
-              contract.end_date,
-            )}`}
-          />
-        </dl>
-        <div className="mt-lg">
-          <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
-            문서 해시
-          </dt>
-          <dd className="mt-xs break-all font-mono text-sm leading-relaxed text-text-body">
-            {contract.doc_hash ?? "등록되지 않음"}
-          </dd>
-        </div>
-      </Card>
-
-      <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-        AI 초안이며 법적 자문이 아닙니다. 계약 확정 전 전문가 검토를
-        권장합니다.
-      </div>
-
-      <Card>
-        <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">업무 범위</h3>
-          <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            계약서 조항의 기준이 되는 원문 범위입니다.
-          </p>
-        </div>
-        <p className="mt-xl whitespace-pre-wrap text-sm leading-relaxed text-text-body">
-          {contract.scope}
-        </p>
-      </Card>
-
-      <Card>
-        <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">
-            조항과 평문요약
-          </h3>
-          <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            조항별 본문과 프리랜서가 빠르게 확인할 수 있는 요약입니다.
-          </p>
-        </div>
-        {contractSummary ? (
-          <div className="mt-xl rounded-md bg-surface-muted px-md py-sm">
-            <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-              평문요약
-            </p>
-            <p className="mt-xs text-sm leading-relaxed text-text-body">
-              {contractSummary}
-            </p>
-          </div>
-        ) : null}
-        {clauses.length === 0 ? (
-          <p className="mt-xl text-sm leading-relaxed text-text-muted">
-            아직 표시할 조항이 없습니다.
-          </p>
-        ) : (
-          <div className="mt-xl space-y-lg">
-            {clauses.map((clause, index) => (
-              <article
-                key={`${clause.title}-${index}`}
-                className="rounded-md border border-surface-border p-lg"
-              >
-                <div className="flex flex-col gap-sm sm:flex-row sm:items-start sm:justify-between">
-                  <h4 className="text-base font-semibold text-text-primary">
-                    {clause.title}
-                  </h4>
-                  {clause.needs_review ? (
-                    <Badge variant="warning">검토 필요</Badge>
-                  ) : null}
-                </div>
-                <p className="mt-md whitespace-pre-wrap text-sm leading-relaxed text-text-body">
-                  {clause.body}
-                </p>
-                {contractSummary ? null : (
-                  <div className="mt-lg rounded-md bg-surface-muted px-md py-sm">
-                    <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                      평문요약
-                    </p>
-                    <p className="mt-xs text-sm leading-relaxed text-text-body">
-                      {clause.plain_summary}
-                    </p>
-                  </div>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-      </Card>
-
-      {isImported ? null : (
-      <Card>
-        <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">서명</h3>
-          <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            내 서명과 함께 상대방에게 이메일 서명 요청을 보내 양 당사자
-            서명으로 계약을 체결합니다.
-          </p>
-        </div>
-        {contract.status === "draft" ? (
-          <div className="mt-xl">
-            <SignatureRequestForm contractId={contract.id} />
-          </div>
-        ) : signatureImageUrl ? (
-          <div className="mt-xl space-y-lg">
-            <Image
-              src={signatureImageUrl}
-              alt="저장된 계약 서명"
-              width={720}
-              height={240}
-              unoptimized
-              className="h-auto w-full rounded-sm border border-surface-border bg-white"
-            />
-            <dl className="grid gap-lg sm:grid-cols-2">
-              <DetailItem label="서명자" value={signatureMeta?.signer ?? null} />
+      <div className="grid items-start gap-xl lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        {/* 왼쪽(2fr): 계약 문서 콘텐츠 — 기본 정보·업무 범위·조항·서명 */}
+        <div className="space-y-xl">
+          <Card>
+            <div className="border-b border-surface-border pb-lg">
+              <h3 className="text-lg font-semibold text-text-primary">기본 정보</h3>
+              <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                계약의 금액, 기간, 현재 상태를 확인합니다.
+              </p>
+            </div>
+            <dl className="mt-xl grid gap-lg sm:grid-cols-2">
+              <DetailItem label="금액" value={formatCurrency(contract.amount)} />
               <DetailItem
-                label="서명 시각"
-                value={
-                  signatureMeta ? formatDate(signatureMeta.signed_at) : null
-                }
+                label="기간"
+                value={`${formatDate(contract.start_date)} - ${formatDate(
+                  contract.end_date,
+                )}`}
               />
-              <DetailItem
-                label="서명 구분"
-                value={
-                  hasCounterpartySignature
-                    ? "양 당사자 동의 서명 · 이메일 소유확인 수준"
-                    : "내 서명 · 상대방 서명 대기 중"
-                }
-              />
-              {contract.doc_hash ? (
-                <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                    문서 지문 (SHA-256)
-                  </dt>
-                  {/* 전문은 title 툴팁과 상단 기본 정보 카드에서 복사할 수 있다(LEGAL §B). */}
-                  <dd
-                    className="mt-xs font-mono text-sm leading-relaxed text-text-body"
-                    title={contract.doc_hash}
-                  >
-                    {shortenHash(contract.doc_hash)}
-                  </dd>
-                </div>
-              ) : null}
             </dl>
-            {hasCounterpartySignature ? (
-              <>
-                <Link
-                  href={`/api/contracts/${contract.id}/certificate`}
-                  target="_blank"
-                  className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-                >
-                  완결증명서 PDF
-                </Link>
-                <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-                  양 당사자 동의 서명은 이메일 링크 소유확인 수준의
-                  전자서명입니다. 맞서명이 완료된 계약은 삭제하거나 초안으로
-                  되돌릴 수 없으며, 무효화가 필요하면 &lsquo;계약 취소&rsquo;를
-                  사용하세요.
-                </div>
-              </>
+            <div className="mt-lg">
+              <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                문서 해시
+              </dt>
+              <dd className="mt-xs break-all font-mono text-sm leading-relaxed text-text-body">
+                {contract.doc_hash ?? "등록되지 않음"}
+              </dd>
+            </div>
+          </Card>
+
+          <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
+            AI 초안이며 법적 자문이 아닙니다. 계약 확정 전 전문가 검토를
+            권장합니다.
+          </div>
+
+          <Card>
+            <div className="border-b border-surface-border pb-lg">
+              <h3 className="text-lg font-semibold text-text-primary">업무 범위</h3>
+              <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                계약서 조항의 기준이 되는 원문 범위입니다.
+              </p>
+            </div>
+            <p className="mt-xl whitespace-pre-wrap text-sm leading-relaxed text-text-body">
+              {contract.scope}
+            </p>
+          </Card>
+
+          <Card>
+            <div className="border-b border-surface-border pb-lg">
+              <h3 className="text-lg font-semibold text-text-primary">
+                조항과 평문요약
+              </h3>
+              <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                조항별 본문과 프리랜서가 빠르게 확인할 수 있는 요약입니다.
+              </p>
+            </div>
+            {contractSummary ? (
+              <div className="mt-xl rounded-md bg-surface-muted px-md py-sm">
+                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                  평문요약
+                </p>
+                <p className="mt-xs text-sm leading-relaxed text-text-body">
+                  {contractSummary}
+                </p>
+              </div>
+            ) : null}
+            {clauses.length === 0 ? (
+              <p className="mt-xl text-sm leading-relaxed text-text-muted">
+                아직 표시할 조항이 없습니다.
+              </p>
             ) : (
-              <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-                아직 상대방 서명 전입니다. 위 서명은 요청자 본인 서명이며,
-                상대방이 이메일 링크로 서명을 완료하면 양 당사자 동의
-                서명으로 계약이 체결됩니다.
+              <div className="mt-xl space-y-lg">
+                {clauses.map((clause, index) => (
+                  <article
+                    key={`${clause.title}-${index}`}
+                    className="rounded-md border border-surface-border p-lg"
+                  >
+                    <div className="flex flex-col gap-sm sm:flex-row sm:items-start sm:justify-between">
+                      <h4 className="text-base font-semibold text-text-primary">
+                        {clause.title}
+                      </h4>
+                      {clause.needs_review ? (
+                        <Badge variant="warning">검토 필요</Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-md whitespace-pre-wrap text-sm leading-relaxed text-text-body">
+                      {clause.body}
+                    </p>
+                    {contractSummary ? null : (
+                      <div className="mt-lg rounded-md bg-surface-muted px-md py-sm">
+                        <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                          평문요약
+                        </p>
+                        <p className="mt-xs text-sm leading-relaxed text-text-body">
+                          {clause.plain_summary}
+                        </p>
+                      </div>
+                    )}
+                  </article>
+                ))}
               </div>
             )}
-          </div>
-        ) : (
-          <p className="mt-xl text-sm leading-relaxed text-text-muted">
-            저장된 서명 이미지가 없습니다.
-          </p>
-        )}
-      </Card>
-      )}
+          </Card>
 
-      {signatureRequest ? (
-        <Card>
-          <div className="border-b border-surface-border pb-lg">
-            <h3 className="text-lg font-semibold text-text-primary">
-              상대방 서명 요청 현황
-            </h3>
-            <p className="mt-xs text-sm leading-relaxed text-text-muted">
-              상대방이 이메일의 서명 링크로 서명하면 계약이 서명완료 상태가
-              됩니다.
-            </p>
-          </div>
-          <dl className="mt-xl grid gap-lg sm:grid-cols-2">
-            <DetailItem
-              label="수신자 이메일"
-              value={signatureRequest.recipient_email}
-            />
-            <DetailItem
-              label="수신자 이름"
-              value={signatureRequest.recipient_name}
-            />
-            <DetailItem
-              label="만료일"
-              value={formatDate(signatureRequest.expires_at)}
-            />
-            <DetailItem
-              label="열람 시각"
-              value={
-                signatureRequest.first_viewed_at
-                  ? formatDate(signatureRequest.first_viewed_at)
-                  : "아직 열람 전"
-              }
-            />
-          </dl>
-          <div className="mt-xl">
-            <SignatureRequestControls contractId={contract.id} />
-          </div>
-        </Card>
-      ) : null}
-
-      <Card>
-        <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">
-            다음 단계
-          </h3>
-          <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            현재 계약 상태에서 가능한 다음 작업만 표시됩니다.
-          </p>
-        </div>
-        {forwardTransitions.length === 0 &&
-        !canIssueInvoice &&
-        !rollbackTransition &&
-        !cancelTransition ? (
-          <p className="mt-xl text-sm leading-relaxed text-text-muted">
-            현재 상태에서 진행할 수 있는 작업이 없습니다.
-          </p>
-        ) : (
-          <div className="mt-xl grid gap-md sm:grid-cols-2">
-            {forwardTransitions.map((status) => (
-              <ContractStatusTransitionButton
-                key={status}
-                contractId={contract.id}
-                status={status}
-                label={transitionLabels[status] ?? "상태 변경"}
-                variant="primary"
-              />
-            ))}
-            {canIssueInvoice ? (
-              <Link
-                href={`/invoices/new?contract=${contract.id}`}
-                className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-              >
-                인보이스 발행
-              </Link>
-            ) : null}
-            {rollbackTransition ? (
-              <ContractStatusTransitionButton
-                contractId={contract.id}
-                status={rollbackTransition}
-                label={transitionLabels[rollbackTransition] ?? "상태 변경"}
-                variant="danger"
-              />
-            ) : null}
-            {cancelTransition ? (
-              <ContractStatusTransitionButton
-                contractId={contract.id}
-                status={cancelTransition}
-                label={transitionLabels[cancelTransition] ?? "상태 변경"}
-                variant="danger"
-                confirm={{
-                  title: "계약을 취소할까요?",
-                  description:
-                    "계약이 취소 상태로 무효화됩니다. 이력에 취소 기록이 남으며, 되돌릴 수 없습니다.",
-                }}
-              />
-            ) : null}
-          </div>
-        )}
-      </Card>
-
-      <Card>
-        <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">
-            이력 타임라인
-          </h3>
-          <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            계약이 언제 어떤 상태로 바뀌었는지 남기는 변경 기록입니다. 분쟁 시
-            &ldquo;계약 → 서명 → 입금&rdquo; 증빙 체인의 근거가 됩니다.
-          </p>
-        </div>
-        {events.length === 0 ? (
-          <p className="mt-xl text-sm leading-relaxed text-text-muted">
-            아직 기록된 이력이 없습니다.
-          </p>
-        ) : (
-          <ol className="mt-xl space-y-lg border-l border-surface-border pl-lg">
-            {events.map((event) => (
-              <li key={event.id} className="relative">
-                <span
-                  aria-hidden="true"
-                  className="absolute -left-[25px] top-1.5 size-3 rounded-full border-2 border-white bg-brand-primary"
+          {isImported ? null : (
+          <Card>
+            <div className="border-b border-surface-border pb-lg">
+              <h3 className="text-lg font-semibold text-text-primary">서명</h3>
+              <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                내 서명과 함께 상대방에게 이메일 서명 요청을 보내 양 당사자
+                서명으로 계약을 체결합니다.
+              </p>
+            </div>
+            {contract.status === "draft" ? (
+              <div className="mt-xl">
+                <SignatureRequestForm contractId={contract.id} />
+              </div>
+            ) : signatureImageUrl ? (
+              <div className="mt-xl space-y-lg">
+                <Image
+                  src={signatureImageUrl}
+                  alt="저장된 계약 서명"
+                  width={720}
+                  height={240}
+                  unoptimized
+                  className="h-auto w-full rounded-sm border border-surface-border bg-white"
                 />
-                <div className="flex flex-col gap-xs sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-sm font-medium text-text-primary">
-                    {event.event_type === "contract.imported"
-                      ? "계약 등록"
-                      : event.from_status &&
-                          event.from_status !== event.to_status
-                        ? `${statusLabel(event.from_status)} → ${statusLabel(
-                            event.to_status,
-                          )}`
-                        : statusLabel(event.to_status)}
-                  </p>
-                  <time className="text-xs text-text-muted">
-                    {formatDate(event.created_at)}
-                  </time>
-                </div>
-                <p className="mt-xs text-sm leading-relaxed text-text-body">
-                  {contractEventLabel(event.event_type)} ·{" "}
-                  {formatContractEventActor(event.actor)}
+                <dl className="grid gap-lg sm:grid-cols-2">
+                  <DetailItem label="서명자" value={signatureMeta?.signer ?? null} />
+                  <DetailItem
+                    label="서명 시각"
+                    value={
+                      signatureMeta ? formatDate(signatureMeta.signed_at) : null
+                    }
+                  />
+                  <DetailItem
+                    label="서명 구분"
+                    value={
+                      hasCounterpartySignature
+                        ? "양 당사자 동의 서명 · 이메일 소유확인 수준"
+                        : "내 서명 · 상대방 서명 대기 중"
+                    }
+                  />
+                  {contract.doc_hash ? (
+                    <div>
+                      <dt className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                        문서 지문 (SHA-256)
+                      </dt>
+                      {/* 전문은 title 툴팁과 상단 기본 정보 카드에서 복사할 수 있다(LEGAL §B). */}
+                      <dd
+                        className="mt-xs font-mono text-sm leading-relaxed text-text-body"
+                        title={contract.doc_hash}
+                      >
+                        {shortenHash(contract.doc_hash)}
+                      </dd>
+                    </div>
+                  ) : null}
+                </dl>
+                {hasCounterpartySignature ? (
+                  <>
+                    <Link
+                      href={`/api/contracts/${contract.id}/certificate`}
+                      target="_blank"
+                      className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+                    >
+                      완결증명서 PDF
+                    </Link>
+                    <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
+                      양 당사자 동의 서명은 이메일 링크 소유확인 수준의
+                      전자서명입니다. 맞서명이 완료된 계약은 삭제하거나 초안으로
+                      되돌릴 수 없으며, 무효화가 필요하면 &lsquo;계약 취소&rsquo;를
+                      사용하세요.
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
+                    아직 상대방 서명 전입니다. 위 서명은 요청자 본인 서명이며,
+                    상대방이 이메일 링크로 서명을 완료하면 양 당사자 동의
+                    서명으로 계약이 체결됩니다.
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="mt-xl text-sm leading-relaxed text-text-muted">
+                저장된 서명 이미지가 없습니다.
+              </p>
+            )}
+          </Card>
+          )}
+        </div>
+
+        {/* 오른쪽(1fr): 상태·액션 레일 — 서명 요청 현황·다음 단계·이력 타임라인 */}
+        <div className="space-y-xl">
+          {signatureRequest ? (
+            <Card>
+              <div className="border-b border-surface-border pb-lg">
+                <h3 className="text-lg font-semibold text-text-primary">
+                  상대방 서명 요청 현황
+                </h3>
+                <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                  상대방이 이메일의 서명 링크로 서명하면 계약이 서명완료 상태가
+                  됩니다.
                 </p>
-              </li>
-            ))}
-          </ol>
-        )}
-      </Card>
+              </div>
+              <dl className="mt-xl grid gap-lg sm:grid-cols-2">
+                <DetailItem
+                  label="수신자 이메일"
+                  value={signatureRequest.recipient_email}
+                />
+                <DetailItem
+                  label="수신자 이름"
+                  value={signatureRequest.recipient_name}
+                />
+                <DetailItem
+                  label="만료일"
+                  value={formatDate(signatureRequest.expires_at)}
+                />
+                <DetailItem
+                  label="열람 시각"
+                  value={
+                    signatureRequest.first_viewed_at
+                      ? formatDate(signatureRequest.first_viewed_at)
+                      : "아직 열람 전"
+                  }
+                />
+              </dl>
+              <div className="mt-xl">
+                <SignatureRequestControls contractId={contract.id} />
+              </div>
+            </Card>
+          ) : null}
+
+          <Card>
+            <div className="border-b border-surface-border pb-lg">
+              <h3 className="text-lg font-semibold text-text-primary">
+                다음 단계
+              </h3>
+              <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                현재 계약 상태에서 가능한 다음 작업만 표시됩니다.
+              </p>
+            </div>
+            {forwardTransitions.length === 0 &&
+            !canIssueInvoice &&
+            !rollbackTransition &&
+            !cancelTransition ? (
+              <p className="mt-xl text-sm leading-relaxed text-text-muted">
+                현재 상태에서 진행할 수 있는 작업이 없습니다.
+              </p>
+            ) : (
+              <div className="mt-xl grid gap-md sm:grid-cols-2">
+                {forwardTransitions.map((status) => (
+                  <ContractStatusTransitionButton
+                    key={status}
+                    contractId={contract.id}
+                    status={status}
+                    label={transitionLabels[status] ?? "상태 변경"}
+                    variant="primary"
+                  />
+                ))}
+                {canIssueInvoice ? (
+                  <Link
+                    href={`/invoices/new?contract=${contract.id}`}
+                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+                  >
+                    인보이스 발행
+                  </Link>
+                ) : null}
+                {rollbackTransition ? (
+                  <ContractStatusTransitionButton
+                    contractId={contract.id}
+                    status={rollbackTransition}
+                    label={transitionLabels[rollbackTransition] ?? "상태 변경"}
+                    variant="danger"
+                  />
+                ) : null}
+                {cancelTransition ? (
+                  <ContractStatusTransitionButton
+                    contractId={contract.id}
+                    status={cancelTransition}
+                    label={transitionLabels[cancelTransition] ?? "상태 변경"}
+                    variant="danger"
+                    confirm={{
+                      title: "계약을 취소할까요?",
+                      description:
+                        "계약이 취소 상태로 무효화됩니다. 이력에 취소 기록이 남으며, 되돌릴 수 없습니다.",
+                    }}
+                  />
+                ) : null}
+              </div>
+            )}
+          </Card>
+
+          <Card>
+            <div className="border-b border-surface-border pb-lg">
+              <h3 className="text-lg font-semibold text-text-primary">
+                이력 타임라인
+              </h3>
+              <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                계약이 언제 어떤 상태로 바뀌었는지 남기는 변경 기록입니다. 분쟁 시
+                &ldquo;계약 → 서명 → 입금&rdquo; 증빙 체인의 근거가 됩니다.
+              </p>
+            </div>
+            {events.length === 0 ? (
+              <p className="mt-xl text-sm leading-relaxed text-text-muted">
+                아직 기록된 이력이 없습니다.
+              </p>
+            ) : (
+              <ol className="mt-xl space-y-lg border-l border-surface-border pl-lg">
+                {events.map((event) => (
+                  <li key={event.id} className="relative">
+                    <span
+                      aria-hidden="true"
+                      className="absolute -left-[25px] top-1.5 size-3 rounded-full border-2 border-white bg-brand-primary"
+                    />
+                    <div className="flex flex-col gap-xs sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm font-medium text-text-primary">
+                        {event.event_type === "contract.imported"
+                          ? "계약 등록"
+                          : event.from_status &&
+                              event.from_status !== event.to_status
+                            ? `${statusLabel(event.from_status)} → ${statusLabel(
+                                event.to_status,
+                              )}`
+                            : statusLabel(event.to_status)}
+                      </p>
+                      <time className="text-xs text-text-muted">
+                        {formatDate(event.created_at)}
+                      </time>
+                    </div>
+                    <p className="mt-xs text-sm leading-relaxed text-text-body">
+                      {contractEventLabel(event.event_type)} ·{" "}
+                      {formatContractEventActor(event.actor)}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
