@@ -88,7 +88,7 @@ export async function GET(_request: Request, context: RouteContext) {
   // 맞서명 계약이면 상대방 서명(DB base64)을 owner 서명 아래에 함께 렌더한다(0022).
   const { data: counterpartyData, error: counterpartyError } = await supabase
     .from("contract_signatures")
-    .select("signer_name,signer_email,signed_at,signature_image_data")
+    .select("signer_name,signer_email,signed_at,signature_image_data,meta")
     .eq("contract_id", contract.id)
     .eq("party", "counterparty")
     .order("signed_at", { ascending: false })

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   CONTRACT_PDF_DISCLAIMER,
   mapContractPdfProps,
+  toCounterpartySignature,
 } from "@/lib/contracts/pdf";
 
 const clauses = [
@@ -87,5 +88,44 @@ describe("mapContractPdfProps", () => {
     expect(document.clauses).toEqual([]);
     // 불러오기 계약 등 계약 레벨 요약이 없으면 null → 조항별 요약을 개별 노출한다.
     expect(document.plainSummary).toBeNull();
+  });
+});
+
+describe("toCounterpartySignature", () => {
+  it("maps a counterparty row including email/ip/ua from meta", () => {
+    const result = toCounterpartySignature({
+      signer_name: "김담당",
+      signer_email: "counter@example.test",
+      signed_at: "2026-07-17T01:00:00.000Z",
+      signature_image_data: "data:image/png;base64,abc",
+      meta: { ip: "203.0.113.9", ua: "CounterAgent" },
+    });
+
+    expect(result).toMatchObject({
+      imageDataUri: "data:image/png;base64,abc",
+      name: "김담당",
+      email: "counter@example.test",
+      ip: "203.0.113.9",
+      ua: "CounterAgent",
+    });
+  });
+
+  it("falls back to safe values when name/email/meta are missing", () => {
+    const result = toCounterpartySignature({
+      signer_name: null,
+      signer_email: null,
+      signed_at: "2026-07-17T01:00:00.000Z",
+      signature_image_data: null,
+      meta: null,
+    });
+
+    expect(result?.name).toBe("상대방");
+    expect(result?.email).toBeNull();
+    expect(result?.ip).toBe("기록 없음");
+    expect(result?.ua).toBe("기록 없음");
+  });
+
+  it("returns null for a missing row", () => {
+    expect(toCounterpartySignature(null)).toBeNull();
   });
 });

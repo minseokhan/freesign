@@ -94,7 +94,11 @@ export function parseSignedContractData(
           asString(counterparty.signer_name) ??
           asString(counterparty.signer_email) ??
           "상대방",
+        email: asString(counterparty.signer_email),
         signedAtLabel: formatDateTime(asString(counterparty.signed_at) ?? ""),
+        // 0023부터 get_signed_contract_data가 counterparty meta의 ip/ua를 평탄화해 내려준다.
+        ip: asString(counterparty.ip) ?? "기록 없음",
+        ua: asString(counterparty.ua) ?? "기록 없음",
       }
     : null;
 

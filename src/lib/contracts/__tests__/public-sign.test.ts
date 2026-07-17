@@ -48,6 +48,8 @@ function signedContractData(): Json {
       signer_email: "counterparty@example.test",
       signed_at: "2026-07-17T01:00:00.000Z",
       signature_image_data: IMAGE_DATA_URL,
+      ip: "203.0.113.9",
+      ua: "CounterAgent",
     },
   };
 }
@@ -126,6 +128,9 @@ describe("parseSignedContractData", () => {
     expect(parsed?.model.counterpartySignature).toMatchObject({
       imageDataUri: IMAGE_DATA_URL,
       name: "김담당",
+      email: "counterparty@example.test",
+      ip: "203.0.113.9",
+      ua: "CounterAgent",
     });
   });
 

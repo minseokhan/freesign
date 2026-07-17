@@ -70,6 +70,7 @@ const counterpartySignatureRow = {
   signed_at: "2026-07-17T01:00:00.000Z",
   signature_image_data:
     "data:image/png;base64," + Buffer.from("counterparty-png").toString("base64"),
+  meta: { ip: "203.0.113.9", ua: "CounterAgent" },
 };
 
 function createReadQuery() {
@@ -177,7 +178,10 @@ describe("GET /api/contracts/[id]/pdf", () => {
         counterpartySignature: {
           imageDataUri: counterpartySignatureRow.signature_image_data,
           name: "김담당",
+          email: "counterparty@example.test",
           signedAtLabel: expect.any(String),
+          ip: "203.0.113.9",
+          ua: "CounterAgent",
         },
       }),
     );

@@ -1,7 +1,7 @@
 import type { Json } from "@/types/database";
 
 export const CONTRACT_PDF_DISCLAIMER =
-  "이 문서는 FreeSign v1 간이 서명 기록용 PDF입니다. AI 초안은 법적 자문이 아니며, v1 간이 서명은 강한 법적 증거를 보장하지 않습니다. 계약 확정 전 전문가 검토를 권장합니다.";
+  "이 문서는 FreeSign 전자서명 기록용 PDF입니다. AI 초안은 법적 자문이 아니며, 본 전자서명은 이메일 소유확인 수준으로 강한 법적 증거를 보장하지는 않습니다. 계약 확정 전 전문가 검토를 권장합니다.";
 
 export type ContractPdfClause = {
   title: string;
@@ -18,10 +18,14 @@ export type ContractPdfSignature = {
 };
 
 // 맞서명(v2) 상대방 서명 슬롯 — 이미지는 DB 저장 base64 data URI(ADR-009 예외).
+// owner 블록과 대칭이 되도록 이메일·IP·User-Agent를 함께 담는다.
 export type ContractPdfCounterpartySignature = {
   imageDataUri: string | null;
   name: string;
+  email: string | null;
   signedAtLabel: string;
+  ip: string;
+  ua: string;
 };
 
 export type ContractPdfModel = {
@@ -60,7 +64,20 @@ export type CounterpartySignatureRow = {
   signer_email: string | null;
   signed_at: string;
   signature_image_data: string | null;
+  meta: Json | null;
 };
+
+/** contract_signatures.meta(jsonb)에서 ip/ua를 안전하게 읽는다. */
+function parseCounterpartyMeta(meta: Json | null): { ip: string; ua: string } {
+  if (typeof meta !== "object" || meta === null || Array.isArray(meta)) {
+    return { ip: "기록 없음", ua: "기록 없음" };
+  }
+
+  return {
+    ip: typeof meta.ip === "string" ? meta.ip : "기록 없음",
+    ua: typeof meta.ua === "string" ? meta.ua : "기록 없음",
+  };
+}
 
 /** contract_signatures counterparty 행 → PDF 상대방 서명 슬롯. */
 export function toCounterpartySignature(
@@ -70,10 +87,15 @@ export function toCounterpartySignature(
     return null;
   }
 
+  const { ip, ua } = parseCounterpartyMeta(row.meta);
+
   return {
     imageDataUri: row.signature_image_data,
     name: row.signer_name ?? row.signer_email ?? "상대방",
+    email: row.signer_email,
     signedAtLabel: formatDateTime(row.signed_at),
+    ip,
+    ua,
   };
 }
 

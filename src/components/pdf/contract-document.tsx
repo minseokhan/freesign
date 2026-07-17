@@ -191,7 +191,7 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
     <Document
       title={document.title}
       author="FreeSign"
-      subject="FreeSign v1 contract PDF"
+      subject="FreeSign contract PDF"
       language="ko-KR"
     >
       <Page size="A4" style={styles.page}>
@@ -294,7 +294,12 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
               )}
               <Text style={styles.signatureMeta}>
                 상대방 서명자: {document.counterpartySignature.name}
+                {document.counterpartySignature.email
+                  ? `\n이메일: ${document.counterpartySignature.email}`
+                  : ""}
                 {"\n"}서명 시각: {document.counterpartySignature.signedAtLabel}
+                {"\n"}IP: {document.counterpartySignature.ip}
+                {"\n"}User-Agent: {document.counterpartySignature.ua}
               </Text>
             </View>
           ) : null}
@@ -303,7 +308,7 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `FreeSign v1 기록용 계약 PDF · ${pageNumber} / ${totalPages}`
+            `FreeSign 계약 기록용 PDF · ${pageNumber} / ${totalPages}`
           }
           fixed
         />
