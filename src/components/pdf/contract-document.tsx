@@ -257,6 +257,8 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
           <Text style={styles.hash}>{document.docHash}</Text>
         </View>
 
+        {/* 불러오기 계약은 발주처 원본 PDF가 증빙이라 서식 PDF에 서명 섹션을 넣지 않는다. */}
+        {document.isImported ? null : (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>서명</Text>
           <View style={styles.signatureBox}>
@@ -304,6 +306,7 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
             </View>
           ) : null}
         </View>
+        )}
 
         <Text
           style={styles.footer}

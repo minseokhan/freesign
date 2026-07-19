@@ -43,6 +43,8 @@ export type ContractPdfModel = {
   signatureImageDataUri: string | null;
   // 상대방 서명이 있으면 owner 서명 아래에 함께 표기한다(없으면 기존 단독 레이아웃 불변).
   counterpartySignature?: ContractPdfCounterpartySignature | null;
+  // 발주처 원본 PDF로 성사된 불러오기 계약. 원본이 증빙이므로 서식 PDF에는 서명 섹션을 넣지 않는다.
+  isImported: boolean;
   disclaimer: string;
 };
 
@@ -57,6 +59,7 @@ type ContractPdfRow = {
   plain_summary?: string | null;
   doc_hash: string | null;
   signature_meta: Json;
+  source_pdf_url?: string | null;
 };
 
 export type CounterpartySignatureRow = {
@@ -127,6 +130,7 @@ export function mapContractPdfProps({
     signature: normalizeSignature(contract.signature_meta),
     signatureImageDataUri,
     counterpartySignature,
+    isImported: contract.source_pdf_url != null,
     disclaimer: CONTRACT_PDF_DISCLAIMER,
   };
 }

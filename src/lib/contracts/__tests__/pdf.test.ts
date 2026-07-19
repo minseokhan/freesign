@@ -60,6 +60,29 @@ describe("mapContractPdfProps", () => {
     });
     expect(document.plainSummary).toBe("계약 전체 평문요약입니다.");
     expect(document.disclaimer).toBe(CONTRACT_PDF_DISCLAIMER);
+    // 자체 서명 계약은 서명 섹션을 렌더한다.
+    expect(document.isImported).toBe(false);
+  });
+
+  it("marks contracts with a source PDF as imported (원본이 증빙 · 서명 섹션 생략)", () => {
+    const document = mapContractPdfProps({
+      contract: {
+        title: "불러온 계약서",
+        scope: "업무 범위",
+        amount: 1000,
+        start_date: "2026-07-01",
+        end_date: "2026-07-31",
+        status: "active",
+        clauses: null,
+        doc_hash: null,
+        signature_meta: null,
+        source_pdf_url: "user-1/contract-1/source.pdf",
+      },
+      clientName: null,
+      signatureImageDataUri: null,
+    });
+
+    expect(document.isImported).toBe(true);
   });
 
   it("uses safe fallbacks for missing clauses and hash", () => {

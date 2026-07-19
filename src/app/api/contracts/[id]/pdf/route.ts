@@ -35,6 +35,7 @@ type ContractRow = Pick<
   | "doc_hash"
   | "signature_image_path"
   | "signature_meta"
+  | "source_pdf_url"
 > & {
   client: {
     name: string;
@@ -66,7 +67,7 @@ export async function GET(_request: Request, context: RouteContext) {
     supabase
       .from("contracts")
       .select(
-        "id,title,scope,amount,start_date,end_date,status,clauses,plain_summary,doc_hash,signature_image_path,signature_meta,client:clients(name)",
+        "id,title,scope,amount,start_date,end_date,status,clauses,plain_summary,doc_hash,signature_image_path,signature_meta,source_pdf_url,client:clients(name)",
       )
       .eq("id", id),
   ).maybeSingle();
