@@ -8,7 +8,9 @@ import {
 } from "@/components/contract-status-badge";
 import { Card } from "@/components/ui/card";
 import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
+import { Pagination } from "@/components/pagination";
 import { notDeleted } from "@/lib/db";
+import { getRangeForPage, getTotalPages, parsePage } from "@/lib/pagination";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
@@ -25,6 +27,7 @@ type ContractRow = Pick<
 type ContractsPageProps = {
   searchParams?: Promise<{
     status?: string;
+    page?: string;
   }>;
 };
 
@@ -69,27 +72,50 @@ export default async function ContractsPage({
 }: ContractsPageProps) {
   const resolvedSearchParams = await searchParams;
   const selectedStatus = parseStatusFilter(resolvedSearchParams?.status);
+  const currentPage = parsePage(resolvedSearchParams?.page);
   const supabase = await createClient();
 
   let query = notDeleted(
     supabase
       .from("contracts")
-      .select("id,title,amount,start_date,end_date,status,created_at,client:clients(name)"),
+      .select(
+        "id,title,amount,start_date,end_date,status,created_at,client:clients(name)",
+        { count: "exact" },
+      ),
   );
 
   if (selectedStatus) {
     query = query.eq("status", selectedStatus);
   }
 
-  const { data, error } = await query.order("created_at", {
-    ascending: false,
-  });
+  const { from, to } = getRangeForPage(currentPage);
+  const { data, count, error } = await query
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
   if (error) {
     throw error;
   }
 
   const contracts = (data ?? []) as ContractRow[];
+  const totalCount = count ?? 0;
+  const totalPages = getTotalPages(totalCount);
+
+  const createPageHref = (page: number) => {
+    const params = new URLSearchParams();
+
+    if (selectedStatus) {
+      params.set("status", selectedStatus);
+    }
+
+    if (page > 1) {
+      params.set("page", String(page));
+    }
+
+    const queryString = params.toString();
+
+    return queryString ? `/contracts?${queryString}` : "/contracts";
+  };
 
   return (
     <div className="space-y-xl">
@@ -148,7 +174,7 @@ export default async function ContractsPage({
         })}
       </nav>
 
-      {contracts.length === 0 ? (
+      {totalCount === 0 ? (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
           <div
             aria-hidden="true"
@@ -181,6 +207,7 @@ export default async function ContractsPage({
           </div>
         </Card>
       ) : (
+        <>
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[840px] border-collapse text-left text-sm">
@@ -249,6 +276,12 @@ export default async function ContractsPage({
             </table>
           </div>
         </Card>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          createHref={createPageHref}
+        />
+        </>
       )}
     </div>
   );

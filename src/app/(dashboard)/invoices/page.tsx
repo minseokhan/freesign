@@ -7,9 +7,11 @@ import {
   type PaymentStatus,
 } from "@/components/payment-status-badge";
 import { Card } from "@/components/ui/card";
+import { Pagination } from "@/components/pagination";
 import { resolveContractLabel } from "@/lib/contract-snapshot";
 import { notDeleted } from "@/lib/db";
 import { deriveDueStatus, formatKRW } from "@/lib/metrics";
+import { getRangeForPage, getTotalPages, parsePage } from "@/lib/pagination";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
@@ -35,6 +37,7 @@ type InvoiceRow = Pick<
 type InvoicesPageProps = {
   searchParams?: Promise<{
     status?: string;
+    page?: string;
   }>;
 };
 
@@ -77,6 +80,7 @@ export default async function InvoicesPage({
 }: InvoicesPageProps) {
   const resolvedSearchParams = await searchParams;
   const selectedStatus = parseStatusFilter(resolvedSearchParams?.status);
+  const currentPage = parsePage(resolvedSearchParams?.page);
   const supabase = await createClient();
 
   let query = notDeleted(
@@ -84,6 +88,7 @@ export default async function InvoicesPage({
       .from("invoices")
       .select(
         "id,amount,issue_date,due_date,payment_status,created_at,contract_snapshot,client:clients(name),contract:contracts(title)",
+        { count: "exact" },
       ),
   );
 
@@ -91,15 +96,34 @@ export default async function InvoicesPage({
     query = query.eq("payment_status", selectedStatus);
   }
 
-  const { data, error } = await query.order("issue_date", {
-    ascending: false,
-  });
+  const { from, to } = getRangeForPage(currentPage);
+  const { data, count, error } = await query
+    .order("issue_date", { ascending: false })
+    .range(from, to);
 
   if (error) {
     throw error;
   }
 
   const invoices = (data ?? []) as InvoiceRow[];
+  const totalCount = count ?? 0;
+  const totalPages = getTotalPages(totalCount);
+
+  const createPageHref = (page: number) => {
+    const params = new URLSearchParams();
+
+    if (selectedStatus) {
+      params.set("status", selectedStatus);
+    }
+
+    if (page > 1) {
+      params.set("page", String(page));
+    }
+
+    const queryString = params.toString();
+
+    return queryString ? `/invoices?${queryString}` : "/invoices";
+  };
 
   return (
     <div className="space-y-xl">
@@ -150,7 +174,7 @@ export default async function InvoicesPage({
         })}
       </nav>
 
-      {invoices.length === 0 ? (
+      {totalCount === 0 ? (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
           <div
             aria-hidden="true"
@@ -175,6 +199,7 @@ export default async function InvoicesPage({
           </Link>
         </Card>
       ) : (
+        <>
         <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] border-collapse text-left text-sm">
@@ -264,6 +289,12 @@ export default async function InvoicesPage({
             </table>
           </div>
         </Card>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          createHref={createPageHref}
+        />
+        </>
       )}
     </div>
   );
