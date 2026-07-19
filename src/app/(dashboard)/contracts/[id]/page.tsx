@@ -8,6 +8,7 @@ import {
   ContractStatusBadge,
   getContractStatusMeta,
 } from "@/components/contract-status-badge";
+import { PaymentStatusBadge } from "@/components/payment-status-badge";
 import { SignatureRequestForm } from "@/components/signature-request-form";
 import { SignatureRequestControls } from "@/components/signature-request-controls";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ import {
   formatContractEventActor,
 } from "@/lib/contracts/event-labels";
 import { notDeleted } from "@/lib/db";
+import { deriveDueStatus } from "@/lib/metrics";
 import { createClient } from "@/lib/supabase/server";
 import type { Database, Json } from "@/types/database";
 
@@ -54,6 +56,11 @@ type ContractEventRow = Pick<
 type SignatureRequestRow = Pick<
   Database["public"]["Tables"]["signature_requests"]["Row"],
   "id" | "recipient_email" | "recipient_name" | "expires_at" | "first_viewed_at"
+>;
+
+type ContractInvoiceRow = Pick<
+  Database["public"]["Tables"]["invoices"]["Row"],
+  "id" | "amount" | "issue_date" | "due_date" | "payment_status"
 >;
 
 type ContractClause = {
@@ -233,6 +240,20 @@ export default async function ContractDetailPage({
     throw eventError;
   }
 
+  // 이 계약에서 발행한 인보이스 목록 — RSC에서 RLS 스코프로 직접 조회한다.
+  const { data: invoiceData, error: invoiceError } = await notDeleted(
+    supabase
+      .from("invoices")
+      .select("id,amount,issue_date,due_date,payment_status")
+      .eq("contract_id", contract.id),
+  ).order("issue_date", { ascending: false });
+
+  if (invoiceError) {
+    throw invoiceError;
+  }
+
+  const invoices = (invoiceData ?? []) as ContractInvoiceRow[];
+
   // sent 계약의 대기 중 서명 요청 현황 — RSC에서 RLS 스코프로 직접 조회한다.
   let signatureRequest: SignatureRequestRow | null = null;
 
@@ -366,48 +387,56 @@ export default async function ContractDetailPage({
             </div>
           </Card>
 
-          <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
-            AI 초안이며 법적 자문이 아닙니다. 계약 확정 전 전문가 검토를
-            권장합니다.
-          </div>
-
-          <Card>
-            <div className="border-b border-surface-border pb-lg">
-              <h3 className="text-lg font-semibold text-text-primary">업무 범위</h3>
-              <p className="mt-xs text-sm leading-relaxed text-text-muted">
-                계약서 조항의 기준이 되는 원문 범위입니다.
-              </p>
+          {/* 불러오기 계약은 AI 초안이 아니라 발주처 원본 계약이므로 면책 배너를 노출하지 않는다. */}
+          {isImported ? null : (
+            <div className="rounded-md border border-amber-200 bg-status-waiting-bg px-md py-sm text-xs leading-relaxed text-amber-800">
+              AI 초안이며 법적 자문이 아닙니다. 계약 확정 전 전문가 검토를
+              권장합니다.
             </div>
-            <p className="mt-xl whitespace-pre-wrap text-sm leading-relaxed text-text-body">
-              {contract.scope}
-            </p>
-          </Card>
+          )}
 
+          {/* 업무 범위(조항의 기준 원문)와 조항 본문·평문요약을 '계약 내용' 한 카드로 묶는다. */}
           <Card>
             <div className="border-b border-surface-border pb-lg">
               <h3 className="text-lg font-semibold text-text-primary">
-                조항과 평문요약
+                계약 내용
               </h3>
               <p className="mt-xs text-sm leading-relaxed text-text-muted">
-                조항별 본문과 프리랜서가 빠르게 확인할 수 있는 요약입니다.
+                계약서의 원문 범위와 조항별 본문·평문요약입니다.
               </p>
             </div>
-            {contractSummary ? (
-              <div className="mt-xl rounded-md bg-surface-muted px-md py-sm">
-                <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                  평문요약
-                </p>
-                <p className="mt-xs text-sm leading-relaxed text-text-body">
-                  {contractSummary}
+
+            <div className="mt-xl">
+              <h4 className="text-base font-semibold text-text-primary">
+                업무 범위
+              </h4>
+              <div className="mt-md rounded-md border border-surface-border p-lg">
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-text-body">
+                  {contract.scope}
                 </p>
               </div>
-            ) : null}
-            {clauses.length === 0 ? (
-              <p className="mt-xl text-sm leading-relaxed text-text-muted">
-                아직 표시할 조항이 없습니다.
-              </p>
-            ) : (
-              <div className="mt-xl space-y-lg">
+            </div>
+
+            <div className="mt-xl border-t border-surface-border pt-xl">
+              <h4 className="text-base font-semibold text-text-primary">
+                조항과 평문요약
+              </h4>
+              {contractSummary ? (
+                <div className="mt-lg rounded-md bg-surface-muted px-md py-sm">
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                    평문요약
+                  </p>
+                  <p className="mt-xs text-sm leading-relaxed text-text-body">
+                    {contractSummary}
+                  </p>
+                </div>
+              ) : null}
+              {clauses.length === 0 ? (
+                <p className="mt-lg text-sm leading-relaxed text-text-muted">
+                  아직 표시할 조항이 없습니다.
+                </p>
+              ) : (
+                <div className="mt-lg space-y-lg">
                 {clauses.map((clause, index) => (
                   <article
                     key={`${clause.title}-${index}`}
@@ -436,8 +465,9 @@ export default async function ContractDetailPage({
                     )}
                   </article>
                 ))}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </Card>
 
           {isImported ? null : (
@@ -525,10 +555,8 @@ export default async function ContractDetailPage({
             )}
           </Card>
           )}
-        </div>
 
-        {/* 오른쪽(1fr): 상태·액션 레일 — 서명 요청 현황·다음 단계·이력 타임라인 */}
-        <div className="space-y-xl">
+          {/* 서명 요청 현황 — 서명 카드 바로 아래에 배치(같은 서명 맥락). */}
           {signatureRequest ? (
             <Card>
               <div className="border-b border-surface-border pb-lg">
@@ -567,7 +595,10 @@ export default async function ContractDetailPage({
               </div>
             </Card>
           ) : null}
+        </div>
 
+        {/* 오른쪽(1fr): 상태·액션 레일 — 다음 단계·인보이스 내역·계약 타임라인 */}
+        <div className="space-y-xl">
           <Card>
             <div className="border-b border-surface-border pb-lg">
               <h3 className="text-lg font-semibold text-text-primary">
@@ -578,7 +609,6 @@ export default async function ContractDetailPage({
               </p>
             </div>
             {forwardTransitions.length === 0 &&
-            !canIssueInvoice &&
             !rollbackTransition &&
             !cancelTransition ? (
               <p className="mt-xl text-sm leading-relaxed text-text-muted">
@@ -595,14 +625,6 @@ export default async function ContractDetailPage({
                     variant="primary"
                   />
                 ))}
-                {canIssueInvoice ? (
-                  <Link
-                    href={`/invoices/new?contract=${contract.id}`}
-                    className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-                  >
-                    인보이스 발행
-                  </Link>
-                ) : null}
                 {rollbackTransition ? (
                   <ContractStatusTransitionButton
                     contractId={contract.id}
@@ -631,7 +653,67 @@ export default async function ContractDetailPage({
           <Card>
             <div className="border-b border-surface-border pb-lg">
               <h3 className="text-lg font-semibold text-text-primary">
-                이력 타임라인
+                인보이스 내역
+              </h3>
+              <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                이 계약에서 발행한 인보이스입니다. 클릭하면 해당 인보이스로
+                이동합니다.
+              </p>
+            </div>
+            {invoices.length === 0 ? (
+              <p className="mt-xl text-sm leading-relaxed text-text-muted">
+                아직 발행한 인보이스가 없습니다.
+              </p>
+            ) : (
+              <ul className="mt-xl space-y-md">
+                {invoices.map((invoice) => (
+                  <li key={invoice.id}>
+                    <Link
+                      href={`/invoices/${invoice.id}`}
+                      className="flex items-center justify-between gap-md rounded-md border border-surface-border px-md py-sm transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-text-primary">
+                          {formatCurrency(invoice.amount)}
+                        </p>
+                        <p className="mt-xs text-xs text-text-muted">
+                          발행 {formatDate(invoice.issue_date)} · 지급기한{" "}
+                          {formatDate(invoice.due_date)}
+                        </p>
+                      </div>
+                      <PaymentStatusBadge
+                        status={invoice.payment_status}
+                        overdue={
+                          deriveDueStatus(
+                            {
+                              dueDate: invoice.due_date,
+                              paymentStatus: invoice.payment_status,
+                            },
+                            new Date(),
+                          ) === "overdue"
+                        }
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {canIssueInvoice ? (
+              <div className="mt-xl">
+                <Link
+                  href={`/invoices/new?contract=${contract.id}`}
+                  className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+                >
+                  인보이스 발행
+                </Link>
+              </div>
+            ) : null}
+          </Card>
+
+          <Card>
+            <div className="border-b border-surface-border pb-lg">
+              <h3 className="text-lg font-semibold text-text-primary">
+                계약 타임라인
               </h3>
               <p className="mt-xs text-sm leading-relaxed text-text-muted">
                 계약이 언제 어떤 상태로 바뀌었는지 남기는 변경 기록입니다. 분쟁 시
