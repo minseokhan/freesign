@@ -57,6 +57,7 @@ export function SignatureRequestControls({
         <Button
           type="button"
           variant="danger"
+          className="bg-red-50 hover:bg-red-100"
           disabled={isPending}
           onClick={() => {
             setMessage(null);
