@@ -41,7 +41,8 @@ export type ContractDraftInput = z.infer<typeof contractDraftInputSchema>;
 export const contractClauseSchema = z.object({
   title: z.string().trim().min(1),
   body: z.string().trim().min(1),
-  plain_summary: z.string().trim().min(1),
+  // AI 초안은 조항별 요약을 비워 두고(계약 레벨 plain_summary를 1회 노출) 저장하므로 빈 값을 허용한다.
+  plain_summary: z.string().trim(),
   needs_review: z.boolean(),
 });
 

@@ -99,4 +99,15 @@ describe("contractClausesSchema", () => {
       ]),
     ).toThrow();
   });
+
+  it("accepts an empty clause plain_summary (AI 초안은 조항별 요약을 비워 두고 계약 레벨 요약을 쓴다)", () => {
+    const withEmptySummary = [
+      { ...validClauses[0], plain_summary: "" },
+      ...validClauses.slice(1),
+    ];
+
+    expect(contractClausesSchema.parse(withEmptySummary)).toEqual(
+      withEmptySummary,
+    );
+  });
 });
