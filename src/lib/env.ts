@@ -25,11 +25,19 @@ export const timestampEnvSchema = z.object({
   TSA_URL: z.string().url().optional(),
 });
 
+export const polarEnvSchema = z.object({
+  POLAR_ACCESS_TOKEN: z.string().min(1),
+  POLAR_WEBHOOK_SECRET: z.string().min(1),
+  POLAR_PRODUCT_ID: z.string().min(1),
+  POLAR_SERVER: z.enum(["sandbox", "production"]).default("sandbox"),
+});
+
 export type PublicEnv = z.infer<typeof publicEnvSchema>;
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
 export type AnthropicEnv = z.infer<typeof anthropicEnvSchema>;
 export type EmailEnv = z.infer<typeof emailEnvSchema>;
 export type TimestampEnv = z.infer<typeof timestampEnvSchema>;
+export type PolarEnv = z.infer<typeof polarEnvSchema>;
 
 function formatEnvError(scope: "public" | "server", error: z.ZodError) {
   const keys = error.issues
@@ -90,6 +98,16 @@ export function parseTimestampEnv(env: EnvInput): TimestampEnv {
   return result.data;
 }
 
+export function parsePolarEnv(env: EnvInput): PolarEnv {
+  const result = polarEnvSchema.safeParse(env);
+
+  if (!result.success) {
+    throw new Error(formatEnvError("server", result.error));
+  }
+
+  return result.data;
+}
+
 export function getPublicEnv() {
   return parsePublicEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -138,5 +156,18 @@ export function getTimestampEnv() {
   // 빈 문자열은 미설정으로 취급 — TSA_URL 없음 = noop provider (기본 공용 TSA 자동 적용 안 함).
   return parseTimestampEnv({
     TSA_URL: process.env.TSA_URL || undefined,
+  });
+}
+
+export function getPolarEnv() {
+  if (typeof window !== "undefined") {
+    throw new Error("Server environment variables are not available in browser code.");
+  }
+
+  return parsePolarEnv({
+    POLAR_ACCESS_TOKEN: process.env.POLAR_ACCESS_TOKEN,
+    POLAR_WEBHOOK_SECRET: process.env.POLAR_WEBHOOK_SECRET,
+    POLAR_PRODUCT_ID: process.env.POLAR_PRODUCT_ID,
+    POLAR_SERVER: process.env.POLAR_SERVER || undefined,
   });
 }

@@ -6,6 +6,7 @@ import {
   captureServerException,
   getPostHogClient,
 } from "@/lib/posthog-server";
+import { canCreateContract } from "@/lib/plan";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { contractDraftInputSchema } from "@/lib/validation/contract";
@@ -59,6 +60,30 @@ export async function POST(request: Request) {
       { ok: false, error: "클라이언트를 찾을 수 없습니다." },
       { status: 404 },
     );
+  }
+
+  // 새 계약 생성 무료 상한. 동일 조건의 기존 draft 재생성이 아닌, 정말 새 계약을
+  // 미리보기하려는 경우에만 적용해 AI 토큰 낭비를 막고 업셀을 앞당긴다.
+  const { data: existingDraft } = await supabase
+    .from("contracts")
+    .select("id")
+    .eq("client_id", parsed.data.client_id)
+    .eq("status", "draft")
+    .eq("scope", parsed.data.scope)
+    .eq("amount", parsed.data.amount)
+    .eq("start_date", parsed.data.start_date)
+    .eq("end_date", parsed.data.end_date)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (!existingDraft) {
+    const gate = await canCreateContract(supabase, user.id);
+    if (!gate.ok) {
+      return NextResponse.json(
+        { ok: false, error: gate.message, upsell: true },
+        { status: 402 },
+      );
+    }
   }
 
   const { data: profile, error: profileError } = await supabase

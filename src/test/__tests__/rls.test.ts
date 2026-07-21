@@ -63,6 +63,7 @@ describe("RLS policies", () => {
     );
 
     expect(policyResult.rows).toEqual([
+      { tablename: "billing_events", commands: ["SELECT"] },
       { tablename: "clients", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "contract_events", commands: ["DELETE", "INSERT", "SELECT"] },
       { tablename: "contract_signatures", commands: ["INSERT", "SELECT"] },
@@ -71,6 +72,8 @@ describe("RLS policies", () => {
       { tablename: "invoices", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "profiles", commands: ["INSERT", "SELECT", "UPDATE"] },
       { tablename: "signature_requests", commands: ["INSERT", "SELECT", "UPDATE"] },
+      { tablename: "subscriptions", commands: ["SELECT"] },
+      { tablename: "usage_counters", commands: ["INSERT", "SELECT", "UPDATE"] },
     ]);
   });
 

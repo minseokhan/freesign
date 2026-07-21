@@ -6,6 +6,7 @@ import {
   captureServerException,
   getPostHogClient,
 } from "@/lib/posthog-server";
+import { consumeImportQuota } from "@/lib/plan";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { extractContractFromPdf } from "@/services/ai/contract-import";
 
@@ -22,6 +23,16 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요." },
       { status: 429, headers: { "Retry-After": String(limit.retryAfter) } },
+    );
+  }
+
+  // 무료 티어 불러오기(AI 파싱) 누적 상한. 파싱 전에 소비해 초과 호출을 차단한다.
+  // pro는 스킵(무제한). 저장 여부와 무관하게 파싱 호출 자체가 토큰 비용이므로 여기서 센다.
+  const quota = await consumeImportQuota();
+  if (!quota.ok) {
+    return NextResponse.json(
+      { error: quota.message, upsell: true },
+      { status: 402 },
     );
   }
 

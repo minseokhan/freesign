@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
+import { canSendSignature } from "@/lib/plan";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { resolveSiteUrl } from "@/lib/seo";
@@ -192,6 +193,13 @@ export async function sendSignatureRequest(
       ok: false,
       error: "초안 상태의 계약만 서명 요청을 보낼 수 있습니다.",
     };
+  }
+
+  // 쌍방 서명 발송 무료 상한(새 계약 1건). pro는 무제한.
+  // 서버 방어 이중 — 생성 게이트를 우회했더라도 발송 단계에서 다시 막는다.
+  const signGate = await canSendSignature(supabase, user.id);
+  if (!signGate.ok) {
+    return { ok: false, error: signGate.message };
   }
 
   const { data: profile, error: profileError } = await supabase

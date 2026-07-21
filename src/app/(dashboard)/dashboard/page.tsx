@@ -2,6 +2,7 @@ import { Fragment } from "react";
 
 import Link from "next/link";
 
+import { UpgradeCard } from "@/components/billing/upgrade-cta";
 import { ChannelBadge } from "@/components/channel-badge";
 import { DemoDataButton } from "@/components/demo-data-button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,7 @@ import {
   type ChannelRevenueRow,
   type DueStatus,
 } from "@/lib/metrics";
+import { getUserPlan } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
@@ -113,6 +115,7 @@ export default async function DashboardPage() {
     contractPipelineResult,
     unpaidInvoicesResult,
     demoClientResult,
+    plan,
   ] = await Promise.all([
     rpc.rpc("get_dashboard_totals"),
     rpc.rpc("get_dashboard_channel_revenue"),
@@ -131,6 +134,7 @@ export default async function DashboardPage() {
       .eq("is_demo", true)
       .limit(1)
       .maybeSingle(),
+    getUserPlan(),
   ]);
 
   if (totalsResult.error) {
@@ -401,6 +405,12 @@ export default async function DashboardPage() {
           )}
         </Card>
 
+        {plan === "free" ? (
+          <UpgradeCard
+            title="채널 수익 TOP"
+            description="채널별 매출 랭킹은 Pro 전용이에요. 업그레이드하면 어떤 채널이 가장 많이 벌어주는지 한눈에 볼 수 있어요."
+          />
+        ) : (
         <Card>
           <h3 className="text-lg font-semibold text-text-primary">
             채널 수익 TOP
@@ -434,6 +444,7 @@ export default async function DashboardPage() {
             </ol>
           )}
         </Card>
+        )}
       </section>
     </div>
   );

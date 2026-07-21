@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { UpgradeButton, UpgradeCard } from "@/components/billing/upgrade-cta";
 import { ChannelBadge } from "@/components/channel-badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -13,6 +14,7 @@ import {
   type OutstandingSummary,
   type TaxSummaryRow,
 } from "@/lib/metrics";
+import { getUserPlan } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/server";
 
 type ReportsPageProps = {
@@ -114,13 +116,16 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
   const supabase = await createClient();
   const rpc = supabase as unknown as ReportRpcClient;
 
-  const [channelResult, taxResult, clientResult, outstandingResult] =
+  const [channelResult, taxResult, clientResult, outstandingResult, plan] =
     await Promise.all([
       rpc.rpc("get_report_channel_revenue", { report_year: selectedYear }),
       rpc.rpc("get_report_tax_summary", { report_year: selectedYear }),
       rpc.rpc("get_report_client_revenue", { report_year: selectedYear }),
       rpc.rpc("get_report_outstanding", { report_year: selectedYear }),
+      getUserPlan(),
     ]);
+
+  const isPro = plan === "pro";
 
   const firstError =
     channelResult.error ??
@@ -187,12 +192,16 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             확인합니다.
           </p>
         </div>
-        <Link
-          href={csvHref}
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-        >
-          CSV 내보내기
-        </Link>
+        {isPro ? (
+          <Link
+            href={csvHref}
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          >
+            CSV 내보내기
+          </Link>
+        ) : (
+          <UpgradeButton>CSV 내보내기 (Pro)</UpgradeButton>
+        )}
       </div>
 
       <nav aria-label="리포트 연도 필터" className="flex flex-wrap gap-sm">
@@ -337,7 +346,12 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         )}
       </Card>
 
-      {hasPaidData ? (
+      {hasPaidData && !isPro ? (
+        <UpgradeCard
+          title="채널·클라이언트별 수익 랭킹"
+          description="어떤 채널과 거래처가 가장 많이 벌어주는지 보여주는 상세 랭킹은 Pro 전용이에요. 세금 요약은 무료로 계속 볼 수 있어요."
+        />
+      ) : hasPaidData ? (
         <div className="grid gap-xl lg:grid-cols-2">
           <Card className="overflow-hidden p-0">
             <div className="border-b border-surface-border pb-md">

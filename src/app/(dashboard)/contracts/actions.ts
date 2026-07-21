@@ -16,6 +16,7 @@ import {
 } from "@/lib/contract-status";
 import { toContractClauses } from "@/lib/contracts/draft";
 import { assertOwned } from "@/lib/db";
+import { canCreateContract } from "@/lib/plan";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import {
@@ -155,6 +156,31 @@ export async function createContractDraft(
     return { ok: false, error: "클라이언트를 찾을 수 없습니다." };
   }
 
+  // 동일 조건의 기존 draft가 있으면 재생성(update), 없으면 새 계약(insert)이다.
+  // 무료 상한은 "새 계약"에만 적용하며, AI 초안 생성 전에 판정해 토큰 낭비를 막는다.
+  const { data: existingDraft, error: existingDraftError } = await supabase
+    .from("contracts")
+    .select("id")
+    .eq("client_id", parsed.client_id)
+    .eq("status", "draft")
+    .eq("scope", parsed.scope)
+    .eq("amount", parsed.amount)
+    .eq("start_date", parsed.start_date)
+    .eq("end_date", parsed.end_date)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (existingDraftError) {
+    return dbError(existingDraftError);
+  }
+
+  if (!existingDraft) {
+    const gate = await canCreateContract(supabase, user.id);
+    if (!gate.ok) {
+      return { ok: false, error: gate.message };
+    }
+  }
+
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("display_name")
@@ -175,22 +201,6 @@ export async function createContractDraft(
     dueDate: parsed.due_date,
   });
   const clauses = toContractClauses(draft) as Json;
-
-  const { data: existingDraft, error: existingDraftError } = await supabase
-    .from("contracts")
-    .select("id")
-    .eq("client_id", parsed.client_id)
-    .eq("status", "draft")
-    .eq("scope", parsed.scope)
-    .eq("amount", parsed.amount)
-    .eq("start_date", parsed.start_date)
-    .eq("end_date", parsed.end_date)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (existingDraftError) {
-    return dbError(existingDraftError);
-  }
 
   const payload = {
     title: parsed.title,

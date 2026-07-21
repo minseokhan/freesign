@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
+import { assertProFeature } from "@/lib/plan";
 import {
   captureServerException,
   getPostHogClient,
@@ -30,6 +31,15 @@ type ReportRpcClient = {
 
 export async function GET(request: Request) {
   const user = await requireUser();
+
+  // 세금 리포트 CSV export는 Pro 전용(화면 조회는 무료).
+  const proGate = await assertProFeature();
+  if (!proGate.ok) {
+    return NextResponse.json(
+      { error: proGate.message, upsell: true },
+      { status: 402 },
+    );
+  }
 
   const yearResult = parseReportYear(new URL(request.url).searchParams.get("year"));
 

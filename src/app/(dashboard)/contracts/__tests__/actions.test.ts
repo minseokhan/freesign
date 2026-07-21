@@ -28,6 +28,10 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
+vi.mock("@/lib/plan", () => ({
+  canCreateContract: vi.fn().mockResolvedValue({ ok: true, plan: "pro" }),
+}));
+
 vi.mock("@/lib/db", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/db")>();
 

@@ -91,6 +91,18 @@ invoice_events
 profiles
   user_id(PK/FK auth.users), display_name?, default_withholding_type(enum: wt_3_3|wt_8_8|none),
   bank_name?, bank_account_number?, bank_account_holder?, created_at, updated_at
+
+-- 유료화(Polar) · 0024_billing
+subscriptions
+  user_id(PK/FK auth.users), plan(text CHECK free|pro, default free), status(text, default inactive),
+  polar_customer_id?, polar_subscription_id?, current_period_end?, cancel_at_period_end(bool, default false), updated_at
+  -- RLS: SELECT 본인 행만. INSERT/UPDATE 정책 없음 = 클라이언트 직접 쓰기 차단, upsert_subscription_from_polar(DEFINER)로만 기록.
+billing_events   -- append-only 감사 로그(구독 이벤트)
+  id, user_id, polar_subscription_id?, event_type, status?, meta(jsonb), created_at   -- SELECT 본인만, INSERT 정책 없음(RPC 내부에서만)
+usage_counters   -- 무료 티어 누적 사용량 오도미터 (불러오기 파싱 등)
+  user_id, bucket, used(int, default 0), updated_at, PK(user_id, bucket)   -- RLS 본인 행 CRUD, consume_lifetime_quota가 caller 권한으로 소비
+billing_config   -- webhook 시크릿 저장(단일 행). RLS·grant로 anon/authenticated 차단, DEFINER 함수만 읽음
+  id(bool PK, default true, CHECK id), webhook_secret, updated_at   -- Supabase postgres 롤이 커스텀 GUC ALTER 불가라 GUC 대신 테이블(0026)
 ```
 
 ### 데이터 모델 규칙
@@ -102,6 +114,7 @@ profiles
 - **원천징수 계산**(`lib/tax.ts`): 소득세(원 미만 절사) + 지방소득세(10원 미만 절사) 분리. 발행 시점 스냅샷 저장(drift 방지), draft 동안만 재계산.
 - **인덱스**: 부분 인덱스 `(user_id) WHERE deleted_at IS NULL`, `(user_id, due_date) WHERE payment_status='unpaid'`, `(user_id, client_id)`, 이벤트 테이블 `(contract_id/invoice_id, created_at)`.
 - **집계**: 대시보드·리포트 지표는 **SQL 집계**(`SUM`/`GROUP BY`) + `lib/metrics.ts` 순수 변환/포맷. 별도 집계 테이블 없음. "이달 수익"은 입금일 기준 — SQL `date_trunc('month', paid_at AT TIME ZONE 'Asia/Seoul')`(UTC 저장을 JS로 집계하면 KST 9시간 밀림).
+- **플랜 게이팅**(ADR-010, `lib/plan.ts`): 유효 플랜은 순수함수 `derivePlan(subscription, now)`로 판정(만료·취소유예·revoked 포함). 게이트는 **free일 때만** 검사(pro는 무제한) → 업그레이드 즉시 해제. 상한: 불러오기 파싱 누적 5회는 `usage_counters`+`consume_lifetime_quota`(호출 카운트, 비용 기준), 새 계약 생성 1건·서명 1건은 별도 카운터 없이 **`contracts` 실시간 count(`source_pdf_url IS NULL`=생성 계약)** — 다운그레이드 시 실데이터를 그대로 반영해 "기존 읽기전용·신규만 재적용" 정책과 자동 일치. Webhook은 anon 클라이언트→`upsert_subscription_from_polar`(DEFINER, webhook 시크릿을 `billing_config` 저장값과 대조 fail-closed)로만 구독 행 기록.
 
 ## 패턴 (렌더링·데이터 접근)
 - **읽기**: RLS 스코프된 **Server Component에서 직접 Supabase 조회**. 읽기를 내부 `/api` fetch로 우회하지 않는다(안티패턴).

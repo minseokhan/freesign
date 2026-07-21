@@ -30,6 +30,54 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_config: {
+        Row: {
+          id: boolean
+          updated_at: string
+          webhook_secret: string
+        }
+        Insert: {
+          id?: boolean
+          updated_at?: string
+          webhook_secret?: string
+        }
+        Update: {
+          id?: boolean
+          updated_at?: string
+          webhook_secret?: string
+        }
+        Relationships: []
+      }
+      billing_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: number
+          meta: Json
+          polar_subscription_id: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: never
+          meta?: Json
+          polar_subscription_id?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: never
+          meta?: Json
+          polar_subscription_id?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           channel: string
@@ -491,6 +539,60 @@ export type Database = {
           },
         ]
       }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean
+          current_period_end: string | null
+          plan: string
+          polar_customer_id: string | null
+          polar_subscription_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          plan?: string
+          polar_customer_id?: string | null
+          polar_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancel_at_period_end?: boolean
+          current_period_end?: string | null
+          plan?: string
+          polar_customer_id?: string | null
+          polar_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_counters: {
+        Row: {
+          bucket: string
+          updated_at: string
+          used: number
+          user_id: string
+        }
+        Insert: {
+          bucket: string
+          updated_at?: string
+          used?: number
+          user_id: string
+        }
+        Update: {
+          bucket?: string
+          updated_at?: string
+          used?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -515,6 +617,10 @@ export type Database = {
           p_window_seconds: number
         }
         Returns: boolean
+      }
+      consume_lifetime_quota: {
+        Args: { p_bucket: string; p_max: number }
+        Returns: Json
       }
       consume_rate_limit: {
         Args: { p_bucket: string; p_max: number; p_window_seconds: number }
@@ -627,6 +733,21 @@ export type Database = {
           p_to_status: Database["public"]["Enums"]["contract_status"]
         }
         Returns: string
+      }
+      upsert_subscription_from_polar: {
+        Args: {
+          p_cancel_at_period_end: boolean
+          p_current_period_end: string
+          p_event_type: string
+          p_meta?: Json
+          p_plan: string
+          p_polar_customer_id: string
+          p_polar_subscription_id: string
+          p_status: string
+          p_user_id: string
+          p_webhook_secret: string
+        }
+        Returns: undefined
       }
     }
     Enums: {

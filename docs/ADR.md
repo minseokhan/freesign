@@ -56,3 +56,13 @@
 
 **이유**: 외부 서명 SaaS 없이(건당 비용 0원) "이메일 소유확인 + 발송 시점 해시 동결 + 감사추적 + 완결증명서 + TSA"로 입증력의 실체를 재현한다(`docs/LEGAL_SIGNATURE.md`). legalEffect는 "효력 있음/없음" 이분법 대신 입증력 단계(`record` 단독 기록 / `mutual` 맞서명)로 표기한다.
 **트레이드오프**: anon DEFINER RPC는 신규 공격 표면(반환 필드 최소화·입력 상한·search_path 고정·레이트리밋으로 완화, advisor 재점검 필요). 이메일 소유확인 수준이라 토큰 URL 소지자가 서명 가능(본인인증 승급은 확장 지점만 확보). 서명 이미지 DB 저장으로 행 크기 증가. 무료 공용 TSA는 국내 공인 TSA 대비 법원 관행 신뢰도가 낮음(엔드포인트 교체로 승급 가능).
+
+### ADR-010: 유료화 — Polar 결제 + Free/Pro 경계 + SECURITY DEFINER webhook
+**결정**: 구독 결제를 Polar(`@polar-sh/nextjs`)로 붙이고(마이그레이션 `0024`, `docs/BILLING_PLAN.md`) 다음을 확정한다.
+1. **Free/Pro 경계 = "불러오기 Free / 새 계약 생성·서명 Pro"** — 이미 서명된 외부 계약 **불러오기**(AI 파싱, 누적 5회)와 인보이스·클라이언트·입금추적은 무료(기록 체인 락인). 앱에서 **새 계약 생성 → 쌍방 서명 → TSA → 완결증명서**로 도는 풀 워크플로우는 Pro. 단 activation을 위해 무료도 **새 계약 생성·서명을 1건 체험**(2건째부터 Pro). 세금 CSV export·고급 대시보드(채널·클라이언트 랭킹)도 Pro. 서명·TSA·증명서는 "새 계약 생성"에만 존재하므로 별도 게이트 없이 자동 Pro.
+2. **게이팅 방식 — 상한별 이원화**: 불러오기 파싱은 저장 없는 호출도 토큰 비용이 나가므로 `usage_counters` 누적 카운터(`consume_lifetime_quota`)로 "호출 자체"를 카운트. 새 계약 생성·서명은 별도 카운터 없이 **`contracts` 실시간 count**(`source_pdf_url IS NULL` = 생성 계약)로 판정 — 실데이터 기반이라 **다운그레이드(pro때 만든 계약이 그대로 카운트) 시 "기존 읽기전용 유지, 신규만 재적용" 정책과 자동 일치**. 모든 게이트는 **free일 때만** 검사하므로 업그레이드는 즉시 무제한.
+3. **플랜 판정은 순수 함수 `derivePlan`**(`lib/plan.ts`) — 행 없음/plan=free/revoked→free, 기간 만료→free, 취소예정이나 기간 잔여→pro 유지(유예). `mapPolarStatusToPlan`이 Polar status→내부 상태 매핑(active/trialing/past_due→pro, 그 외→free).
+4. **Webhook은 SECURITY DEFINER RPC 경계** — Polar webhook은 로그인 세션이 없어 남의 구독 행을 써야 한다. `service_role`(마스터키)을 요청 경로에 두는 대신, 서명 검증 후 **anon 클라이언트**(`createAnonClient`)로 `upsert_subscription_from_polar`(DEFINER) 하나만 호출해 구독 행 upsert + `billing_events` 기록. anon 직접 호출로 남을 pro로 올리는 권한상승을 막기 위해 **webhook 시크릿을 파라미터로 받아 `billing_config`(RLS·grant로 anon/authenticated 조회 차단, DEFINER만 읽음)의 저장값과 대조**(미설정 시 fail-closed). ADR-009의 anon DEFINER 경계 컨벤션 재사용. (Supabase `postgres` 롤은 커스텀 GUC ALTER 권한이 없어 GUC 대신 테이블에 시크릿을 둔다 — 0026.)
+
+**이유**: 무료의 방어 가능한 코어(기록 체인)는 온전히 열어 락인하고, 히어로 기능(생성→서명→TSA→증명서)의 무제한만 과금한다. webhook의 DEFINER+GUC 게이트로 "요청 경로 service_role 금지"(CLAUDE.md CRITICAL)를 지키면서 권한상승 구멍도 없앤다.
+**트레이드오프**: Polar(MoR·미국법인)는 한국 발급 카드 결제만 가능하고 카카오페이·네이버페이·계좌이체 등 국내 간편결제·한국 세금계산서(홈택스) 발급 미지원 — 사업자·카드 기피층 전환 손실을 감수하며, 마찰이 크면 향후 국내 PG(토스페이먼츠·페이플) 이전 재평가(`docs/BILLING_PLAN.md` 열린 항목). 불러오기 카운터는 성공/실패 무관 "파싱 호출"을 세므로 preview 남용도 상한에 포함(비용 기준으로 의도된 것).

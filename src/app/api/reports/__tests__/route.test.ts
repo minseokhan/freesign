@@ -13,6 +13,10 @@ vi.mock("@/lib/supabase/server", () => ({
   createClient: vi.fn(),
 }));
 
+vi.mock("@/lib/plan", () => ({
+  assertProFeature: vi.fn().mockResolvedValue({ ok: true, plan: "pro" }),
+}));
+
 const user = { id: "user-123", email: "freelancer@example.test" };
 
 describe("GET /api/reports", () => {

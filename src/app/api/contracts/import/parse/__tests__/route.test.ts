@@ -9,6 +9,10 @@ vi.mock("@/lib/auth", () => ({
   requireUser: vi.fn(),
 }));
 
+vi.mock("@/lib/plan", () => ({
+  consumeImportQuota: vi.fn().mockResolvedValue({ ok: true, plan: "pro" }),
+}));
+
 vi.mock("@/services/ai/contract-import", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("@/services/ai/contract-import")>();
