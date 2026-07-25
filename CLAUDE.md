@@ -9,6 +9,7 @@
 - Supabase (Auth: Google OAuth · Postgres · Storage) — `@supabase/ssr` + 생성 타입, RLS로 `user_id` 스코프
 - Claude API (`@anthropic-ai/sdk`) — 계약서 초안
 - @react-pdf/renderer — 계약서·인보이스 PDF (Node 런타임)
+- Polar (`@polar-sh/nextjs`) — 구독 결제(Free/Pro 플랜), webhook은 SECURITY DEFINER RPC 경계 (ADR-010, `lib/plan.ts` 게이팅)
 - react-hook-form + zod, Vitest + Playwright
 
 ## 아키텍처 규칙
