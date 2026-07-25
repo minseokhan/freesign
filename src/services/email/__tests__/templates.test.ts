@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   renderCompletionEmail,
+  renderDunningEmail,
+  renderOwnerDunningReviewEmail,
+  renderOwnerRecurringNoticeEmail,
   renderSignatureRequestEmail,
 } from "@/services/email/templates";
 
@@ -114,5 +117,60 @@ describe("renderCompletionEmail", () => {
 
     expect(rendered.html).not.toContain("<script>");
     expect(rendered.html).toContain("&lt;script&gt;");
+  });
+});
+
+describe("renderDunningEmail", () => {
+  it("소유자 확정 제목·본문을 그대로 싣고 문단을 <p>로 감싼다", () => {
+    const rendered = renderDunningEmail({
+      subject: "[안내] 대금 지급",
+      body: "안녕하세요.\n\n지급 부탁드립니다.",
+    });
+
+    expect(rendered.subject).toBe("[안내] 대금 지급");
+    expect(rendered.text).toContain("지급 부탁드립니다.");
+    expect(rendered.html).toContain("<p>안녕하세요.</p>");
+    expect(rendered.html).toContain("<p>지급 부탁드립니다.</p>");
+  });
+
+  it("본문에 든 html을 escape한다", () => {
+    const rendered = renderDunningEmail({
+      subject: "s",
+      body: '<script>alert("xss")</script>',
+    });
+
+    expect(rendered.html).not.toContain("<script>");
+    expect(rendered.html).toContain("&lt;script&gt;");
+  });
+
+  it("단일 줄바꿈은 <br />로 보존한다", () => {
+    const rendered = renderDunningEmail({ subject: "s", body: "1줄\n2줄" });
+    expect(rendered.html).toContain("1줄<br />2줄");
+  });
+});
+
+describe("renderOwnerDunningReviewEmail", () => {
+  it("검토 건수와 링크를 포함한다", () => {
+    const rendered = renderOwnerDunningReviewEmail({
+      reminderCount: 3,
+      reviewUrl: "https://freesign.example/invoices",
+    });
+
+    expect(rendered.subject).toContain("3건");
+    expect(rendered.html).toContain("https://freesign.example/invoices");
+    expect(rendered.text).toContain("https://freesign.example/invoices");
+  });
+});
+
+describe("renderOwnerRecurringNoticeEmail", () => {
+  it("초안 건수와 링크를 포함한다", () => {
+    const rendered = renderOwnerRecurringNoticeEmail({
+      draftCount: 2,
+      reviewUrl: "https://freesign.example/invoices/recurring",
+    });
+
+    expect(rendered.subject).toContain("2건");
+    expect(rendered.html).toContain("https://freesign.example/invoices/recurring");
+    expect(rendered.text).toContain("https://freesign.example/invoices/recurring");
   });
 });

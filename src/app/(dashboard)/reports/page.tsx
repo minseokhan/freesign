@@ -14,6 +14,11 @@ import {
   type OutstandingSummary,
   type TaxSummaryRow,
 } from "@/lib/metrics";
+import {
+  summarizeInsights,
+  type InsightRow,
+  type InsightSummary,
+} from "@/lib/insights";
 import { getUserPlan } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/server";
 
@@ -171,6 +176,20 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
   const csvHref = `/api/reports?year=${selectedYear}`;
   const hasPaidData = reportRows.length > 0;
+
+  // 종합 계약 피드백 요약(Pro). 저장된 인사이트를 위험도 분포 + 공통 findings로 집계한다.
+  let insightSummary: InsightSummary | null = null;
+  if (isPro) {
+    const { data: insightRows } = await supabase
+      .from("contract_insights")
+      .select("risk_level,findings")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    insightSummary = summarizeInsights(
+      (insightRows ?? []) as unknown as InsightRow[],
+      5,
+    );
+  }
 
   function formatShare(revenue: number) {
     if (totalRevenue <= 0) {
@@ -551,6 +570,53 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           </div>
         )}
       </Card>
+
+      {!isPro ? (
+        <UpgradeCard
+          title="종합 계약 피드백 요약"
+          description="AI가 분석한 과거 계약의 위험도 분포와 자주 지적된 조항을 한눈에 모아 봐요. Pro 전용이에요."
+        />
+      ) : insightSummary && insightSummary.total > 0 ? (
+        <Card>
+          <div className="border-b border-surface-border pb-lg">
+            <h3 className="text-lg font-semibold text-text-primary">
+              종합 계약 피드백 요약
+            </h3>
+            <p className="mt-xs text-sm text-text-muted">
+              저장된 계약 인사이트 {insightSummary.total}건을 집계했습니다. 참고용이며 법적 자문이 아닙니다.
+            </p>
+          </div>
+          <div className="mt-xl grid gap-lg sm:grid-cols-3">
+            <div className="rounded-md border border-surface-border px-lg py-md">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">위험 낮음</p>
+              <p className="mt-sm text-2xl font-bold tabular-nums text-green-700">{insightSummary.riskCounts.low}</p>
+            </div>
+            <div className="rounded-md border border-surface-border px-lg py-md">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">위험 보통</p>
+              <p className="mt-sm text-2xl font-bold tabular-nums text-amber-700">{insightSummary.riskCounts.medium}</p>
+            </div>
+            <div className="rounded-md border border-surface-border px-lg py-md">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">위험 높음</p>
+              <p className="mt-sm text-2xl font-bold tabular-nums text-red-700">{insightSummary.riskCounts.high}</p>
+            </div>
+          </div>
+          {insightSummary.topFindings.length > 0 ? (
+            <div className="mt-xl">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                자주 지적된 조항
+              </p>
+              <ul className="mt-md space-y-sm">
+                {insightSummary.topFindings.map((finding) => (
+                  <li key={finding.clauseTitle} className="flex items-center justify-between gap-sm text-sm">
+                    <span className="text-text-body">{finding.clauseTitle}</span>
+                    <span className="tabular-nums text-text-muted">{finding.count}건</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </Card>
+      ) : null}
     </div>
   );
 }

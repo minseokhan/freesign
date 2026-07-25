@@ -5,7 +5,12 @@ import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
-import { createInvoice, deleteInvoice, setInvoicePayment } from "../actions";
+import {
+  createInvoice,
+  deleteInvoice,
+  publishDraftInvoice,
+  setInvoicePayment,
+} from "../actions";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -387,5 +392,55 @@ describe("invoice server actions", () => {
     expect(result).toEqual({ ok: false, error: "인보이스를 찾을 수 없습니다." });
     expect(updateTable.update).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
+  });
+
+  it("publishDraftInvoice: draft를 unpaid로 발행하고 invoice.issued 이벤트를 남긴다", async () => {
+    const invoiceQuery = createMaybeSingleQuery({
+      id: "invoice-1",
+      payment_status: "draft",
+    });
+    const rpc = createRpcMock();
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === "invoices") return invoiceQuery;
+        throw new Error(`Unexpected table: ${table}`);
+      }),
+      rpc,
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await publishDraftInvoice("invoice-1");
+
+    expect(result).toEqual({ ok: true, id: "invoice-1" });
+    expect(rpc).toHaveBeenCalledWith(
+      "set_invoice_payment_with_event",
+      expect.objectContaining({
+        p_invoice_id: "invoice-1",
+        p_to_status: "unpaid",
+        p_event_type: "invoice.issued",
+      }),
+    );
+  });
+
+  it("publishDraftInvoice: 이미 발행(unpaid)된 인보이스는 발행하지 않는다", async () => {
+    const invoiceQuery = createMaybeSingleQuery({
+      id: "invoice-1",
+      payment_status: "unpaid",
+    });
+    const rpc = createRpcMock();
+    const supabase = {
+      from: vi.fn(() => invoiceQuery),
+      rpc,
+    };
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
+
+    const result = await publishDraftInvoice("invoice-1");
+
+    expect(result.ok).toBe(false);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

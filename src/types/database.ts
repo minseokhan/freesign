@@ -48,6 +48,187 @@ export type Database = {
         }
         Relationships: []
       }
+      contract_insights: {
+        Row: {
+          contract_id: string
+          created_at: string
+          findings: Json
+          id: string
+          meta: Json
+          model: string | null
+          risk_level: string
+          source: string | null
+          summary: string
+          user_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          findings?: Json
+          id?: string
+          meta?: Json
+          model?: string | null
+          risk_level: string
+          source?: string | null
+          summary: string
+          user_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          findings?: Json
+          id?: string
+          meta?: Json
+          model?: string | null
+          risk_level?: string
+          source?: string | null
+          summary?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contract_insights_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cron_config: {
+        Row: {
+          cron_secret: string
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          cron_secret?: string
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          cron_secret?: string
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      dunning_reminders: {
+        Row: {
+          ai_source: string | null
+          created_at: string
+          draft_body: string | null
+          draft_subject: string | null
+          id: string
+          invoice_id: string
+          meta: Json
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          ai_source?: string | null
+          created_at?: string
+          draft_body?: string | null
+          draft_subject?: string | null
+          id?: string
+          invoice_id: string
+          meta?: Json
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          ai_source?: string | null
+          created_at?: string
+          draft_body?: string | null
+          draft_subject?: string | null
+          id?: string
+          invoice_id?: string
+          meta?: Json
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dunning_reminders_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recurring_invoices: {
+        Row: {
+          active: boolean
+          amount: number
+          client_id: string
+          contract_id: string | null
+          created_at: string
+          due_offset_days: number
+          id: string
+          interval_kind: string
+          last_generated_at: string | null
+          meta: Json
+          net_amount: number
+          next_run_at: string
+          user_id: string
+          withholding_amount: number
+          withholding_type: Database["public"]["Enums"]["withholding_type"]
+        }
+        Insert: {
+          active?: boolean
+          amount: number
+          client_id: string
+          contract_id?: string | null
+          created_at?: string
+          due_offset_days?: number
+          id?: string
+          interval_kind: string
+          last_generated_at?: string | null
+          meta?: Json
+          net_amount: number
+          next_run_at: string
+          user_id: string
+          withholding_amount: number
+          withholding_type: Database["public"]["Enums"]["withholding_type"]
+        }
+        Update: {
+          active?: boolean
+          amount?: number
+          client_id?: string
+          contract_id?: string | null
+          created_at?: string
+          due_offset_days?: number
+          id?: string
+          interval_kind?: string
+          last_generated_at?: string | null
+          meta?: Json
+          net_amount?: number
+          next_run_at?: string
+          user_id?: string
+          withholding_amount?: number
+          withholding_type?: Database["public"]["Enums"]["withholding_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recurring_invoices_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recurring_invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       billing_events: {
         Row: {
           created_at: string
@@ -598,6 +779,44 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assert_cron_secret: {
+        Args: { p_secret: string }
+        Returns: undefined
+      }
+      create_dunning_drafts_for_overdue: {
+        Args: { p_cron_secret: string; p_cooldown_days?: number }
+        Returns: {
+          reminder_id: string
+          user_id: string
+          invoice_id: string
+          client_name: string
+          client_email: string
+          contract_title: string
+          net_amount: number
+          due_date: string
+          days_overdue: number
+          freelancer_name: string
+          owner_email: string
+        }[]
+      }
+      generate_due_recurring_invoices: {
+        Args: { p_cron_secret: string }
+        Returns: {
+          invoice_id: string
+          user_id: string
+          owner_email: string
+        }[]
+      }
+      update_dunning_draft_body: {
+        Args: {
+          p_cron_secret: string
+          p_reminder_id: string
+          p_subject: string
+          p_body: string
+          p_source: string
+        }
+        Returns: undefined
+      }
       complete_counterparty_signature_with_event: {
         Args: {
           p_consent: Json

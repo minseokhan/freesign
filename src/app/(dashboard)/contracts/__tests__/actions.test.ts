@@ -67,8 +67,11 @@ function createMaybeSingleQuery(data: unknown) {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     is: vi.fn().mockReturnThis(),
+    order: vi.fn().mockReturnThis(),
     limit: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
+    // contract_insights 주입 쿼리는 .order().limit()를 직접 await한다 → 빈 배열 반환.
+    then: (resolve: (value: unknown) => void) => resolve({ data: [], error: null }),
   };
 }
 
@@ -208,6 +211,7 @@ describe("contract draft server actions", () => {
       startDate: validInput.start_date,
       endDate: validInput.end_date,
       dueDate: validInput.due_date,
+      priorInsights: [],
     });
     expect(insertTable.insert).toHaveBeenCalledWith(
       expect.objectContaining({

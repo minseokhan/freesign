@@ -210,6 +210,58 @@ export async function setInvoicePayment(
   return { ok: true, id: data };
 }
 
+// 반복 인보이스가 생성한 draft를 소유자가 검토 후 발행(draft→unpaid). set_invoice_payment_with_event는
+// 상태 전이를 제한하지 않으므로 재사용하되, 현재 상태가 draft일 때만 발행을 허용한다(가드).
+export async function publishDraftInvoice(
+  id: string,
+): Promise<InvoiceActionResult> {
+  const user = await requireUser();
+
+  if (!id.trim()) {
+    return { ok: false, error: "인보이스를 찾을 수 없습니다." };
+  }
+
+  const supabase = await createSupabaseClient();
+  const { data: invoice, error: invoiceError } = await notDeleted(
+    supabase.from("invoices").select("id,payment_status").eq("id", id),
+  ).maybeSingle();
+
+  if (invoiceError) {
+    return dbError(invoiceError);
+  }
+
+  if (!invoice) {
+    return { ok: false, error: "인보이스를 찾을 수 없습니다." };
+  }
+
+  if (invoice.payment_status !== "draft") {
+    return { ok: false, error: "발행 대기 중인 초안 인보이스가 아닙니다." };
+  }
+
+  const { data, error } = await supabase.rpc("set_invoice_payment_with_event", {
+    p_invoice_id: id,
+    p_to_status: "unpaid",
+    p_paid_at: null,
+    p_payment_method: null,
+    p_actor: user.id,
+    p_event_type: "invoice.issued",
+    p_meta: {},
+  });
+
+  if (error) {
+    return dbError(error);
+  }
+
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${id}`);
+
+  const posthog = getPostHogClient();
+  posthog.capture({ distinctId: user.id, event: "invoice_published", properties: { invoice_id: data } });
+  await posthog.flush();
+
+  return { ok: true, id: data };
+}
+
 export async function deleteInvoice(id: string): Promise<InvoiceActionResult> {
   const user = await requireUser();
 

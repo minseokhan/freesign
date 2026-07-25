@@ -191,6 +191,14 @@ export async function createContractDraft(
     return dbError(profileError);
   }
 
+  // 과거 계약 인사이트 요약을 draft 생성에 참고로 주입한다(Pro만 인사이트 보유 → free는 빈 배열).
+  const { data: insightRows } = await supabase
+    .from("contract_insights")
+    .select("summary")
+    .order("created_at", { ascending: false })
+    .limit(5);
+  const priorInsights = (insightRows ?? []).map((row) => row.summary);
+
   const draft = await generateContractDraft({
     freelancerName: profile?.display_name ?? user.email ?? "프리랜서",
     clientName: client.name,
@@ -199,6 +207,7 @@ export async function createContractDraft(
     startDate: parsed.start_date,
     endDate: parsed.end_date,
     dueDate: parsed.due_date,
+    priorInsights,
   });
   const clauses = toContractClauses(draft) as Json;
 

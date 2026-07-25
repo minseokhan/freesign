@@ -11,6 +11,7 @@ export type RateLimitConfig = {
 export const RATE_LIMITS = {
   aiPdfParse: { bucket: "ai_pdf_parse", max: 10, windowSeconds: 60 },
   aiDraft: { bucket: "ai_draft", max: 20, windowSeconds: 60 },
+  aiContractInsight: { bucket: "ai_contract_insight", max: 10, windowSeconds: 60 },
   // 서명 요청 발송·재발송(이메일 발송 동반) 공용 버킷 — 이메일 스팸/남용 방지.
   signatureSend: { bucket: "signature_send", max: 5, windowSeconds: 60 },
 } as const satisfies Record<string, RateLimitConfig>;

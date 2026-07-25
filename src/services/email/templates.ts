@@ -16,6 +16,22 @@ export interface CompletionEmailInput {
   hasAttachments: boolean;
 }
 
+export interface DunningEmailInput {
+  // 소유자가 승인·수정한 초안 본문을 그대로 발송한다(제목·본문은 이미 확정된 텍스트).
+  subject: string;
+  body: string;
+}
+
+export interface OwnerDunningReviewEmailInput {
+  reminderCount: number;
+  reviewUrl: string;
+}
+
+export interface OwnerRecurringNoticeEmailInput {
+  draftCount: number;
+  reviewUrl: string;
+}
+
 export interface RenderedEmail {
   subject: string;
   html: string;
@@ -65,6 +81,63 @@ export function renderSignatureRequestEmail(
     `서명 링크: ${input.signUrl}`,
     `이 서명 링크는 ${expiresOn}까지 유효합니다.`,
     "본 메일은 FreeSign 전자서명 요청 안내입니다. 요청에 동의하지 않으면 서명하지 않아도 됩니다.",
+  ].join("\n\n");
+
+  return { subject, html, text };
+}
+
+// 클라이언트 발송용 독촉 메일. subject/body는 소유자가 앱에서 검토·승인·수정한 확정 텍스트를
+// 받아 escape 후 문단 단위로 감싼다(줄바꿈 보존).
+export function renderDunningEmail(input: DunningEmailInput): RenderedEmail {
+  const html = input.body
+    .split("\n\n")
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br />")}</p>`)
+    .join("\n");
+
+  return { subject: input.subject, html, text: input.body };
+}
+
+// 소유자(프리랜서)에게 "검토 대기 독촉 N건" 알림. 클라이언트가 아닌 본인에게만 발송.
+export function renderOwnerDunningReviewEmail(
+  input: OwnerDunningReviewEmailInput,
+): RenderedEmail {
+  const subject = `[FreeSign] 검토 대기 중인 미수금 독촉 초안 ${input.reminderCount}건`;
+
+  const html = [
+    `<p>연체 인보이스에 대한 독촉 메일 초안 <strong>${input.reminderCount}건</strong>이 자동 생성되었습니다.</p>`,
+    "<p>초안은 자동 발송되지 않습니다. 앱에서 내용을 검토·수정한 뒤 승인해야 클라이언트에게 발송됩니다.</p>",
+    `<p><a href="${escapeHtml(input.reviewUrl)}">검토 대기 독촉 보러 가기</a></p>`,
+    `<p style="color:#64748b;font-size:12px;">본 메일은 FreeSign 미수금 자동 독촉 안내입니다.</p>`,
+  ].join("\n");
+
+  const text = [
+    `연체 인보이스에 대한 독촉 메일 초안 ${input.reminderCount}건이 자동 생성되었습니다.`,
+    "초안은 자동 발송되지 않습니다. 앱에서 검토·수정 후 승인해야 클라이언트에게 발송됩니다.",
+    `검토하러 가기: ${input.reviewUrl}`,
+    "본 메일은 FreeSign 미수금 자동 독촉 안내입니다.",
+  ].join("\n\n");
+
+  return { subject, html, text };
+}
+
+// 소유자에게 "검토 대기 반복 인보이스 초안 N건" 알림. 크론은 draft만 만들고 발행하지 않는다.
+export function renderOwnerRecurringNoticeEmail(
+  input: OwnerRecurringNoticeEmailInput,
+): RenderedEmail {
+  const subject = `[FreeSign] 검토 대기 중인 반복 인보이스 초안 ${input.draftCount}건`;
+
+  const html = [
+    `<p>반복 인보이스 초안 <strong>${input.draftCount}건</strong>이 자동 생성되었습니다.</p>`,
+    "<p>초안은 자동 발행되지 않습니다. 앱에서 내용을 확인한 뒤 발행해야 청구가 시작됩니다.</p>",
+    `<p><a href="${escapeHtml(input.reviewUrl)}">인보이스 초안 보러 가기</a></p>`,
+    `<p style="color:#64748b;font-size:12px;">본 메일은 FreeSign 반복 인보이스 안내입니다.</p>`,
+  ].join("\n");
+
+  const text = [
+    `반복 인보이스 초안 ${input.draftCount}건이 자동 생성되었습니다.`,
+    "초안은 자동 발행되지 않습니다. 앱에서 확인 후 발행해야 청구가 시작됩니다.",
+    `확인하러 가기: ${input.reviewUrl}`,
+    "본 메일은 FreeSign 반복 인보이스 안내입니다.",
   ].join("\n\n");
 
   return { subject, html, text };

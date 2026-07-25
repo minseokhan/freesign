@@ -25,6 +25,10 @@ export const timestampEnvSchema = z.object({
   TSA_URL: z.string().url().optional(),
 });
 
+export const cronEnvSchema = z.object({
+  CRON_SECRET: z.string().min(1),
+});
+
 export const polarEnvSchema = z.object({
   POLAR_ACCESS_TOKEN: z.string().min(1),
   POLAR_WEBHOOK_SECRET: z.string().min(1),
@@ -38,6 +42,7 @@ export type AnthropicEnv = z.infer<typeof anthropicEnvSchema>;
 export type EmailEnv = z.infer<typeof emailEnvSchema>;
 export type TimestampEnv = z.infer<typeof timestampEnvSchema>;
 export type PolarEnv = z.infer<typeof polarEnvSchema>;
+export type CronEnv = z.infer<typeof cronEnvSchema>;
 
 function formatEnvError(scope: "public" | "server", error: z.ZodError) {
   const keys = error.issues
@@ -108,6 +113,16 @@ export function parsePolarEnv(env: EnvInput): PolarEnv {
   return result.data;
 }
 
+export function parseCronEnv(env: EnvInput): CronEnv {
+  const result = cronEnvSchema.safeParse(env);
+
+  if (!result.success) {
+    throw new Error(formatEnvError("server", result.error));
+  }
+
+  return result.data;
+}
+
 export function getPublicEnv() {
   return parsePublicEnv({
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -169,5 +184,15 @@ export function getPolarEnv() {
     POLAR_WEBHOOK_SECRET: process.env.POLAR_WEBHOOK_SECRET,
     POLAR_PRODUCT_ID: process.env.POLAR_PRODUCT_ID,
     POLAR_SERVER: process.env.POLAR_SERVER || undefined,
+  });
+}
+
+export function getCronEnv() {
+  if (typeof window !== "undefined") {
+    throw new Error("Server environment variables are not available in browser code.");
+  }
+
+  return parseCronEnv({
+    CRON_SECRET: process.env.CRON_SECRET,
   });
 }

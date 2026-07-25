@@ -3,6 +3,10 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 
 import { ContractDeleteButton } from "@/components/contract-delete-button";
+import {
+  ContractInsightPanel,
+  type ContractInsightView,
+} from "@/components/contract-insight-panel";
 import { ContractStatusTransitionButton } from "@/components/contract-status-transition-button";
 import {
   ContractStatusBadge,
@@ -254,6 +258,25 @@ export default async function ContractDetailPage({
 
   const invoices = (invoiceData ?? []) as ContractInvoiceRow[];
 
+  // 이 계약의 최신 AI 인사이트(있으면 패널에 프리필). 없으면 사용자가 버튼으로 생성한다.
+  const { data: latestInsightData } = await supabase
+    .from("contract_insights")
+    .select("summary,risk_level,findings,source,created_at")
+    .eq("contract_id", contract.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const latestInsight = latestInsightData
+    ? {
+        summary: latestInsightData.summary,
+        risk_level: latestInsightData.risk_level as "low" | "medium" | "high",
+        findings: (Array.isArray(latestInsightData.findings)
+          ? latestInsightData.findings
+          : []) as ContractInsightView["findings"],
+        source: latestInsightData.source ?? "ai",
+      }
+    : null;
+
   // sent 계약의 대기 중 서명 요청 현황 — RSC에서 RLS 스코프로 직접 조회한다.
   let signatureRequest: SignatureRequestRow | null = null;
 
@@ -469,6 +492,11 @@ export default async function ContractDetailPage({
               )}
             </div>
           </Card>
+
+          <ContractInsightPanel
+            contractId={contract.id}
+            initialInsight={latestInsight}
+          />
 
           {isImported ? null : (
           <Card>

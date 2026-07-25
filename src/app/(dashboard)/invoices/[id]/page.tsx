@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { UpgradeCard } from "@/components/billing/upgrade-cta";
+import { DunningReviewPanel } from "@/components/dunning-review-panel";
 import { InvoiceDeleteButton } from "@/components/invoice-delete-button";
 import { InvoicePaymentToggle } from "@/components/invoice-payment-toggle";
+import { PublishDraftButton } from "@/components/publish-draft-button";
 import {
   getPaymentStatusMeta,
   PaymentStatusBadge,
@@ -11,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { resolveContractLabel } from "@/lib/contract-snapshot";
 import { notDeleted } from "@/lib/db";
 import { deriveDueStatus, formatKRW } from "@/lib/metrics";
+import { getUserPlan } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 import type { Database } from "@/types/database";
@@ -193,6 +197,30 @@ export default async function InvoiceDetailPage({
   const events = (eventData ?? []) as InvoiceEventRow[];
   const profile = profileData as ProfileRow | null;
   const overdue = isOverdue(invoice);
+
+  // 연체 인보이스에 한해 미검토 독촉 초안을 노출한다(크론이 생성, 소유자 검토 대기).
+  let pendingDunning: {
+    id: string;
+    draft_subject: string | null;
+    draft_body: string | null;
+    ai_source: string | null;
+  } | null = null;
+  let isPro = false;
+
+  if (overdue) {
+    const [{ data: dunningData }, plan] = await Promise.all([
+      supabase
+        .from("dunning_reminders")
+        .select("id,draft_subject,draft_body,ai_source")
+        .eq("invoice_id", invoice.id)
+        .eq("status", "pending_review")
+        .maybeSingle(),
+      getUserPlan(),
+    ]);
+    pendingDunning = dunningData ?? null;
+    isPro = plan === "pro";
+  }
+
   const hasBankAccount =
     Boolean(profile?.bank_name) ||
     Boolean(profile?.bank_account_number) ||
@@ -223,10 +251,14 @@ export default async function InvoiceDetailPage({
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-start gap-sm">
-            <InvoicePaymentToggle
-              invoiceId={invoice.id}
-              status={invoice.payment_status}
-            />
+            {invoice.payment_status === "draft" ? (
+              <PublishDraftButton invoiceId={invoice.id} />
+            ) : (
+              <InvoicePaymentToggle
+                invoiceId={invoice.id}
+                status={invoice.payment_status}
+              />
+            )}
             <Link
               href={`/api/invoices/${invoice.id}/pdf`}
               target="_blank"
@@ -238,6 +270,22 @@ export default async function InvoiceDetailPage({
           </div>
         </div>
       </div>
+
+      {pendingDunning ? (
+        isPro ? (
+          <DunningReviewPanel
+            reminderId={pendingDunning.id}
+            draftSubject={pendingDunning.draft_subject ?? ""}
+            draftBody={pendingDunning.draft_body ?? ""}
+            aiSource={pendingDunning.ai_source}
+          />
+        ) : (
+          <UpgradeCard
+            title="미수금 자동 독촉"
+            description="이 연체 인보이스의 독촉 메일 초안이 준비됐어요. Pro로 업그레이드하면 검토 후 클라이언트에게 바로 보낼 수 있어요."
+          />
+        )
+      ) : null}
 
       <Card>
         <div className="border-b border-surface-border pb-lg">

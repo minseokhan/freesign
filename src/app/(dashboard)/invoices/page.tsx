@@ -136,12 +136,20 @@ export default async function InvoicesPage({
             발행일, 지급기한, 정산 상태를 한 화면에서 확인합니다.
           </p>
         </div>
-        <Link
-          href="/contracts"
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-        >
-          계약에서 발행
-        </Link>
+        <div className="flex flex-wrap gap-sm">
+          <Link
+            href="/invoices/recurring"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          >
+            반복 인보이스
+          </Link>
+          <Link
+            href="/contracts"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          >
+            계약에서 발행
+          </Link>
+        </div>
       </div>
 
       <nav aria-label="정산 상태 필터" className="flex flex-wrap gap-sm">

@@ -21,6 +21,8 @@ export interface ContractDraftInput {
   startDate?: string;
   endDate?: string;
   dueDate?: string;
+  // 과거 계약 인사이트 요약(Pro). draft 생성 시 위험 조항 보완에 참고한다(골격은 유지).
+  priorInsights?: string[];
 }
 
 export interface ContractDraft {
@@ -51,6 +53,7 @@ const contractDraftInputSchema = z.object({
   startDate: z.string().trim().min(1).optional(),
   endDate: z.string().trim().min(1).optional(),
   dueDate: z.string().trim().min(1).optional(),
+  priorInsights: z.array(z.string()).optional(),
 });
 
 const aiDraftSchema = z.object({
@@ -187,6 +190,11 @@ function buildClaudeRequest(input: ContractDraftInput, skeleton: ContractDraft) 
       "If any detail is unclear, mark it with [검토 필요] and set needs_review=true.",
       "The output is always a non-authoritative draft and must not execute any action.",
       "Do not delete, replace, or reorder required skeleton clauses; only refine wording and write a plain-language summary.",
+      ...(input.priorInsights && input.priorInsights.length > 0
+        ? [
+            "prior_insights lists weaknesses found in this freelancer's past contracts; reflect them by strengthening at-risk clause wording, but keep the required skeleton structure intact.",
+          ]
+        : []),
     ].join("\n"),
     tools: [
       {
@@ -217,6 +225,7 @@ function buildClaudeRequest(input: ContractDraftInput, skeleton: ContractDraft) 
             text: JSON.stringify(
               {
                 structured_input: input,
+                prior_insights: input.priorInsights ?? [],
                 required_clauses: REQUIRED_CONTRACT_CLAUSES,
                 skeleton_draft: {
                   title: skeleton.title,
