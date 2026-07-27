@@ -307,7 +307,7 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
                 value={selectedClientId}
                 onChange={(event) => setSelectedClientId(event.target.value)}
                 disabled={clients.length === 0}
-                className="min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm text-sm text-text-primary focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30"
+                className="select-caret min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm pr-2xl text-sm text-text-primary focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30"
               >
                 {clients.map((client) => (
                   <option key={client.id} value={client.id}>

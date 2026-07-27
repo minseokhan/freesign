@@ -129,7 +129,7 @@ export function ClientForm({ clientId, defaultValues, mode }: ClientFormProps) {
             <select
               id="client-channel"
               className={cn(
-                "min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm text-sm text-text-primary",
+                "select-caret min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm pr-2xl text-sm text-text-primary",
                 "focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30",
                 errors.channel && "border-red-500"
               )}

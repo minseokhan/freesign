@@ -21,6 +21,18 @@
   }
 }
 
+@layer components {
+  /* 네이티브 select 화살표는 padding-right를 무시해 오른쪽 테두리에 붙는다(Chrome).
+     화살표를 직접 그려 테두리와 12px 띄운다. 화살표와 글자가 겹치지 않도록
+     호출부에서 `pr-2xl`을 함께 준다(components 레이어라 여기서 주면 px-*에 밀린다). */
+  .select-caret {
+    @apply appearance-none bg-no-repeat;
+    background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%2364748b'%20stroke-width='2'%3E%3Cpath%20d='M6%209l6%206%206-6'/%3E%3C/svg%3E");
+    background-position: right 12px center;
+    background-size: 16px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

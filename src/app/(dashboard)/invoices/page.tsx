@@ -138,12 +138,6 @@ export default async function InvoicesPage({
         </div>
         <div className="flex flex-wrap gap-sm">
           <Link
-            href="/invoices/recurring"
-            className="inline-flex min-h-11 items-center justify-center rounded-md border border-surface-border bg-white px-lg py-sm text-sm font-medium text-text-body transition-colors hover:bg-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            반복 인보이스
-          </Link>
-          <Link
             href="/contracts"
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
           >

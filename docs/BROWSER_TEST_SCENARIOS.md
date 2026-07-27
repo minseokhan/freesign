@@ -151,6 +151,62 @@ agent-browser state save auth.json                              # 세션 저장(
 
 ---
 
+## Pro 3기능 시나리오 (2026-07-27 신규 · 미수금 독촉 · 반복 인보이스 · AI 계약 인사이트)
+
+> 세 기능 모두 **Pro 게이트 + 크론 산출물**이다. 데이터 준비 → 크론 트리거 → UI에서 검토/발행 순으로 확인한다.
+> 크론은 초안(pending_review/draft)만 만들고, **발송·발행은 항상 세션 있는 사람이** 한다(반자동 설계).
+> `[검증]` = 크론/RPC/DB 레벨은 2026-07-26 실측 완료(엔드포인트 401/200·RPC 12 checks). **브라우저 UI 플로우는 미검증([검증 대기]).**
+
+### P0. Pro 기능 사전 준비 (S10~S12 공통)
+
+- **Pro 전환** (Supabase SQL Editor — 새 기능은 전부 Pro 전용):
+  ```sql
+  insert into subscriptions (user_id, plan, status)
+  select id, 'pro', 'active' from auth.users where email = 'e2e-test@freesign.local'
+  on conflict (user_id) do update set plan = 'pro', status = 'active';
+  ```
+  → free로 되돌릴 땐 `plan='free', status='canceled'`. Pro면 좌측 사이드바에 **"반복 인보이스"** 메뉴(proOnly)가 나타난다.
+- **크론 수동 트리거** (독촉·반복 초안을 즉시 생성 — 매일 기다릴 필요 없음):
+  ```bash
+  curl -s -H "Authorization: Bearer $(grep '^CRON_SECRET=' .env.local | cut -d= -f2- | tr -d '\"'"'"')" \
+    http://localhost:3000/api/cron/daily | python3 -m json.tool
+  ```
+  → `{"ok":true,"ran":{"dunning":{"ok":true,...},"recurring":{"ok":true,...}}}` 형태.
+- **연체 인보이스 시드**(S11용): 인보이스를 발행한 뒤 지급기한을 과거로 —
+  `update invoices set due_date = current_date - 5 where id = '<invoice_id>';` (클라이언트에 **이메일**이 있어야 발송 단계까지 확인 가능).
+
+### S10. 반복(구독형) 인보이스 — Pro (인증)
+- **경로**: 사이드바 "반복 인보이스" → `/invoices/recurring` → `/invoices/recurring/new`
+- **절차**: "새 반복 스케줄" → 계약 선택·금액·원천징수·주기(매월)·**다음 생성일=오늘**·지급기한 일수 → "만들기" → 목록 복귀 → **크론 트리거(P0)** → 생성된 draft 인보이스 상세에서 "이 초안 발행"
+- **기대**:
+  - `/new` 폼에 **미리보기**(청구/원천징수/실수령, 참고용) + "서버에서 재계산" 면책. 0원·빈 금액은 제출 잠금.
+  - 목록: 카드(활성 배지·실수령 스냅샷) + **상태 필터**(전체/활성/일시중지). 일시중지/재개, 삭제(ConfirmDialog "이미 생성된 인보이스는 유지").
+  - 크론 후: `recurring: {generated:1}`, `/invoices`에 **draft** 인보이스 생성, 스케줄 "다음 생성일"이 다음 달로 전진. **멱등**: 재트리거 시 `generated:0`.
+  - draft 상세: **"이 초안 발행"** → draft→unpaid + 이력 "발행". (발행 전 draft는 결제토글 대신 발행 버튼만 노출.)
+- `[검증]` 크론/RPC/멱등/next_run 전진 ✅(2026-07-26 embedded-pg + 로컬 200). 브라우저 UI `[검증 대기]`.
+
+### S11. 미수금 자동 독촉 — Pro (인증)
+- **경로**: (연체 인보이스 시드 후) `/invoices/{id}`
+- **절차**: 연체 인보이스 준비(P0) → **크론 트리거** → 인보이스 상세의 "독촉 초안 검토" 패널에서 본문 수정 → "이 내용으로 발송"
+- **기대**:
+  - 크론 후: `dunning: {candidates:1, drafted:1}`, dev 서버 로그에 소유자 알림 메일(`[email:console]` — Resend 미인증 시 콘솔).
+  - 상세 상단 **"독촉 초안 검토"** 패널(제목·본문 textarea, "검토 대기" 배지, AI/기본 템플릿 표기). 수정 후 발송 시 "보냈습니다" + 이력 `dunning_sent`.
+  - **멱등**: 재트리거 시 같은 인보이스 초안 재생성 안 됨(`candidates:0`). "무시"로 dismiss도 확인.
+  - ⚠️ 클라이언트 **실제 발송**은 Resend `EMAIL_FROM` 도메인 인증 필요(미인증이면 발송 실패 메시지가 정상 — 소유자 알림은 무관). free면 패널 대신 UpgradeCard.
+- `[검증]` cron 게이트·RPC 멱등/쿨다운 ✅. 브라우저 UI·이메일 발송 `[검증 대기]`.
+
+### S12. AI 계약 인사이트 — Pro (인증)
+- **경로**: `/contracts/{id}` → `/reports`
+- **절차**: 계약 상세 "AI 인사이트 분석" 클릭 → 저장 → 새 계약 초안 생성으로 반영 확인 → 리포트 요약 확인
+- **기대**:
+  - 상세 "AI 계약 인사이트" 카드: 위험도 배지(낮음/보통/높음) + 요약 + 조항별 findings. ANTHROPIC 키 정상 시 AI, 실패 시 "기본 안내" 폴백이지만 **저장은 됨**. 새로고침 시 최신 인사이트 프리필. free는 402 → 업그레이드 CTA.
+  - **새 draft 반영**: 인사이트 1건+ 저장 후 새 계약 AI 초안이 과거 위험 조항을 반영(골격 유지). free는 인사이트 없어 미반영(자연스러움).
+  - **리포트**(`/reports`) 하단 "종합 계약 피드백 요약": 위험도 분포 카운트 + "자주 지적된 조항" 목록. free면 UpgradeCard.
+  - 레이트리밋: 짧은 시간 반복 분석 시 429.
+- `[검증]` API 402/200·레이트리밋·폴백 단위테스트 ✅. 브라우저 UI·실제 AI 응답 `[검증 대기]`.
+
+---
+
 ## 2026-07-12 UI/UX 변경 회귀 체크리스트 (코드 변경 기준 · 브라우저 미검증)
 
 > 이번 회차는 코드 레벨 변경(유닛/타입/린트 통과)만 완료했고 **브라우저 실측은 아직**이다.

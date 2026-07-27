@@ -117,7 +117,7 @@ export function ProfileForm({ defaultValues }: ProfileFormProps) {
             <select
               id="profile-withholding-type"
               className={cn(
-                "min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm text-sm text-text-primary",
+                "select-caret min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm pr-2xl text-sm text-text-primary",
                 "focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30",
                 errors.default_withholding_type && "border-red-500",
               )}

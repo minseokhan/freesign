@@ -229,7 +229,7 @@ export function ContractForm({ clients }: ContractFormProps) {
               <select
                 id="contract-client"
                 className={cn(
-                  "min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm text-sm text-text-primary",
+                  "select-caret min-h-11 rounded-sm border border-slate-300 bg-white px-md py-sm pr-2xl text-sm text-text-primary",
                   "focus:border-brand-ring focus:outline-none focus:ring-2 focus:ring-brand-ring/30",
                   errors.client_id && "border-red-500",
                 )}
