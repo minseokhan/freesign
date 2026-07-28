@@ -6,6 +6,7 @@
     "dev": "next dev",
     "prebuild": "node scripts/clean-next.mjs",
     "build": "next build",
+    "build:verify": "NEXT_DIST_DIR=.next-verify node scripts/clean-next.mjs && NEXT_DIST_DIR=.next-verify next build",
     "db:gen-types": "node scripts/gen-types.mjs",
     "db:seed": "node --experimental-strip-types scripts/seed.mjs",
     "lint": "eslint",

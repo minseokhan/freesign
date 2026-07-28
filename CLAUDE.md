@@ -29,7 +29,9 @@
 
 ## 명령어
 npm run dev      # 개발 서버
-npm run build    # 프로덕션 빌드
+npm run build    # 프로덕션 빌드 (`.next`를 지우고 다시 만듦 — 켜져 있는 dev 서버가 깨진다)
+npm run build:verify  # 검증용 빌드. `.next-verify`에 출력하므로 dev 서버에 영향 없음.
+                      # CRITICAL: 컴파일 확인 목적이면 `npm run build`가 아니라 항상 이쪽을 쓸 것.
 npm run lint     # ESLint
 npm run test     # 테스트 (Vitest)
 npx playwright test   # E2E

@@ -29,6 +29,10 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // 검증용 빌드가 dev 서버의 산출물을 덮어쓰지 않도록 출력 디렉토리를 분리한다.
+  // 기본은 `.next`(dev·Vercel 배포). Stop hook 등 검증 빌드만 NEXT_DIST_DIR로
+  // 다른 디렉토리를 지정해, 켜져 있는 dev 서버의 청크가 삭제되는 것을 막는다.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   // 스트리밍 메타데이터 비활성화: 동적 페이지에서도 메타 태그를 항상 <head>에
   // 블로킹으로 내보낸다. 기본값은 JS 실행 봇에게 <body>로 스트리밍하는데,
   // 네이버 Yeti 등 국내 크롤러가 기본 UA 목록에 없어 메타를 놓칠 수 있다.
