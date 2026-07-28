@@ -13,6 +13,10 @@ import {
 import { Card } from "@/components/ui/card";
 import { resolveContractLabel } from "@/lib/contract-snapshot";
 import { notDeleted } from "@/lib/db";
+import {
+  formatInvoiceEventActor,
+  invoiceEventLabel,
+} from "@/lib/invoices/event-labels";
 import { deriveDueStatus, formatKRW } from "@/lib/metrics";
 import { getUserPlan } from "@/lib/plan";
 import { createClient } from "@/lib/supabase/server";
@@ -129,25 +133,6 @@ function DetailItem({ label, value }: { label: string; value: string | null }) {
       </dd>
     </div>
   );
-}
-
-function getEventDescription(event: InvoiceEventRow) {
-  if (
-    event.event_type === "invoice.status_changed" ||
-    event.event_type === "invoice.payment_changed"
-  ) {
-    return "정산 상태 변경";
-  }
-
-  if (event.event_type === "invoice.issued") {
-    return "인보이스 발행";
-  }
-
-  if (event.event_type === "invoice.payment_marked") {
-    return "입금 처리";
-  }
-
-  return event.event_type;
 }
 
 export default async function InvoiceDetailPage({
@@ -454,7 +439,8 @@ export default async function InvoiceDetailPage({
                       </time>
                     </div>
                     <p className="mt-xs text-sm leading-relaxed text-text-body">
-                      {getEventDescription(event)} · {event.actor}
+                      {invoiceEventLabel(event.event_type)} ·{" "}
+                      {formatInvoiceEventActor(event.actor)}
                     </p>
                   </li>
                 ))}

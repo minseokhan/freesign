@@ -329,7 +329,7 @@ export default async function DashboardPage() {
       <section className="grid grid-cols-1 gap-lg xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         {/* twMerge가 커스텀 여백 토큰(p-xl)을 인식하지 못해 p-0이 기본 패딩을 지우지 못한다. !important로 강제해 헤더/테이블을 full-bleed로 정렬한다. */}
         <Card className="!p-0">
-          <div className="border-b border-surface-border px-xl py-xl">
+          <div className="px-xl py-xl">
             <h3 className="text-lg font-semibold text-text-primary">
               임박/지연 지급기한
             </h3>
