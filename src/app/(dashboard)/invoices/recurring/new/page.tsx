@@ -24,7 +24,7 @@ export default async function NewRecurringInvoicePage() {
         <div>
           {backLink}
           <h2 className="mt-sm text-2xl font-semibold tracking-tight text-text-primary">
-            새 반복 스케줄
+            새 반복 인보이스 발행
           </h2>
         </div>
         <UpgradeCard
@@ -51,7 +51,7 @@ export default async function NewRecurringInvoicePage() {
       <div>
         {backLink}
         <h2 className="mt-sm text-2xl font-semibold tracking-tight text-text-primary">
-          새 반복 스케줄
+          새 반복 인보이스 발행
         </h2>
       </div>
 

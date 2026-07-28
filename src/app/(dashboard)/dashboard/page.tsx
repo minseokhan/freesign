@@ -343,23 +343,23 @@ export default async function DashboardPage() {
               지연되었거나 곧 지급기한이 도래하는 인보이스가 없습니다.
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] border-collapse text-left text-sm">
+            <div className="overflow-x-auto px-md pb-md">
+              <table className="w-full min-w-[480px] border-collapse text-left text-sm">
                 <thead className="bg-surface-muted text-xs font-medium uppercase tracking-wide text-text-muted">
                   <tr>
-                    <th scope="col" className="px-xl py-md">
+                    <th scope="col" className="whitespace-nowrap px-md py-md">
                       클라이언트
                     </th>
-                    <th scope="col" className="px-xl py-md">
+                    <th scope="col" className="whitespace-nowrap px-md py-md">
                       계약
                     </th>
-                    <th scope="col" className="px-xl py-md text-right">
+                    <th scope="col" className="whitespace-nowrap px-md py-md text-right">
                       금액
                     </th>
-                    <th scope="col" className="px-xl py-md">
+                    <th scope="col" className="whitespace-nowrap px-md py-md">
                       지급기한
                     </th>
-                    <th scope="col" className="px-xl py-md">
+                    <th scope="col" className="whitespace-nowrap px-md py-md">
                       상태
                     </th>
                   </tr>
@@ -370,10 +370,10 @@ export default async function DashboardPage() {
                       key={invoice.id}
                       className="transition-colors hover:bg-surface-muted"
                     >
-                      <td className="px-xl py-lg text-text-body">
+                      <td className="px-md py-lg text-text-body">
                         {invoice.client?.name ?? "클라이언트 없음"}
                       </td>
-                      <td className="px-xl py-lg">
+                      <td className="px-md py-lg">
                         <Link
                           href={`/invoices/${invoice.id}`}
                           className="font-medium text-text-primary hover:text-brand-primary"
@@ -381,12 +381,12 @@ export default async function DashboardPage() {
                           {invoice.contract?.title ?? "계약 없음"}
                         </Link>
                       </td>
-                      <td className="px-xl py-lg text-right font-medium tabular-nums text-text-primary">
+                      <td className="whitespace-nowrap px-md py-lg text-right font-medium tabular-nums text-text-primary">
                         {formatKRW(invoice.amount)}
                       </td>
                       <td
                         className={cn(
-                          "px-xl py-lg font-medium tabular-nums",
+                          "whitespace-nowrap px-md py-lg font-medium tabular-nums",
                           invoice.dueStatus === "overdue"
                             ? "text-red-700"
                             : "text-amber-700",
@@ -394,7 +394,7 @@ export default async function DashboardPage() {
                       >
                         {formatDate(invoice.due_date)}
                       </td>
-                      <td className="px-xl py-lg">
+                      <td className="whitespace-nowrap px-md py-lg">
                         <DueStatusBadge status={invoice.dueStatus} />
                       </td>
                     </tr>

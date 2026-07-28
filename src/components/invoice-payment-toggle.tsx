@@ -73,8 +73,8 @@ export function InvoicePaymentToggle({
   }
 
   return (
-    <div className="grid gap-sm sm:justify-items-end">
-      <div className="flex flex-wrap items-center justify-end gap-sm">
+    <div className="grid gap-sm">
+      <div className="flex flex-wrap items-center gap-sm">
         {optimisticStatus === "unpaid" ? (
           <label className="sr-only" htmlFor="payment-method">
             입금 방식
@@ -92,7 +92,7 @@ export function InvoicePaymentToggle({
         <Button
           type="button"
           variant={isPaid ? "danger" : "primary"}
-          className={isPaid ? "bg-red-50 hover:bg-red-100" : undefined}
+          className={isPaid ? "flex-1 bg-red-50 hover:bg-red-100" : "flex-1"}
           disabled={!nextStatus || isPending}
           onClick={submit}
         >

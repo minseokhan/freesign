@@ -92,7 +92,7 @@ export default async function RecurringInvoicesPage({
           href="/invoices/recurring/new"
           className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
         >
-          새 반복 스케줄
+          새 반복 인보이스 발행
         </Link>
       </div>
 
