@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildFaqJsonLd,
   buildSoftwareApplicationJsonLd,
   FALLBACK_SITE_URL,
   resolveSiteUrl,
@@ -37,6 +38,32 @@ describe("buildSoftwareApplicationJsonLd", () => {
 
   it("직렬화 가능한 순수 객체다", () => {
     expect(() => JSON.stringify(buildSoftwareApplicationJsonLd())).not.toThrow();
+  });
+});
+
+describe("buildFaqJsonLd", () => {
+  const items = [
+    { question: "법적 효력이 있나요?", answer: "쌍방 서명과 타임스탬프를 남깁니다." },
+    { question: "상대방도 가입해야 하나요?", answer: "아니요, 메일 링크로 서명합니다." },
+  ];
+
+  it("schema.org FAQPage 구조로 문답을 감싼다", () => {
+    const jsonLd = buildFaqJsonLd(items);
+
+    expect(jsonLd["@type"]).toBe("FAQPage");
+    expect(jsonLd.mainEntity).toHaveLength(2);
+    expect(jsonLd.mainEntity[0]).toMatchObject({
+      "@type": "Question",
+      name: "법적 효력이 있나요?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "쌍방 서명과 타임스탬프를 남깁니다.",
+      },
+    });
+  });
+
+  it("직렬화 가능한 순수 객체다", () => {
+    expect(() => JSON.stringify(buildFaqJsonLd(items))).not.toThrow();
   });
 });
 

@@ -1,4 +1,9 @@
 import { requireUser } from "@/lib/auth";
+import {
+  CREATE_FREE_LIMIT,
+  IMPORT_FREE_LIMIT,
+  SIGN_FREE_LIMIT,
+} from "@/lib/plan-features";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -11,10 +16,9 @@ export type SubscriptionRow = Pick<
 
 type ServerClient = Awaited<ReturnType<typeof createClient>>;
 
-// ── 무료 티어 상한 (RATE_LIMITS 옆 컨벤션과 동일한 상수 노출) ──
-export const IMPORT_FREE_LIMIT = 5; // 불러오기 AI 파싱 누적 5회
-export const CREATE_FREE_LIMIT = 1; // 새 계약 생성 1건
-export const SIGN_FREE_LIMIT = 1; // 쌍방 서명 발송 1건(새 계약 1건에 딸림)
+// ── 무료 티어 상한 ──
+// 정의는 서버 의존이 없는 plan-features.ts에 두고(공개 랜딩에서도 읽는다) 여기서 재노출한다.
+export { IMPORT_FREE_LIMIT, CREATE_FREE_LIMIT, SIGN_FREE_LIMIT };
 
 // usage_counters 버킷. 불러오기 파싱은 저장 없는 호출도 토큰 비용이 나가므로
 // 저장 여부와 무관하게 "호출 자체"를 누적 카운트한다.

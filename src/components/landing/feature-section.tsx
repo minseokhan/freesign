@@ -59,7 +59,7 @@ const FEATURES: Feature[] = [
   {
     title: "원천징수 자동 계산",
     description:
-      "유형만 선택하면 소득세·지방세·실지급액을 자동으로 계산합니다. 참고용 계산 고지도 함께 표시돼요.",
+      "3.3%·8.8% 유형만 선택하면 소득세·지방세·실지급액을 원 단위로 계산해 인보이스와 PDF에 반영합니다. 참고용 계산 고지도 함께 표시돼요.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
         <path
@@ -75,7 +75,7 @@ const FEATURES: Feature[] = [
   {
     title: "매출 리포트 · 세무 정리 엑셀",
     description:
-      "연도별 입금 기준 세무 요약과 채널별·클라이언트별 매출을 집계합니다. 입금/발행 기준을 명시한 엑셀 파일로 세무 대리인에게 그대로 전달해요.",
+      "연도별 입금 기준 세무 요약과 채널별·클라이언트별 매출을 집계합니다. 제목·머리글·합계까지 서식이 잡힌 엑셀 파일로 세무 대리인에게 그대로 전달해요.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
         <path
@@ -89,9 +89,9 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "삭제해도 남는 증빙",
+    title: "미수금은 알아서 굴러가게",
     description:
-      "계약·인보이스를 지워도 소프트 삭제로 처리해 감사·복원·CSV 보존에 필요한 기록은 그대로 남습니다. 실수로 지워도 되돌릴 수 있어요.",
+      "지급기한이 지난 인보이스를 매일 찾아 독촉 메일 초안까지 준비하고, 리테이너 계약은 주기마다 청구 초안을 만들어 둡니다. 확인 후 보내는 건 언제나 나예요. (Pro)",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
         <path

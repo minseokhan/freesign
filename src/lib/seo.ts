@@ -1,3 +1,5 @@
+import { PRO_PRICE_KRW } from "@/lib/plan-features";
+
 export const FALLBACK_SITE_URL = "https://freesign.vercel.app";
 
 export const SITE_NAME = "FreeSign";
@@ -20,6 +22,24 @@ export function getSiteUrl(): string {
   return resolveSiteUrl(process.env.NEXT_PUBLIC_SITE_URL);
 }
 
+/** 랜딩 FAQ JSON-LD (schema.org FAQPage). 문답은 화면에 보이는 것과 동일해야 한다. */
+export function buildFaqJsonLd(
+  items: readonly { question: string; answer: string }[],
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+    })),
+  } as const;
+}
+
 /** 랜딩 페이지 JSON-LD (schema.org SoftwareApplication). */
 export function buildSoftwareApplicationJsonLd() {
   return {
@@ -31,10 +51,19 @@ export function buildSoftwareApplicationJsonLd() {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     inLanguage: "ko",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "KRW",
-    },
+    offers: [
+      {
+        "@type": "Offer",
+        name: "Free",
+        price: "0",
+        priceCurrency: "KRW",
+      },
+      {
+        "@type": "Offer",
+        name: "Pro",
+        price: String(PRO_PRICE_KRW),
+        priceCurrency: "KRW",
+      },
+    ],
   } as const;
 }

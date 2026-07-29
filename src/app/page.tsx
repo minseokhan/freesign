@@ -2,12 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
+import { FAQ_ITEMS, FaqSection } from "@/components/landing/faq-section";
 import { FeatureSection } from "@/components/landing/feature-section";
 import { FlowWalkthrough } from "@/components/landing/flow-walkthrough";
 import { LandingHeader } from "@/components/landing/landing-header";
 import { MenuGallery } from "@/components/landing/menu-gallery";
+import { PricingSection } from "@/components/landing/pricing-section";
+import { TrustSection } from "@/components/landing/trust-section";
 import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
-import { buildSoftwareApplicationJsonLd } from "@/lib/seo";
+import { buildFaqJsonLd, buildSoftwareApplicationJsonLd } from "@/lib/seo";
 import { createClient } from "@/lib/supabase/server";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +40,12 @@ export default async function HomePage() {
           __html: JSON.stringify(buildSoftwareApplicationJsonLd()),
         }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildFaqJsonLd(FAQ_ITEMS)),
+        }}
+      />
       <LandingHeader isAuthenticated={isAuthenticated} />
 
       <main>
@@ -54,7 +63,7 @@ export default async function HomePage() {
             <p className="mt-lg max-w-md text-base leading-relaxed text-text-body">
               계약 → 서명 → 청구 → 입금 → 세금 정리. FreeSign은 흩어진 정산
               과정을 하나의 기록 체인으로 묶어, 내 돈이 어디까지 왔는지 3초 안에
-              보여줍니다.
+              보여줍니다. 상대방은 가입 없이 메일 링크로 서명합니다.
             </p>
             <div className="mt-xl flex flex-wrap items-center gap-md">
               <Link
@@ -63,10 +72,16 @@ export default async function HomePage() {
               >
                 {cta.label}
               </Link>
-              <span className="text-xs text-text-muted">
-                Google 계정으로 30초 만에 시작
-              </span>
+              <Link
+                href="#pricing"
+                className={cn(buttonBaseClass, buttonVariants.secondary)}
+              >
+                요금제 보기
+              </Link>
             </div>
+            <p className="mt-md text-xs text-text-muted">
+              Google 계정으로 30초 만에 시작 · 카드 없이 Free 플랜
+            </p>
           </div>
           <DashboardPreview />
         </section>
@@ -89,8 +104,15 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Product screens by menu */}
+        {/* Mutual e-signature & evidence */}
         <section className="border-t border-surface-border bg-surface-page">
+          <div className="mx-auto max-w-6xl px-lg py-3xl">
+            <TrustSection />
+          </div>
+        </section>
+
+        {/* Product screens by menu */}
+        <section className="border-t border-surface-border bg-white">
           <div className="mx-auto max-w-6xl px-lg py-3xl">
             <div className="max-w-2xl">
               <h2 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
@@ -98,7 +120,7 @@ export default async function HomePage() {
               </h2>
               <p className="mt-md text-sm leading-relaxed text-text-body sm:text-base">
                 대시보드부터 리포트까지, FreeSign의 각 메뉴가 실제로 어떻게
-                보이는지 확인해 보세요.
+                보이는지 확인해 보세요. 모두 실제 제품 화면입니다.
               </p>
             </div>
             <div className="mt-2xl">
@@ -108,8 +130,24 @@ export default async function HomePage() {
         </section>
 
         {/* Features */}
-        <section className="mx-auto max-w-6xl px-lg py-3xl">
-          <FeatureSection />
+        <section className="border-t border-surface-border bg-surface-page">
+          <div className="mx-auto max-w-6xl px-lg py-3xl">
+            <FeatureSection />
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section className="border-t border-surface-border bg-white">
+          <div className="mx-auto max-w-6xl px-lg py-3xl">
+            <PricingSection ctaHref={cta.href} ctaLabel={cta.label} />
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section className="border-t border-surface-border bg-surface-page">
+          <div className="mx-auto max-w-6xl px-lg py-3xl">
+            <FaqSection />
+          </div>
         </section>
 
         {/* Closing CTA */}

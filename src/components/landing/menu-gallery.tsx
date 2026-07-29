@@ -21,50 +21,50 @@ const SCREENS: MenuScreen[] = [
     label: "대시보드",
     title: "내 돈이 어디까지 왔는지 한눈에",
     description:
-      "미수금 합계·이달 실지급액·임박/지연 지급기한, 채널 수익 TOP까지 정산 흐름 기준으로 3초 안에 확인합니다.",
+      "미수금 합계·이달 실지급액·이번 달 예정 입금을 위에 두고, 계약 파이프라인과 임박/지연 지급기한, 채널 수익 TOP까지 한 화면에서 확인합니다.",
     src: "/screenshots/dashboard.png",
-    width: 1400,
-    height: 637,
+    width: 2880,
+    height: 1716,
   },
   {
     key: "clients",
     label: "클라이언트",
     title: "유입 채널과 연락처를 한 곳에",
     description:
-      "링크드인·인스타그램·유튜브 등 유입 채널로 분류하고, 채널별 필터로 원하는 클라이언트를 빠르게 찾습니다.",
+      "링크드인·인스타그램·유튜브·크몽 등 유입 채널로 분류하고, 채널별 필터로 원하는 클라이언트를 빠르게 찾습니다.",
     src: "/screenshots/clients.png",
-    width: 1400,
-    height: 519,
+    width: 2880,
+    height: 1510,
   },
   {
     key: "contracts",
     label: "계약",
-    title: "AI 초안부터 기존 계약 불러오기까지",
+    title: "초안부터 서명 대기·완료까지 상태로 관리",
     description:
-      "구조화 입력으로 초안을 만들거나, 발주처가 보낸 PDF를 분석해 성사된 계약으로 불러옵니다. 상태별로 한눈에 관리하세요.",
+      "구조화 입력으로 AI 초안을 만들거나 발주처가 보낸 PDF를 불러오고, 서명 요청을 보낸 뒤에는 상태만 보고도 어디까지 진행됐는지 알 수 있습니다.",
     src: "/screenshots/contracts.png",
-    width: 1400,
-    height: 574,
+    width: 2880,
+    height: 1620,
   },
   {
     key: "invoices",
     label: "인보이스",
     title: "원천징수까지 자동 계산되는 청구",
     description:
-      "계약과 연결해 인보이스를 발행하고, 원천징수 유형만 고르면 실지급액이 자동으로 계산됩니다. 입금 상태도 한 화면에서.",
+      "계약과 연결해 인보이스를 발행하고, 원천징수 유형만 고르면 실지급액이 자동으로 계산됩니다. 지급기한이 지난 건은 목록에서 바로 붉게 드러납니다.",
     src: "/screenshots/invoices.png",
-    width: 1400,
-    height: 519,
+    width: 2880,
+    height: 1714,
   },
   {
     key: "reports",
     label: "리포트",
     title: "연말 세무 정리를 위한 원장과 엑셀",
     description:
-      "연도별 입금 기준 세무 요약, 채널별·클라이언트별 매출을 집계하고 엑셀로 내보내 세무 대리인에게 그대로 전달합니다.",
+      "연도별 입금 기준 세무 요약과 미수·연체 결산, 채널별·클라이언트별 수익을 집계하고 서식이 잡힌 엑셀로 내보내 세무 대리인에게 그대로 전달합니다.",
     src: "/screenshots/reports.png",
-    width: 1400,
-    height: 1194,
+    width: 2880,
+    height: 2722,
   },
   {
     key: "settings",
@@ -73,8 +73,8 @@ const SCREENS: MenuScreen[] = [
     description:
       "표시 이름·기본 원천징수율·입금 계좌를 설정하면 새 계약과 인보이스, PDF에 자동으로 채워집니다.",
     src: "/screenshots/settings.png",
-    width: 1400,
-    height: 1058,
+    width: 2880,
+    height: 2066,
   },
 ];
 
@@ -175,17 +175,15 @@ export function MenuGallery() {
               freesign.app{activeScreen.key === "dashboard" ? "/dashboard" : `/${activeScreen.key}`}
             </span>
           </div>
-          <div className="max-h-[560px] overflow-hidden">
-            <Image
-              src={activeScreen.src}
-              alt={`FreeSign ${activeScreen.label} 화면`}
-              width={activeScreen.width}
-              height={activeScreen.height}
-              className="h-auto w-full"
-              sizes="(min-width: 1024px) 1024px, 100vw"
-              priority={active === 0}
-            />
-          </div>
+          <Image
+            src={activeScreen.src}
+            alt={`FreeSign ${activeScreen.label} 화면`}
+            width={activeScreen.width}
+            height={activeScreen.height}
+            className="h-auto w-full"
+            sizes="(min-width: 1024px) 1024px, 100vw"
+            priority={active === 0}
+          />
         </div>
       </div>
     </div>

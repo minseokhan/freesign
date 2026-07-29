@@ -4,32 +4,14 @@ import {
 } from "@/components/billing/upgrade-cta";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { formatKRW } from "@/lib/metrics";
+import type { Plan } from "@/lib/plan";
 import {
-  CREATE_FREE_LIMIT,
-  IMPORT_FREE_LIMIT,
-  SIGN_FREE_LIMIT,
-  type Plan,
-} from "@/lib/plan";
+  FREE_FEATURES,
+  PRO_FEATURES,
+  PRO_PRICE_KRW,
+} from "@/lib/plan-features";
 import { cn } from "@/lib/utils";
-
-const FREE_FEATURES = [
-  "클라이언트·인보이스 관리 무제한",
-  `새 계약 작성 ${CREATE_FREE_LIMIT}건`,
-  `서명 요청 발송 ${SIGN_FREE_LIMIT}건`,
-  `기존 계약 불러오기(AI 파싱) 누적 ${IMPORT_FREE_LIMIT}회`,
-  "미수금·이달 수익 대시보드",
-  "계약서·인보이스 PDF 발행",
-];
-
-const PRO_FEATURES = [
-  "새 계약 작성·서명 요청 무제한",
-  "기존 계약 불러오기(AI 파싱) 무제한",
-  "반복 인보이스 자동 초안",
-  "미수금 자동 독촉 메일 초안",
-  "AI 계약 인사이트",
-  "채널 수익 TOP·클라이언트별 수익 분석",
-  "세금 신고용 Excel 내보내기",
-];
 
 function CheckIcon() {
   return (
@@ -66,9 +48,20 @@ function FeatureList({ features }: { features: readonly string[] }) {
   );
 }
 
+function PriceLine({ price }: { price: number }) {
+  return (
+    <p className="flex items-baseline gap-xs">
+      <span className="text-2xl font-bold tracking-tight text-text-primary tabular-nums">
+        {formatKRW(price)}
+      </span>
+      <span className="text-sm text-text-muted">/ 월</span>
+    </p>
+  );
+}
+
 /**
  * Free / Pro 기능 비교. 현재 플랜 열을 강조하고, 해당 열에만 액션(업그레이드·구독 관리)을 둔다.
- * 금액은 Polar 체크아웃에서 확정되므로 여기서는 노출하지 않는다.
+ * 표시 금액은 랜딩과 같은 상수(plan-features.ts)를 쓰고, 실제 청구는 Polar 체크아웃에서 확정된다.
  */
 export function PlanComparison({ plan }: { plan: Plan }) {
   const isPro = plan === "pro";
@@ -85,6 +78,7 @@ export function PlanComparison({ plan }: { plan: Plan }) {
           <h4 className="text-base font-semibold text-text-primary">Free</h4>
           {isPro ? null : <Badge variant="neutral">현재 플랜</Badge>}
         </div>
+        <PriceLine price={0} />
         <p className="text-sm leading-relaxed text-text-muted">
           계약 한 건으로 서명부터 청구까지 흐름을 그대로 확인해 볼 수 있어요.
         </p>
@@ -103,6 +97,7 @@ export function PlanComparison({ plan }: { plan: Plan }) {
           <h4 className="text-base font-semibold text-text-primary">Pro</h4>
           {isPro ? <Badge variant="success">현재 플랜</Badge> : null}
         </div>
+        <PriceLine price={PRO_PRICE_KRW} />
         <p className="text-sm leading-relaxed text-text-muted">
           Free의 모든 기능에 더해, 반복 청구와 미수금 회수까지 자동으로
           굴러가요.
