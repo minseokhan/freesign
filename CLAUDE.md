@@ -10,6 +10,9 @@
 - Claude API (`@anthropic-ai/sdk`) — 계약서 초안
 - @react-pdf/renderer — 계약서·인보이스 PDF (Node 런타임)
 - Polar (`@polar-sh/nextjs`) — 구독 결제(Free/Pro 플랜), webhook은 SECURITY DEFINER RPC 경계 (ADR-010, `lib/plan.ts` 게이팅)
+- Resend (`services/email`) — 서명 요청·독촉·크론 알림 메일. 전송 실패는 best-effort(주 트랜잭션과 분리)
+- RFC 3161 TSA (`services/timestamp`) — 서명 발송·완결 시점 타임스탬프(기본 freeTSA.org, `TSA_URL`로 교체)
+- Vercel Cron — 단일 일일 잡 `/api/cron/daily`가 독촉·반복 인보이스 스윕을 순차 실행 (ADR-011)
 - react-hook-form + zod, Vitest + Playwright
 
 ## 아키텍처 규칙
@@ -17,6 +20,8 @@
 - CRITICAL: **시크릿·외부 API**(Claude·서명 해시·PDF·CSV·`service_role`)는 `app/api/` 라우트 핸들러 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지. `service_role` 키는 요청 경로에서 절대 금지(CLI 시드에서만).
 - CRITICAL: **모든 사용자 데이터는 RLS `USING` + `WITH CHECK (user_id = (select auth.uid()))` 둘 다** 스코프. Server Action은 **client 입력 전용 zod allowlist**(도메인 필드만)만 받고, `user_id`는 항상 `getUser()`에서, 서버 소유 필드(`status`·`paid_at`·`doc_hash`·`signature_meta`·`is_demo`·금액 스냅샷·pdf 경로)는 client 입력 금지. **FK 참조**(invoice→contract/client)는 Server Action에서 소유권 재조회 검증 후 insert(FK는 RLS 우회).
 - CRITICAL: 전자서명·결제는 `services/`의 **v1 전용 Provider 인터페이스** 뒤로만 접근. AI 계약서 결과는 항상 "초안"으로 취급·면책 노출, AI는 필수 게이트가 아닌 보강(실패 시 골격 폴백).
+- CRITICAL: **세션 없는 경계(webhook·크론)의 멀티유저 쓰기는 시크릿 게이트 DEFINER RPC로만.** anon 클라이언트(`lib/supabase/anon.ts`) → `p_*_secret` 인자를 받는 `SECURITY DEFINER` 함수 → 내부에서 `billing_config`/`cron_config` 대조(fail-closed). 여기서도 `service_role` 금지 (ADR-010·011).
+- CRITICAL: **크론은 클라이언트에게 직접 발송·발행하지 않는다.** 크론 산출물은 항상 소유자 검토 대기 상태(`pending_review`·인보이스 `draft`)이고, 실제 발송·발행은 세션 있는 Server Action에서 `assertProFeature()` 통과 후에만.
 - 상태 전이(계약 status·인보이스 결제)는 **append-only 이벤트 로그에 함께 기록**(도메인 UPDATE 후 이벤트 INSERT, 순차). status 변경을 쓰기 순서 앞쪽에 두지 말 것(부분 실패 시 미완 방지).
 - `deleted_at IS NULL` 필터는 RLS가 아니라 **공용 쿼리 헬퍼**에서(복원·감사·CSV 보존). **단 계약(contracts)은 예외로 물리 삭제**(ADR-008, 마이그레이션 0013): 삭제 시 딸린 인보이스는 `contract_id`를 `SET NULL`로 끊고 `invoices.contract_snapshot`(jsonb, 서버 소유 필드)에 삭제 시점 계약 요약(`title`·`amount`·`start_date`·`end_date`)을 남겨 추적한다. 인보이스·클라이언트는 soft-delete 유지. Storage는 private 버킷 + `{user_id}/...` 경로, DB엔 key만 저장·읽기는 단기 signed URL.
 - 서버 인가는 `getUser()`(`getSession()` 아님). middleware는 토큰 갱신 전용(보안 경계 아님).

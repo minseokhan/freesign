@@ -1,5 +1,8 @@
 # FreeSign 결제 시스템(Polar) + Free/Pro 플랜 도입
 
+> ✅ **구현 완료(2026-07-21, 커밋 `8c2b930`)** — 마이그레이션 `0024`~`0026` 원격 적용 + sandbox 결제 E2E 검증 완료(프로덕션 전환은 별도). 결정 기록은 `docs/ADR.md` ADR-010.
+> ⚠️ **Free/Pro 경계는 이후 재배치됐다** — "무제한 계약 생성"에서 "청구·수금 자동화 + 인사이트"로(ADR-010 갱신·ADR-011, `docs/PRO_FEATURES_PLAN.md`). 아래 문서의 경계 서술은 당시 기준이다.
+
 ## Context (왜)
 
 FreeSign에 유료화를 붙인다. 현재 결제/구독/플랜 인프라는 **완전 백지**(관련 테이블·코드·env 전무). `services/payment/provider.ts`는 이름만 payment일 뿐 인보이스 입금상태 머신이라 무관.

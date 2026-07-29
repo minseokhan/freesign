@@ -186,12 +186,167 @@ owner가 상대방에게 보낸 서명 요청. 원문 토큰은 발송 순간에
 
 ---
 
+## rate_limit_events — 로그인 사용자 레이트리밋 (0014)
+
+비싼 AI 엔드포인트(계약서 초안·PDF 파싱·인사이트)의 사용자 단위 슬라이딩 윈도우 카운터. 서버리스 다중 인스턴스에서도 신뢰 가능하도록 공유 저장소(Postgres)에 둔다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | bigint identity PK | 이벤트 식별자 |
+| `user_id` | uuid FK→auth.users (CASCADE) | 호출자 |
+| `bucket` | text NOT NULL | 엔드포인트 구분(`RATE_LIMITS` 상수와 대응) |
+| `created_at` | timestamptz | 호출 시각 |
+
+> RLS는 본인 행 select/insert/delete(윈도우 밖 정리). 판정은 `consume_rate_limit(bucket, limit, window_seconds)`가 caller 권한으로 수행한다.
+
+---
+
+## subscriptions — 구독 (0024)
+
+Polar 구독의 내부 투영. 사용자당 1행(`user_id`가 PK).
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `user_id` | uuid PK, FK→auth.users (CASCADE) | 구독자 |
+| `plan` | text, 기본 `free` | `free` / `pro` (CHECK) |
+| `status` | text, 기본 `inactive` | Polar status 투영(`active`·`trialing`·`past_due`·`canceled`·`revoked` 등) |
+| `polar_customer_id` / `polar_subscription_id` | text | Polar 식별자(webhook 재처리 시 행 조회) |
+| `current_period_end` | timestamptz | 현재 결제 주기 종료(만료 안전망) |
+| `cancel_at_period_end` | boolean, 기본 false | 취소 예정(기간 잔여 동안 pro 유지) |
+| `updated_at` | timestamptz | 갱신 시각 |
+
+> **SELECT 본인 행만. INSERT/UPDATE/DELETE 정책 없음** = 클라이언트 직접 쓰기 전면 차단. 기록은 `upsert_subscription_from_polar`(DEFINER)로만. 유효 플랜 판정은 이 행 + 현재시각 → `derivePlan()`(`lib/plan.ts` 순수 함수)이며, SQL에서 같은 판정이 필요한 곳(`generate_due_recurring_invoices`)은 등가 조건을 인라인한다.
+
+---
+
+## billing_events — 구독 감사 로그 (0024)
+
+`contract_events`/`invoice_events`와 같은 append-only 패턴. webhook이 처리한 구독 이벤트를 기록한다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | bigint identity PK | 이벤트 식별자 |
+| `user_id` | uuid FK→auth.users (CASCADE) | 구독자 |
+| `polar_subscription_id` | text | 대상 Polar 구독 |
+| `event_type` | text NOT NULL | webhook 이벤트 종류 |
+| `status` | text | 처리 후 상태 |
+| `meta` | jsonb, 기본 `{}` | 원본 페이로드 요약 |
+| `created_at` | timestamptz | 발생 시각 |
+
+> SELECT 본인 행만. INSERT 정책 없음 = DEFINER RPC 내부에서만 기록.
+
+---
+
+## usage_counters — 무료 티어 누적 사용량 (0024)
+
+버킷별 평생 누적 오도미터. pro는 소비하지 않으므로 무료 사용분만 쌓이고, 다운그레이드 후에도 "누적 N회" 의미가 유지된다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `user_id` | uuid FK→auth.users (CASCADE) | 사용자 (PK 1/2) |
+| `bucket` | text | 상한 종류. 현재 `ai_import_parse`(불러오기 파싱) (PK 2/2) |
+| `used` | integer, 기본 0 | 누적 소비량 |
+| `updated_at` | timestamptz | 갱신 시각 |
+
+> RLS는 본인 행 select/insert/update — `consume_lifetime_quota`가 caller 권한으로 돌며 RLS를 통과해야 하기 때문. "새 계약 생성·서명" 상한은 여기 쌓지 않고 `contracts` 실시간 count로 판정한다(ADR-010).
+
+---
+
+## billing_config / cron_config — 시크릿 단일 행 (0026·0027)
+
+세션 없는 경계(Polar webhook·일일 크론)가 자신을 증명할 때 대조하는 시크릿. 두 테이블 구조·하드닝이 동일하다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | boolean PK, 기본 true, CHECK `id` | 단일 행 강제(`id = true`만 허용) |
+| `webhook_secret` / `cron_secret` | text | 대조용 시크릿(env 값과 동일하게 수동 주입) |
+| `updated_at` | timestamptz | 갱신 시각 |
+
+> **RLS 활성 + 정책 없음 + `revoke all from anon, authenticated`**(이중 방어) — 직접 조회 불가. `upsert_subscription_from_polar`·`assert_cron_secret` 같은 SECURITY DEFINER 함수만 읽는다. Supabase `postgres` 롤은 커스텀 GUC ALTER 권한이 없어 GUC 대신 테이블에 둔다. 마이그레이션 적용 후 아래를 **수동 실행**해야 webhook/크론이 열린다(미설정 시 fail-closed로 전부 401/예외):
+> ```sql
+> insert into cron_config (id, cron_secret) values (true, '<CRON_SECRET과 동일값>')
+>   on conflict (id) do update set cron_secret = excluded.cron_secret;
+> ```
+
+---
+
+## dunning_reminders — 미수금 독촉 초안 (0028)
+
+연체 인보이스마다 일일 크론이 만드는 독촉 메일 초안. **소유자가 앱에서 승인해야만** 클라이언트에게 실제로 발송된다(ADR-011).
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | uuid PK | 초안 식별자 |
+| `user_id` | uuid FK→auth.users (CASCADE) | 소유자 |
+| `invoice_id` | uuid FK→invoices (CASCADE) | 대상 인보이스 |
+| `status` | text, 기본 `pending_review` | `pending_review` / `sent` / `dismissed` (CHECK) |
+| `draft_subject` / `draft_body` | text | AI(또는 폴백) 초안. 크론 sweep이 채우고 소유자가 수정 가능 |
+| `ai_source` | text | `ai` / `fallback` — 초안 출처 표기 |
+| `sent_at` | timestamptz | 실제 발송 시각(승인 시) |
+| `meta` | jsonb, 기본 `{}` | 부가 정보 |
+| `created_at` | timestamptz | 생성 시각 |
+
+> **INSERT/DELETE 정책 없음** = 초안 생성은 크론 DEFINER RPC 내부에서만. 소유자는 select + update(승인·무시)만 가능. 멱등성은 부분 유니크 `(invoice_id) WHERE status = 'pending_review'`로 강제 — 인보이스당 미검토 초안 1건.
+
+---
+
+## recurring_invoices — 반복 인보이스 스케줄 (0029)
+
+매 주기 draft 인보이스를 자동 생성하는 스케줄. 스케줄 CRUD는 세션 있는 Server Action(RLS own), 인보이스 생성은 크론 RPC.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | uuid PK | 스케줄 식별자 |
+| `user_id` | uuid FK→auth.users (CASCADE) | 소유자 |
+| `contract_id` | uuid FK→contracts (CASCADE), nullable | 연결 계약(선택) |
+| `client_id` | uuid FK→clients (CASCADE) | 청구 대상 |
+| `amount` / `withholding_type` / `withholding_amount` / `net_amount` | bigint·enum | **스케줄 생성 시 `calcWithholding` 스냅샷**. 크론 RPC는 순수 복사만(SQL에 세금 로직 중복 금지) |
+| `interval_kind` | text | `weekly` / `monthly` (CHECK) |
+| `next_run_at` | date | 다음 생성 예정일. 생성 후 `computeNextRun`과 등가로 전진 |
+| `due_offset_days` | integer, 기본 14 | 발행일 + N일 = 지급기한 |
+| `active` | boolean, 기본 true | 일시중지 스위치 |
+| `last_generated_at` | timestamptz | 마지막 생성 시각 |
+| `meta` / `created_at` | jsonb / timestamptz | 부가 정보 / 생성 시각 |
+
+> 소유자 select/insert/update/delete 정책 전부 존재(스케줄은 사용자 소유 설정). **다운그레이드 시 행을 지우지 않고**, 크론 RPC의 `plan = pro` 조건이 free 유저 스케줄을 건너뛰어 생성만 멈춘다.
+
+---
+
+## contract_insights — AI 계약 인사이트 (0030)
+
+과거 계약을 Claude가 읽어 도출한 조항 약점/누락 피드백. 온디맨드(세션 있는 Pro API)에서만 생성되며 크론과 무관하다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | uuid PK | 인사이트 식별자 |
+| `user_id` | uuid FK→auth.users (CASCADE) | 소유자 |
+| `contract_id` | uuid FK→contracts (CASCADE) | 대상 계약 |
+| `summary` | text NOT NULL | 한 줄 요약. 새 계약 초안 생성 시 `prior_insights`로 되먹임 |
+| `risk_level` | text NOT NULL | `low` / `medium` / `high` (CHECK) |
+| `findings` | jsonb, 기본 `[]` | `[{clause_title, severity, note}]` |
+| `model` / `source` | text | 사용 모델 / `ai`·`fallback` |
+| `meta` / `created_at` | jsonb / timestamptz | 부가 정보 / 생성 시각 |
+
+> 소유자 select/insert만(update/delete 정책 없음 — 분석은 새 행으로 누적). 리포트의 "종합 계약 피드백 요약"은 이 행들을 `summarizeInsights()`(`lib/insights.ts` 순수 함수)로 집계한다. AI 결과는 **비법률자문·검토보조**.
+
+---
+
 ## RLS (Row Level Security)
 
-`clients`·`contracts`·`invoices`·`contract_events`·`invoice_events`·`profiles`·`signature_requests`·`contract_signatures`·`anon_rate_limit_events` 모두 RLS 활성화.
+모든 사용자 데이터 테이블에 RLS를 활성화한다 — `clients`·`contracts`·`invoices`·`contract_events`·`invoice_events`·`profiles`·`signature_requests`·`contract_signatures`·`rate_limit_events`·`anon_rate_limit_events`·`subscriptions`·`billing_events`·`usage_counters`·`billing_config`·`cron_config`·`dunning_reminders`·`recurring_invoices`·`contract_insights`.
 
-- **select/insert/update**: 모든 테이블에 `user_id = auth.uid()` 정책(`USING` + `WITH CHECK` 둘 다). 예외: `contract_signatures`는 select/insert만(update/delete 없음 = 불변 증거), `anon_rate_limit_events`는 정책 없음(DEFINER 함수 전용).
-- **anon**: 어떤 테이블에도 anon 정책이 없다. 비로그인 서명자는 SECURITY DEFINER RPC(§ 맞서명 함수) 경유로만 접근(ADR-009).
+- **select/insert/update**: 기본은 `user_id = auth.uid()` 정책(`USING` + `WITH CHECK` 둘 다). 예외는 아래 표대로다.
+
+| 테이블 | 정책 구성 | 이유 |
+|--------|-----------|------|
+| `contract_signatures` | select/insert만 | 불변 증거(되돌리기·삭제로 지워지지 않음) |
+| `contract_insights` | select/insert만 | 분석은 수정 대신 새 행으로 누적 |
+| `subscriptions`·`billing_events` | select만 | 쓰기는 webhook DEFINER RPC 전용 |
+| `dunning_reminders` | select + update만 | 생성은 크론 DEFINER RPC 전용, 소유자는 승인/무시만 |
+| `usage_counters`·`rate_limit_events` | 본인 행 CRUD | 소비 RPC가 caller 권한으로 돌아 RLS를 통과해야 함 |
+| `anon_rate_limit_events`·`billing_config`·`cron_config` | **정책 없음**(+ grant 회수) | DEFINER 함수 전용. 어떤 롤도 직접 조회 불가 |
+
+- **anon**: 어떤 테이블에도 anon 정책이 없다. 비로그인 서명자·webhook·크론은 SECURITY DEFINER RPC(§ 맞서명 함수 / § 결제·크론 함수) 경유로만 접근하며, 각 경계는 토큰 해시 또는 시크릿 대조로 fail-closed 인가한다(ADR-009·010·011).
 - **delete**: 대부분 소프트 삭제만이라 삭제 정책 없음. 예외 (1) 데모 데이터는 `is_demo = true` 조건으로 삭제 허용(`*_delete_demo_own`), events의 데모 삭제는 상위 계약/인보이스가 `is_demo = true`인지 EXISTS로 확인. (2) **계약(contracts)은 물리 삭제**라 소유자 delete 정책 `contracts_delete_own`(상태·is_demo 무관, `contracts_delete_demo_own`은 이 정책의 부분집합이므로 제거). 계약 삭제 시 `contract_events`는 CASCADE, `invoices.contract_id`는 SET NULL로 DB가 처리(참조 액션은 RLS 우회).
 - 서버 인가는 `getUser()` 사용, FK 참조(invoice→contract/client)는 Server Action에서 소유권 재조회 후 insert(FK는 RLS 우회하므로).
 
@@ -223,6 +378,15 @@ owner가 상대방에게 보낸 서명 요청. 원문 토큰은 발송 순간에
 | `contract_signatures_contract_signed_at` | contract_signatures(contract_id, signed_at) | 계약별 서명 열거 |
 | `contract_signatures_one_counterparty_per_request` | contract_signatures(request_id) WHERE party = 'counterparty' (UNIQUE) | 요청당 상대 서명 1건 강제 |
 | `anon_rate_limit_events_lookup` | anon_rate_limit_events(ip_hash, bucket, created_at) | 레이트리밋 윈도우 조회 |
+| `rate_limit_events_lookup` | rate_limit_events(user_id, bucket, created_at) | 사용자 레이트리밋 윈도우 조회 |
+| `subscriptions_polar_customer_id_idx` | subscriptions(polar_customer_id) | webhook 재처리 시 행 조회 |
+| `billing_events_user_id_created_at_idx` | billing_events(user_id, created_at) | 구독 이벤트 타임라인 |
+| `dunning_reminders_one_pending_idx` | dunning_reminders(invoice_id) WHERE status = 'pending_review' (UNIQUE) | 인보이스당 미검토 초안 1건(멱등) |
+| `dunning_reminders_user_created_idx` / `dunning_reminders_invoice_idx` | dunning_reminders(user_id, created_at) / (invoice_id) | 검토 대기 목록·인보이스 상세 조회 |
+| `recurring_invoices_due_idx` | recurring_invoices(next_run_at) WHERE active | 크론의 도래 스케줄 스캔 |
+| `recurring_invoices_user_created_idx` | recurring_invoices(user_id, created_at) | 스케줄 목록 |
+| `contract_insights_contract_created_idx` | contract_insights(contract_id, created_at DESC) | 계약별 최신 인사이트 |
+| `contract_insights_user_created_idx` | contract_insights(user_id, created_at) | 리포트 종합 요약 집계 |
 
 ---
 
@@ -271,6 +435,24 @@ owner가 상대방에게 보낸 서명 요청. 원문 토큰은 발송 순간에
 - `get_signed_contract_data(p_token_hash)` → 완결 계약의 PDF 렌더 데이터(owner 서명 이미지는 미반환, 메타만).
 - `store_completion_tsa_token(p_token_hash, p_token)` → 완결 TSA 토큰 write-once 저장(커밋 후 best-effort).
 - `consume_anon_rate_limit(ip_hash, bucket, limit, window_seconds)` → IP 해시 기반 윈도우 카운트, 초과 시 false(0018).
+
+---
+
+## 결제·크론 함수 (SQL RPC, 0024·0026~0031)
+
+세션 없는 경계(Polar webhook·일일 크론)가 남의 행을 써야 하는 자리. `service_role`을 요청 경로에 두는 대신 **시크릿 인자를 받는 SECURITY DEFINER 함수**로 좁힌다. 모두 `search_path = public, pg_temp` 고정 + `revoke all from public` 후 필요한 롤에만 grant.
+
+**결제(ADR-010)**
+- `consume_lifetime_quota(p_bucket, p_max)` → **INVOKER**(caller 권한 + RLS). `used < max`면 1 증가 후 `allowed:true`, 도달했으면 증가 없이 `false`. 검사→증가가 한 트랜잭션이라 원자적. `authenticated`만 실행.
+- `upsert_subscription_from_polar(p_webhook_secret, p_user_id, ...)` → **DEFINER**. 첫 줄에서 `billing_config.webhook_secret`과 대조해 불일치·미설정이면 `raise`(fail-closed). 통과 시 `subscriptions` upsert + `billing_events` INSERT. **anon 전용**(0025에서 `authenticated` 실행권 회수 — anon 전용 DEFINER 컨벤션 유지). 시크릿 저장소는 0026에서 GUC → `billing_config` 테이블로 이전.
+
+**크론(ADR-011)** — 모두 첫 줄에서 `assert_cron_secret`을 통과해야 하며, 실패 시 예외로 호출 전체가 롤백된다.
+- `assert_cron_secret(p_secret)` → DEFINER. `cron_config.cron_secret`과 대조, 미설정/불일치면 `raise 'unauthorized cron call'`. 보안이 시크릿 게이트에 있으므로 실행권 자체는 anon·authenticated 모두에 부여.
+- `create_dunning_drafts_for_overdue(p_cron_secret, p_cooldown_days default 7)` → 연체 후보(`unpaid` + `due_date < current_date` + 미삭제 + 미검토 초안 없음 + cooldown 내 발송 이력 없음)에 `pending_review` placeholder를 만들고, sweep이 AI 초안·소유자 알림을 만들 때 필요한 조인 필드(고객명·이메일·계약 제목·실수령액·연체일수·소유자 이메일)를 반환. 소유자 이메일은 `auth.users.email`이 varchar라 `::text` 캐스팅 필요(0031에서 수정).
+- `update_dunning_draft_body(p_cron_secret, p_reminder_id, p_subject, p_body, p_source)` → sweep이 만든 초안 본문을 `pending_review` 행에만 채운다.
+- `generate_due_recurring_invoices(p_cron_secret)` → 오늘 도래한 활성 스케줄 중 **소유자 plan=pro**인 것만(SQL에 `derivePlan` 등가 조건 인라인: pro + `status <> 'revoked'` + 기간 유효) `draft` 인보이스 INSERT + `invoice_events` 기록 + `next_run_at` 전진(weekly=+7d, monthly=+1month 월말 클램프 — `computeNextRun`과 등가). 세금은 스케줄 스냅샷을 순수 복사한다. 반환은 sweep의 소유자 알림용(생성 인보이스 + 소유자 이메일).
+
+> 두 시크릿(`POLAR_WEBHOOK_SECRET`·`CRON_SECRET`)은 **env와 DB 테이블에 같은 값으로 이중 주입**해야 한다. 한쪽만 설정하면 조용히 전부 거부된다(의도된 fail-closed).
 
 ---
 
