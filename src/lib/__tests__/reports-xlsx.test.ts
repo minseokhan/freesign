@@ -38,13 +38,14 @@ describe("buildTaxLedgerSheet", () => {
 
     expect(title).toMatchObject({
       value: "FreeSign 세무 원장 · 2026년",
-      fontWeight: "bold",
       align: "center",
       alignVertical: "center",
       borderColor: expect.any(String),
       backgroundColor: expect.any(String),
       columnSpan: 8,
     });
+    // 크기와 배경으로 이미 제목이 구분되므로 굵기는 주지 않는다.
+    expect(title.fontWeight).toBeUndefined();
     expect(title.fontSize).toBeGreaterThan(14);
     expect(title.height).toBeGreaterThan(24);
     // 병합된 칸은 null로 채워야 뒤 열이 밀리지 않는다.

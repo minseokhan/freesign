@@ -91,7 +91,6 @@ export function buildTaxLedgerSheet(
 ): { sheetData: SheetRow[]; columns: SheetColumn[] } {
   const titleRow = spanningRow({
     value: `FreeSign 세무 원장 · ${options.year}년`,
-    fontWeight: "bold",
     fontSize: 18,
     align: "center",
     alignVertical: "center",

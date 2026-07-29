@@ -76,7 +76,14 @@ export function AppSidebar({ plan }: { plan: Plan }) {
                 key={item.href}
               >
                 {item.label}
-                {item.proOnly ? <Badge variant="neutral">Pro</Badge> : null}
+                {item.proOnly ? (
+                  <Badge
+                    variant="neutral"
+                    className="px-2 py-0 text-[10px] leading-4"
+                  >
+                    Pro
+                  </Badge>
+                ) : null}
               </Link>
             );
           })}

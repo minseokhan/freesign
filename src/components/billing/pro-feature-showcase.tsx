@@ -61,8 +61,8 @@ const FEATURES: ProFeature[] = [
     description:
       "입금 완료 기준으로 채널별 수익과 클라이언트별 수익을 나란히 집계합니다. 다음에 어디에 시간을 쓸지 판단할 수 있어요.",
     src: "/screenshots/pro/revenue-ranking.png",
-    width: 2017,
-    height: 955,
+    width: 2240,
+    height: 745,
   },
   {
     key: "excel",
