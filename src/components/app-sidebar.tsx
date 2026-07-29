@@ -5,17 +5,25 @@ import { usePathname } from "next/navigation";
 
 import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
+import type { Plan } from "@/lib/plan";
 import { cn } from "@/lib/utils";
 
-const navItems = [
+type NavItem = {
+  href: string;
+  label: string;
+  proOnly?: boolean;
+};
+
+const navItems: readonly NavItem[] = [
   { href: "/dashboard", label: "대시보드" },
   { href: "/clients", label: "클라이언트" },
   { href: "/contracts", label: "계약" },
   { href: "/invoices", label: "인보이스" },
   { href: "/invoices/recurring", label: "반복 인보이스", proOnly: true },
   { href: "/reports", label: "리포트" },
+  { href: "/billing", label: "요금제" },
   { href: "/settings", label: "설정" }
-] as const;
+];
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -25,8 +33,8 @@ function isActivePath(pathname: string, href: string) {
  * 활성 메뉴의 href. `/invoices/recurring`은 `/invoices` 접두사와도 일치하므로
  * 일치하는 항목 중 가장 긴 href를 골라야 두 메뉴가 동시에 켜지지 않는다.
  */
-function findActiveHref(pathname: string) {
-  return navItems.reduce<string | null>((best, item) => {
+function findActiveHref(pathname: string, items: readonly NavItem[]) {
+  return items.reduce<string | null>((best, item) => {
     if (!isActivePath(pathname, item.href)) {
       return best;
     }
@@ -35,9 +43,12 @@ function findActiveHref(pathname: string) {
   }, null);
 }
 
-export function AppSidebar() {
+export function AppSidebar({ plan }: { plan: Plan }) {
   const pathname = usePathname() ?? "/dashboard";
-  const activeHref = findActiveHref(pathname);
+  // Pro 전용 메뉴는 Pro 플랜에서만 노출한다(free는 메뉴 자체가 보이지 않음).
+  const items =
+    plan === "pro" ? navItems : navItems.filter((item) => !item.proOnly);
+  const activeHref = findActiveHref(pathname, items);
 
   return (
     <aside className="w-full border-b border-surface-border bg-white md:sticky md:top-0 md:h-screen md:w-64 md:shrink-0 md:self-start md:border-b-0 md:border-r">
@@ -49,10 +60,8 @@ export function AppSidebar() {
           <Logo className="h-7" />
         </Link>
         <nav aria-label="대시보드 내비게이션" className="flex flex-col gap-xs">
-          {navItems.map((item) => {
+          {items.map((item) => {
             const active = activeHref === item.href;
-            // Pro 전용 메뉴는 플랜과 무관하게 뱃지로 표시한다(free는 클릭 시 업그레이드 안내).
-            const proOnly = "proOnly" in item && item.proOnly;
 
             return (
               <Link
@@ -67,7 +76,7 @@ export function AppSidebar() {
                 key={item.href}
               >
                 {item.label}
-                {proOnly ? <Badge variant="neutral">Pro</Badge> : null}
+                {item.proOnly ? <Badge variant="neutral">Pro</Badge> : null}
               </Link>
             );
           })}

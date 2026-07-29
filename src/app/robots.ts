@@ -15,6 +15,7 @@ export default function robots(): MetadataRoute.Robots {
           "/clients",
           "/settings",
           "/reports",
+          "/billing",
           "/api/",
           "/auth/",
           "/dev/",

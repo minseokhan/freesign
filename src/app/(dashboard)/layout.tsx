@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { PostHogIdentify } from "@/components/posthog-identify";
 import { UserMenu } from "@/components/user-menu";
 import { requireUser } from "@/lib/auth";
+import { getUserPlan } from "@/lib/plan";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,7 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const user = await requireUser();
+  const plan = await getUserPlan();
   const metadata = user.user_metadata ?? {};
   const displayName =
     (metadata.full_name as string | undefined)?.trim() ||
@@ -27,7 +29,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-surface-page md:flex">
       <PostHogIdentify userId={user.id} email={user.email} name={displayName} />
-      <AppSidebar />
+      <AppSidebar plan={plan} />
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 border-b border-surface-border bg-white">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-lg px-lg py-lg">

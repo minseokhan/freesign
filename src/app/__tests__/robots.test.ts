@@ -9,6 +9,7 @@ const PRIVATE_PATHS = [
   "/clients",
   "/settings",
   "/reports",
+  "/billing",
   "/api/",
   "/auth/",
   "/dev/",

@@ -13,7 +13,7 @@ describe("AppSidebar", () => {
   it("renders dashboard navigation in IA order", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    render(<AppSidebar />);
+    render(<AppSidebar plan="pro" />);
 
     const navigation = screen.getByRole("navigation", {
       name: "대시보드 내비게이션"
@@ -28,6 +28,30 @@ describe("AppSidebar", () => {
       "인보이스",
       "반복 인보이스Pro",
       "리포트",
+      "요금제",
+      "설정",
+    ]);
+  });
+
+  // free 플랜에는 Pro 전용 메뉴 자체를 노출하지 않는다(업그레이드 후에만 보임).
+  it("hides pro-only items on the free plan", () => {
+    usePathnameMock.mockReturnValue("/dashboard");
+
+    render(<AppSidebar plan="free" />);
+
+    const navigation = screen.getByRole("navigation", {
+      name: "대시보드 내비게이션"
+    });
+
+    expect(
+      within(navigation).getAllByRole("link").map((link) => link.textContent),
+    ).toEqual([
+      "대시보드",
+      "클라이언트",
+      "계약",
+      "인보이스",
+      "리포트",
+      "요금제",
       "설정",
     ]);
   });
@@ -35,7 +59,7 @@ describe("AppSidebar", () => {
   it("marks the matching top-level route as active", () => {
     usePathnameMock.mockReturnValue("/contracts/new");
 
-    render(<AppSidebar />);
+    render(<AppSidebar plan="pro" />);
 
     expect(screen.getByRole("link", { name: "계약" })).toHaveClass(
       "bg-blue-50",
@@ -51,7 +75,7 @@ describe("AppSidebar", () => {
   it("activates only the longest matching nav item", () => {
     usePathnameMock.mockReturnValue("/invoices/recurring/new");
 
-    render(<AppSidebar />);
+    render(<AppSidebar plan="pro" />);
 
     expect(
       screen.getByRole("link", { name: "반복 인보이스 Pro" }),
@@ -64,7 +88,7 @@ describe("AppSidebar", () => {
   it("keeps the invoices item active on its own route", () => {
     usePathnameMock.mockReturnValue("/invoices");
 
-    render(<AppSidebar />);
+    render(<AppSidebar plan="pro" />);
 
     expect(screen.getByRole("link", { name: "인보이스" })).toHaveClass(
       "bg-blue-50",
@@ -75,11 +99,11 @@ describe("AppSidebar", () => {
     ).not.toHaveClass("bg-blue-50");
   });
 
-  // Pro 전용 기능임을 항상 알 수 있게, 플랜과 무관하게 뱃지를 노출한다.
-  it("always marks the pro-only item with a badge", () => {
+  // Pro 전용 기능임을 알 수 있게, 노출될 때는 뱃지를 함께 표시한다.
+  it("marks the pro-only item with a badge", () => {
     usePathnameMock.mockReturnValue("/dashboard");
 
-    render(<AppSidebar />);
+    render(<AppSidebar plan="pro" />);
 
     const link = screen.getByRole("link", { name: "반복 인보이스 Pro" });
 
