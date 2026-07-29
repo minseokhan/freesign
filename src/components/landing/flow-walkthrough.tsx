@@ -212,9 +212,9 @@ const STEPS: Step[] = [
   {
     key: "tax",
     label: "세금",
-    title: "연말 세금 정리는 CSV 한 번으로",
+    title: "연말 세금 정리는 엑셀 한 번으로",
     description:
-      "입금 기준·발행 기준을 명시한 연도별 CSV를 한 번에 내보냅니다. 증빙 체인이 그대로 남아 세무 대응이 쉬워요.",
+      "입금 기준·발행 기준을 명시한 연도별 엑셀 파일을 한 번에 내보냅니다. 증빙 체인이 그대로 남아 세무 대응이 쉬워요.",
     preview: (
       <div className="space-y-md">
         <div className="flex items-center justify-between">
@@ -236,7 +236,7 @@ const STEPS: Step[] = [
                 strokeLinejoin="round"
               />
             </svg>
-            CSV 내보내기
+            Excel 내보내기
           </span>
         </div>
         <div className="space-y-sm text-sm">

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { UpgradeButton, UpgradeCard } from "@/components/billing/upgrade-cta";
 import { ChannelBadge } from "@/components/channel-badge";
+import { Logo } from "@/components/logo";
 import { Card } from "@/components/ui/card";
 import {
   formatKRW,
@@ -174,7 +175,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     overdueAmount: toAmount(outstandingRow?.overdue_amount),
   };
 
-  const csvHref = `/api/reports?year=${selectedYear}`;
+  const exportHref = `/api/reports?year=${selectedYear}`;
   const hasPaidData = reportRows.length > 0;
 
   // 종합 계약 피드백 요약(Pro). 저장된 인사이트를 위험도 분포 + 공통 findings로 집계한다.
@@ -213,13 +214,13 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         </div>
         {isPro ? (
           <Link
-            href={csvHref}
+            href={exportHref}
             className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
           >
-            CSV 내보내기
+            Excel 내보내기
           </Link>
         ) : (
-          <UpgradeButton>CSV 내보내기 (Pro)</UpgradeButton>
+          <UpgradeButton>Excel 내보내기 (Pro)</UpgradeButton>
         )}
       </div>
 
@@ -361,6 +362,46 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
                 </tr>
               </tbody>
             </table>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <h3 className="text-lg font-semibold text-text-primary">
+          미수/연체 결산
+        </h3>
+        <p className="mt-xs text-sm text-text-muted">
+          {selectedYear}년 발행분 중 아직 입금되지 않은 청구액입니다. 연체는
+          지급기한(KST)이 지난 건입니다.
+        </p>
+        {outstanding.unpaidCount === 0 ? (
+          <p className="mt-lg text-sm text-text-muted">
+            해당 연도 발행분 중 미수 건이 없습니다.
+          </p>
+        ) : (
+          <div className="mt-lg grid gap-lg sm:grid-cols-2">
+            <div className="rounded-md border border-surface-border px-lg py-md">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                미수
+              </p>
+              <p className="mt-sm text-2xl font-bold tabular-nums text-text-primary">
+                {formatKRW(outstanding.unpaidAmount)}
+              </p>
+              <p className="mt-xs text-xs text-text-muted">
+                {outstanding.unpaidCount}건
+              </p>
+            </div>
+            <div className="rounded-md border border-surface-border px-lg py-md">
+              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
+                연체
+              </p>
+              <p className="mt-sm text-2xl font-bold tabular-nums text-red-700">
+                {formatKRW(outstanding.overdueAmount)}
+              </p>
+              <p className="mt-xs text-xs text-text-muted">
+                {outstanding.overdueCount}건
+              </p>
+            </div>
           </div>
         )}
       </Card>
@@ -516,60 +557,20 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         </div>
       ) : (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
-          <div aria-hidden="true" className="text-3xl font-semibold text-blue-600">
-            FS
+          <div aria-hidden="true">
+            <Logo className="h-8" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-text-primary">
               해당 연도 입금 기록이 없어요
             </h3>
             <p className="mt-sm max-w-md text-sm leading-relaxed text-text-muted">
-              입금 완료된 인보이스가 생기면 채널·클라이언트별 수익과 CSV
+              입금 완료된 인보이스가 생기면 채널·클라이언트별 수익과 Excel
               내보내기를 사용할 수 있습니다.
             </p>
           </div>
         </Card>
       )}
-
-      <Card>
-        <h3 className="text-lg font-semibold text-text-primary">
-          미수/연체 결산
-        </h3>
-        <p className="mt-xs text-sm text-text-muted">
-          {selectedYear}년 발행분 중 아직 입금되지 않은 청구액입니다. 연체는
-          지급기한(KST)이 지난 건입니다.
-        </p>
-        {outstanding.unpaidCount === 0 ? (
-          <p className="mt-lg text-sm text-text-muted">
-            해당 연도 발행분 중 미수 건이 없습니다.
-          </p>
-        ) : (
-          <div className="mt-lg grid gap-lg sm:grid-cols-2">
-            <div className="rounded-md border border-surface-border px-lg py-md">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                미수
-              </p>
-              <p className="mt-sm text-2xl font-bold tabular-nums text-text-primary">
-                {formatKRW(outstanding.unpaidAmount)}
-              </p>
-              <p className="mt-xs text-xs text-text-muted">
-                {outstanding.unpaidCount}건
-              </p>
-            </div>
-            <div className="rounded-md border border-surface-border px-lg py-md">
-              <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                연체
-              </p>
-              <p className="mt-sm text-2xl font-bold tabular-nums text-red-700">
-                {formatKRW(outstanding.overdueAmount)}
-              </p>
-              <p className="mt-xs text-xs text-text-muted">
-                {outstanding.overdueCount}건
-              </p>
-            </div>
-          </div>
-        )}
-      </Card>
 
       {!isPro ? (
         <UpgradeCard

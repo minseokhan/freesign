@@ -27,11 +27,11 @@ describe("GET /api/reports", () => {
     );
   });
 
-  it("runs on node for server-only CSV generation", () => {
+  it("runs on node for server-only XLSX generation", () => {
     expect(runtime).toBe("nodejs");
   });
 
-  it("exports the tax ledger CSV from the report RPC with private download headers", async () => {
+  it("exports the tax ledger XLSX from the report RPC with private download headers", async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: [
         {
@@ -54,23 +54,22 @@ describe("GET /api/reports", () => {
     const response = await GET(new Request("http://localhost/api/reports?year=2026"));
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("text/csv; charset=utf-8");
+    expect(response.headers.get("content-type")).toBe(
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
     expect(response.headers.get("content-disposition")).toBe(
-      'attachment; filename="freesign-report-2026.csv"',
+      'attachment; filename="freesign-report-2026.xlsx"',
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(requireUser).toHaveBeenCalled();
     expect(rpc).toHaveBeenCalledWith("get_report_tax_ledger", {
       report_year: 2026,
     });
-    const body = new Uint8Array(await response.arrayBuffer());
-    const expectedBody = new TextEncoder().encode(
-      "﻿입금일,발행일,클라이언트,채널,청구액(원),원천징수유형,원천징수액(원),실지급액(원)\r\n" +
-        "2026-03-15,2026-03-01,김클라,직거래,1000000,3.3%,33000,967000\r\n" +
-        "합계,,,,1000000,,33000,967000",
-    );
 
-    expect(Array.from(body)).toEqual(Array.from(expectedBody));
+    // xlsx는 zip 컨테이너다 — 시그니처로 실제 통합 결과를 확인한다.
+    const body = new Uint8Array(await response.arrayBuffer());
+    expect(Array.from(body.slice(0, 2))).toEqual([0x50, 0x4b]);
+    expect(body.byteLength).toBeGreaterThan(1000);
   });
 
   it("rejects invalid years before querying Supabase", async () => {

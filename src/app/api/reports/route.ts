@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import writeExcelFile from "write-excel-file/node";
 
 import { requireUser } from "@/lib/auth";
 import { assertProFeature } from "@/lib/plan";
@@ -6,7 +7,7 @@ import {
   captureServerException,
   getPostHogClient,
 } from "@/lib/posthog-server";
-import { serializeTaxLedgerCsv, type ReportLedgerRow } from "@/lib/reports-csv";
+import { buildTaxLedgerSheet, type ReportLedgerRow } from "@/lib/reports-xlsx";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -71,16 +72,24 @@ export async function GET(request: Request) {
     withholdingAmount: toAmount(row.withholding_amount),
     netAmount: toAmount(row.net_amount),
   }));
-  const csv = serializeTaxLedgerCsv(rows);
+  const { sheetData, columns } = buildTaxLedgerSheet(rows, {
+    year: yearResult.year,
+    generatedAt: new Date().toISOString(),
+  });
+  const workbook = await writeExcelFile(sheetData, {
+    columns,
+    sheet: `${yearResult.year}년 세무 원장`,
+  }).toBuffer();
 
   const posthog = getPostHogClient();
   posthog.capture({ distinctId: user.id, event: "report_exported", properties: { year: yearResult.year, row_count: rows.length } });
   await posthog.flush();
 
-  return new NextResponse(csv, {
+  return new NextResponse(new Uint8Array(workbook), {
     headers: {
-      "content-type": "text/csv; charset=utf-8",
-      "content-disposition": `attachment; filename="freesign-report-${yearResult.year}.csv"`,
+      "content-type":
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "content-disposition": `attachment; filename="freesign-report-${yearResult.year}.xlsx"`,
       "cache-control": "private, no-store",
     },
   });

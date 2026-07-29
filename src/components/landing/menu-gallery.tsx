@@ -59,9 +59,9 @@ const SCREENS: MenuScreen[] = [
   {
     key: "reports",
     label: "리포트",
-    title: "연말 세무 정리를 위한 원장과 CSV",
+    title: "연말 세무 정리를 위한 원장과 엑셀",
     description:
-      "연도별 입금 기준 세무 요약, 채널별·클라이언트별 매출을 집계하고 CSV로 내보내 세무 대리인에게 그대로 전달합니다.",
+      "연도별 입금 기준 세무 요약, 채널별·클라이언트별 매출을 집계하고 엑셀로 내보내 세무 대리인에게 그대로 전달합니다.",
     src: "/screenshots/reports.png",
     width: 1400,
     height: 1194,

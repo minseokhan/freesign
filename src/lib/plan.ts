@@ -184,7 +184,7 @@ export async function canSendSignature(
   return { ok: false, plan, reason: "sign_limit", message: SIGN_UPSELL };
 }
 
-/** Pro 전용 기능 게이트(CSV export·고급 대시보드). */
+/** Pro 전용 기능 게이트(Excel export·고급 대시보드). */
 export async function assertProFeature(): Promise<GateResult> {
   const plan = await getUserPlan();
   if (plan === "pro") return { ok: true, plan };

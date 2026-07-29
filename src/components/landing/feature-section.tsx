@@ -73,9 +73,9 @@ const FEATURES: Feature[] = [
     ),
   },
   {
-    title: "매출 리포트 · 세무 정리 CSV",
+    title: "매출 리포트 · 세무 정리 엑셀",
     description:
-      "연도별 입금 기준 세무 요약과 채널별·클라이언트별 매출을 집계합니다. 입금/발행 기준을 명시한 CSV로 세무 대리인에게 그대로 전달해요.",
+      "연도별 입금 기준 세무 요약과 채널별·클라이언트별 매출을 집계합니다. 입금/발행 기준을 명시한 엑셀 파일로 세무 대리인에게 그대로 전달해요.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className={iconClass} aria-hidden="true">
         <path
