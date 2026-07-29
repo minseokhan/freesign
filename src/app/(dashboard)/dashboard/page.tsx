@@ -5,6 +5,7 @@ import Link from "next/link";
 import { UpgradeCard } from "@/components/billing/upgrade-cta";
 import { ChannelBadge } from "@/components/channel-badge";
 import { DemoDataButton } from "@/components/demo-data-button";
+import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { notDeleted } from "@/lib/db";
@@ -200,8 +201,8 @@ export default async function DashboardPage() {
   if (!hasDashboardData) {
     return (
       <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
-        <div aria-hidden="true" className="text-3xl font-semibold text-blue-600">
-          FS
+        <div aria-hidden="true">
+          <Logo className="h-8" />
         </div>
         <div>
           <h2 className="text-lg font-semibold text-text-primary">

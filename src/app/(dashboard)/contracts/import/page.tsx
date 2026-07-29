@@ -56,7 +56,7 @@ export default async function ImportContractPage() {
             href="/clients/new"
             className="inline-flex min-h-11 w-fit items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
           >
-            클라이언트 만들기
+            클라이언트 생성
           </Link>
         </Card>
       ) : null}

@@ -6,6 +6,7 @@ import {
   ContractStatusBadge,
   type ContractStatus,
 } from "@/components/contract-status-badge";
+import { Logo } from "@/components/logo";
 import { Card } from "@/components/ui/card";
 import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
 import { Pagination } from "@/components/pagination";
@@ -100,6 +101,9 @@ export default async function ContractsPage({
   const contracts = (data ?? []) as ContractRow[];
   const totalCount = count ?? 0;
   const totalPages = getTotalPages(totalCount);
+  // 계약이 아예 없는 최초 상태에서는 비어 있는 카드 안의 CTA만 노출한다
+  // (상태 필터 결과가 비었을 뿐인 경우는 헤더 CTA를 유지).
+  const isFirstRun = totalCount === 0 && selectedStatus === null;
 
   const createPageHref = (page: number) => {
     const params = new URLSearchParams();
@@ -128,20 +132,22 @@ export default async function ContractsPage({
             계약 기간, 금액, 상태를 한 화면에서 확인합니다.
           </p>
         </div>
-        <div className="flex flex-col gap-sm sm:flex-row">
-          <Link
-            href="/contracts/new"
-            className={cn(buttonBaseClass, buttonVariants.primary)}
-          >
-            새 계약 작성
-          </Link>
-          <Link
-            href="/contracts/import"
-            className={cn(buttonBaseClass, buttonVariants.secondary)}
-          >
-            기존 계약 불러오기
-          </Link>
-        </div>
+        {isFirstRun ? null : (
+          <div className="flex flex-col gap-sm sm:flex-row">
+            <Link
+              href="/contracts/new"
+              className={cn(buttonBaseClass, buttonVariants.primary)}
+            >
+              새 계약 작성
+            </Link>
+            <Link
+              href="/contracts/import"
+              className={cn(buttonBaseClass, buttonVariants.secondary)}
+            >
+              기존 계약 불러오기
+            </Link>
+          </div>
+        )}
       </div>
 
       <nav aria-label="계약 상태 필터" className="flex flex-wrap gap-sm">
@@ -176,11 +182,8 @@ export default async function ContractsPage({
 
       {totalCount === 0 ? (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
-          <div
-            aria-hidden="true"
-            className="text-3xl font-semibold text-blue-600"
-          >
-            FS
+          <div aria-hidden="true">
+            <Logo className="h-8" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-text-primary">
@@ -191,20 +194,22 @@ export default async function ContractsPage({
               시작점으로 관리할 수 있습니다.
             </p>
           </div>
-          <div className="flex flex-col gap-sm sm:flex-row">
-            <Link
-              href="/contracts/new"
-              className={cn(buttonBaseClass, buttonVariants.primary)}
-            >
-              새 계약 작성
-            </Link>
-            <Link
-              href="/contracts/import"
-              className={cn(buttonBaseClass, buttonVariants.secondary)}
-            >
-              기존 계약 불러오기
-            </Link>
-          </div>
+          {isFirstRun ? (
+            <div className="flex flex-col gap-sm sm:flex-row">
+              <Link
+                href="/contracts/new"
+                className={cn(buttonBaseClass, buttonVariants.primary)}
+              >
+                새 계약 작성
+              </Link>
+              <Link
+                href="/contracts/import"
+                className={cn(buttonBaseClass, buttonVariants.secondary)}
+              >
+                기존 계약 불러오기
+              </Link>
+            </div>
+          ) : null}
         </Card>
       ) : (
         <>

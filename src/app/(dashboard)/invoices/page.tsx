@@ -6,6 +6,7 @@ import {
   PaymentStatusBadge,
   type PaymentStatus,
 } from "@/components/payment-status-badge";
+import { Logo } from "@/components/logo";
 import { Card } from "@/components/ui/card";
 import { Pagination } from "@/components/pagination";
 import { resolveContractLabel } from "@/lib/contract-snapshot";
@@ -108,6 +109,9 @@ export default async function InvoicesPage({
   const invoices = (data ?? []) as InvoiceRow[];
   const totalCount = count ?? 0;
   const totalPages = getTotalPages(totalCount);
+  // 인보이스가 아예 없는 최초 상태에서는 비어 있는 카드 안의 CTA만 노출한다
+  // (정산 상태 필터 결과가 비었을 뿐인 경우는 헤더 CTA를 유지).
+  const isFirstRun = totalCount === 0 && selectedStatus === null;
 
   const createPageHref = (page: number) => {
     const params = new URLSearchParams();
@@ -136,14 +140,16 @@ export default async function InvoicesPage({
             발행일, 지급기한, 정산 상태를 한 화면에서 확인합니다.
           </p>
         </div>
-        <div className="flex flex-wrap gap-sm">
-          <Link
-            href="/contracts"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            계약에서 발행
-          </Link>
-        </div>
+        {isFirstRun ? null : (
+          <div className="flex flex-wrap gap-sm">
+            <Link
+              href="/contracts"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+            >
+              계약에서 발행
+            </Link>
+          </div>
+        )}
       </div>
 
       <nav aria-label="정산 상태 필터" className="flex flex-wrap gap-sm">
@@ -178,11 +184,8 @@ export default async function InvoicesPage({
 
       {totalCount === 0 ? (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
-          <div
-            aria-hidden="true"
-            className="text-3xl font-semibold text-blue-600"
-          >
-            FS
+          <div aria-hidden="true">
+            <Logo className="h-8" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-text-primary">
@@ -193,12 +196,14 @@ export default async function InvoicesPage({
               지급기한을 정산 기록 체인으로 확인할 수 있습니다.
             </p>
           </div>
-          <Link
-            href="/contracts"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            계약 목록 보기
-          </Link>
+          {isFirstRun ? (
+            <Link
+              href="/contracts"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+            >
+              계약에서 발행
+            </Link>
+          ) : null}
         </Card>
       ) : (
         <>

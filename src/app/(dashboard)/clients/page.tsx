@@ -6,6 +6,7 @@ import {
   ChannelBadge,
   type ClientChannel
 } from "@/components/channel-badge";
+import { Logo } from "@/components/logo";
 import { Card } from "@/components/ui/card";
 import { notDeleted } from "@/lib/db";
 import { createClient } from "@/lib/supabase/server";
@@ -57,6 +58,9 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   }
 
   const clients = (data ?? []) as ClientRow[];
+  // 클라이언트가 아예 없는 최초 상태에서는 비어 있는 카드 안의 CTA만 노출한다
+  // (채널 필터 결과가 비었을 뿐인 경우는 헤더 CTA를 유지).
+  const isFirstRun = clients.length === 0 && selectedChannel === null;
 
   return (
     <div className="space-y-xl">
@@ -69,12 +73,14 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
             유입 채널과 연락처를 한 곳에서 확인합니다.
           </p>
         </div>
-        <Link
-          href="/clients/new"
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-        >
-          클라이언트 만들기
-        </Link>
+        {isFirstRun ? null : (
+          <Link
+            href="/clients/new"
+            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+          >
+            클라이언트 생성
+          </Link>
+        )}
       </div>
 
       <nav aria-label="클라이언트 채널 필터" className="flex flex-wrap gap-sm">
@@ -109,11 +115,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
       {clients.length === 0 ? (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
-          <div
-            aria-hidden="true"
-            className="text-3xl font-semibold text-blue-600"
-          >
-            FS
+          <div aria-hidden="true">
+            <Logo className="h-8" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-text-primary">
@@ -124,12 +127,14 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
               채널별로 목록을 빠르게 필터링할 수 있습니다.
             </p>
           </div>
-          <Link
-            href="/clients/new"
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
-          >
-            클라이언트 만들기
-          </Link>
+          {isFirstRun ? (
+            <Link
+              href="/clients/new"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand-primary px-lg py-sm text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
+            >
+              클라이언트 생성
+            </Link>
+          ) : null}
         </Card>
       ) : (
         <Card className="overflow-hidden p-0">

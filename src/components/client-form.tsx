@@ -103,7 +103,7 @@ export function ClientForm({ clientId, defaultValues, mode }: ClientFormProps) {
       <form className="space-y-xl" onSubmit={onSubmit} noValidate>
         <div className="border-b border-surface-border pb-lg">
           <h3 className="text-lg font-semibold text-text-primary">
-            {isEdit ? "클라이언트 수정" : "클라이언트 만들기"}
+            {isEdit ? "클라이언트 수정" : "클라이언트 생성"}
           </h3>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
             계약과 인보이스에 연결할 기본 정보를 입력합니다.
