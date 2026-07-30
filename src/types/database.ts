@@ -961,7 +961,7 @@ export type Database = {
         Returns: number
       }
       store_completion_tsa_token: {
-        Args: { p_token: string; p_token_hash: string }
+        Args: { p_server_secret: string; p_token: string; p_token_hash: string }
         Returns: boolean
       }
       transition_contract_status_with_event: {

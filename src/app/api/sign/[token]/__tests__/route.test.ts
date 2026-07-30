@@ -171,6 +171,8 @@ const posthogCapture = vi.fn();
 describe("POST /api/sign/[token]", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // 0040: 완결 TSA 저장 RPC가 서버 경계 시크릿을 요구한다.
+    vi.stubEnv("CRON_SECRET", "test-cron-secret");
     emailSend.mockResolvedValue({ ok: true });
     timestampStamp.mockResolvedValue({
       token: Buffer.from("tsa-token").toString("base64"),
@@ -309,6 +311,7 @@ describe("POST /api/sign/[token]", () => {
       "store_completion_tsa_token",
       expect.objectContaining({
         p_token: Buffer.from("tsa-token").toString("base64"),
+        p_server_secret: "test-cron-secret",
       }),
     );
 

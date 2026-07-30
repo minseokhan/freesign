@@ -19,10 +19,101 @@ function toHex(bytes: Uint8Array): string {
     .join("");
 }
 
-/** granted(0)/grantedWithMods(1)/rejection(2) 등 status만 담은 최소 TimeStampResp DER */
-function fakeTimeStampResp(status: number): Uint8Array {
+/** status만 담은 최소 TimeStampResp DER(토큰 없음 — rejection 응답 형태) */
+function statusOnlyTimeStampResp(status: number): Uint8Array {
   // SEQUENCE { SEQUENCE { INTEGER status }, <opaque token bytes> }
   return new Uint8Array([0x30, 0x09, 0x30, 0x03, 0x02, 0x01, status, 0x04, 0x02, 0xaa, 0xbb]);
+}
+
+function bytes(...values: number[]): Uint8Array {
+  return new Uint8Array(values);
+}
+
+function concat(...parts: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
+  let offset = 0;
+  for (const part of parts) {
+    out.set(part, offset);
+    offset += part.length;
+  }
+  return out;
+}
+
+function tlv(tag: number, content: Uint8Array): Uint8Array {
+  const length =
+    content.length < 0x80
+      ? bytes(content.length)
+      : bytes(0x82, (content.length >> 8) & 0xff, content.length & 0xff);
+  return concat(bytes(tag), length, content);
+}
+
+function fromHex(hex: string): Uint8Array {
+  const out = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+/** 요청 DER(buildTimeStampReq 산출물)에서 nonce 본문을 꺼낸다. */
+function nonceFromRequest(request: Uint8Array): Uint8Array {
+  // 30 43 | 020101 | 3031 ... | 02 <len> <nonce> | 0101ff
+  const nonceLength = request[57];
+  return request.subarray(58, 58 + nonceLength);
+}
+
+/** messageImprint·nonce가 담긴 TSTInfo를 CMS로 감싼 현실적인 TimeStampResp DER */
+function timeStampResp(
+  status: number,
+  options: { hashHex: string; nonce: Uint8Array },
+): Uint8Array {
+  const sha256AlgorithmIdentifier = fromHex("300d06096086480165030402010500");
+  const messageImprint = tlv(
+    0x30,
+    concat(sha256AlgorithmIdentifier, tlv(0x04, fromHex(options.hashHex))),
+  );
+  const tstInfo = tlv(
+    0x30,
+    concat(
+      fromHex("020101"), // version
+      fromHex("06092a864886f70d010101"), // policy OID(임의)
+      messageImprint,
+      fromHex("020104"), // serialNumber
+      tlv(0x18, new TextEncoder().encode("20260731000000Z")), // genTime
+      tlv(0x02, options.nonce), // nonce
+    ),
+  );
+  const encapContentInfo = tlv(
+    0x30,
+    concat(
+      fromHex("060b2a864886f70d0109100104"), // id-ct-TSTInfo
+      tlv(0xa0, tlv(0x04, tstInfo)),
+    ),
+  );
+  const signedData = tlv(
+    0x30,
+    concat(fromHex("020103"), fromHex("3100"), encapContentInfo),
+  );
+  const contentInfo = tlv(
+    0x30,
+    concat(fromHex("06092a864886f70d010702"), tlv(0xa0, signedData)),
+  );
+
+  return tlv(0x30, concat(tlv(0x30, tlv(0x02, bytes(status))), contentInfo));
+}
+
+/** fetch mock: 요청의 nonce를 그대로 echo 하는 정상 TSA */
+function respondingTsa(status = 0, overrides: { hashHex?: string; nonce?: Uint8Array } = {}) {
+  return vi.fn(async (_url: string, init: RequestInit) => {
+    const request = new Uint8Array(init.body as Uint8Array);
+
+    return derResponse(
+      timeStampResp(status, {
+        hashHex: overrides.hashHex ?? HASH_HEX,
+        nonce: overrides.nonce ?? nonceFromRequest(request),
+      }),
+    );
+  });
 }
 
 function derResponse(body: Uint8Array, status = 200): Response {
@@ -84,8 +175,7 @@ describe("buildTimeStampReq", () => {
 
 describe("createRfc3161TimestampProvider", () => {
   it("POSTs the DER query and returns the raw response as base64 when status is granted(0)", async () => {
-    const respBytes = fakeTimeStampResp(0);
-    const fetchFn = vi.fn().mockResolvedValue(derResponse(respBytes));
+    const fetchFn = respondingTsa(0);
     const provider = createRfc3161TimestampProvider(TSA_URL, fetchFn);
 
     const result = await provider.stamp(HASH_HEX);
@@ -102,26 +192,60 @@ describe("createRfc3161TimestampProvider", () => {
     expect(toHex(body).includes(HASH_HEX)).toBe(true);
 
     expect(result).not.toBeNull();
-    expect(result?.token).toBe(Buffer.from(respBytes).toString("base64"));
+    // 응답 원문이 그대로 base64로 보존된다(외부 재검증용).
+    const expectedToken = timeStampResp(0, {
+      hashHex: HASH_HEX,
+      nonce: nonceFromRequest(body),
+    });
+    expect(result?.token).toBe(Buffer.from(expectedToken).toString("base64"));
     expect(result?.tsaUrl).toBe(TSA_URL);
     expect(typeof result?.stampedAt).toBe("string");
     expect(Number.isNaN(Date.parse(result!.stampedAt))).toBe(false);
   });
 
   it("accepts grantedWithMods(1)", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(derResponse(fakeTimeStampResp(1)));
-    const provider = createRfc3161TimestampProvider(TSA_URL, fetchFn);
+    const provider = createRfc3161TimestampProvider(TSA_URL, respondingTsa(1));
 
     await expect(provider.stamp(HASH_HEX)).resolves.not.toBeNull();
   });
 
   it("returns null when the TSA rejects the request (status >= 2)", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const fetchFn = vi.fn().mockResolvedValue(derResponse(fakeTimeStampResp(2)));
+    const fetchFn = vi.fn().mockResolvedValue(derResponse(statusOnlyTimeStampResp(2)));
     const provider = createRfc3161TimestampProvider(TSA_URL, fetchFn);
 
     await expect(provider.stamp(HASH_HEX)).resolves.toBeNull();
     expect(errorSpy).toHaveBeenCalled();
+  });
+
+  // 0040(#33): 다른 다이제스트·다른 요청에 대한 토큰을 증거로 채택하면 안 된다.
+  it("returns null when the stamped messageImprint is not our digest", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const provider = createRfc3161TimestampProvider(
+      TSA_URL,
+      respondingTsa(0, { hashHex: "11".repeat(32) }),
+    );
+
+    await expect(provider.stamp(HASH_HEX)).resolves.toBeNull();
+    expect(errorSpy).toHaveBeenCalled();
+  });
+
+  it("returns null when the response nonce does not echo the request nonce", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const provider = createRfc3161TimestampProvider(
+      TSA_URL,
+      respondingTsa(0, { nonce: new Uint8Array([0x7f, 0x00, 0x00, 0x01]) }),
+    );
+
+    await expect(provider.stamp(HASH_HEX)).resolves.toBeNull();
+  });
+
+  it("returns null when the granted response carries no parsable timeStampToken", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchFn = vi.fn().mockResolvedValue(derResponse(statusOnlyTimeStampResp(0)));
+    const provider = createRfc3161TimestampProvider(TSA_URL, fetchFn);
+
+    await expect(provider.stamp(HASH_HEX)).resolves.toBeNull();
   });
 
   it("returns null (not throw) when fetch rejects", async () => {
@@ -134,7 +258,7 @@ describe("createRfc3161TimestampProvider", () => {
 
   it("returns null on a non-2xx response", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const fetchFn = vi.fn().mockResolvedValue(derResponse(fakeTimeStampResp(0), 503));
+    const fetchFn = vi.fn().mockResolvedValue(derResponse(statusOnlyTimeStampResp(0), 503));
     const provider = createRfc3161TimestampProvider(TSA_URL, fetchFn);
 
     await expect(provider.stamp(HASH_HEX)).resolves.toBeNull();
@@ -183,7 +307,7 @@ describe("getTimestampProvider", () => {
 
   it("uses the RFC 3161 provider against TSA_URL when set", async () => {
     vi.stubEnv("TSA_URL", TSA_URL);
-    const fetchMock = vi.fn().mockResolvedValue(derResponse(fakeTimeStampResp(0)));
+    const fetchMock = respondingTsa(0);
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = getTimestampProvider();

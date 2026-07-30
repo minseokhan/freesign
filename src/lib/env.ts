@@ -22,7 +22,14 @@ export const emailEnvSchema = z.object({
 });
 
 export const timestampEnvSchema = z.object({
-  TSA_URL: z.string().url().optional(),
+  // https만 허용 — 평문 TSA는 중간자가 임의 타임스탬프 응답을 증거로 심을 수 있다.
+  TSA_URL: z
+    .string()
+    .url()
+    .refine((value) => value.startsWith("https://"), {
+      message: "TSA_URL must use https",
+    })
+    .optional(),
 });
 
 export const cronEnvSchema = z.object({

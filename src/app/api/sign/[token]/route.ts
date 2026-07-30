@@ -10,7 +10,7 @@ import {
   renderCertificatePdf,
   renderContractPdf,
 } from "@/lib/contracts/render-pdf";
-import { getTimestampEnv } from "@/lib/env";
+import { getCronEnv, getTimestampEnv } from "@/lib/env";
 import {
   captureServerException,
   getPostHogClient,
@@ -262,9 +262,14 @@ async function runPostCommitBestEffort(input: {
       const stamped = await getTimestampProvider().stamp(digest);
 
       if (stamped) {
+        // 0040: anon 무검증 주입을 막기 위해 서버 경계 시크릿 게이트를 통과해야 저장된다.
         const { data: stored, error } = await supabase.rpc(
           "store_completion_tsa_token",
-          { p_token_hash: tokenHash, p_token: stamped.token },
+          {
+            p_token_hash: tokenHash,
+            p_token: stamped.token,
+            p_server_secret: getCronEnv().CRON_SECRET,
+          },
         );
 
         if (error || stored !== true) {

@@ -140,6 +140,155 @@ function parsePkiStatus(der: Uint8Array): number {
   return status;
 }
 
+/** TLV 한 개를 읽는다. 반환값의 start/end는 "내용"의 범위(태그·길이 필드 제외). */
+interface DerTlv {
+  tag: number;
+  start: number;
+  end: number;
+}
+
+function readTlv(der: Uint8Array, offset: number): DerTlv {
+  const tag = der[offset];
+  const firstLengthByte = der[offset + 1];
+
+  if (tag === undefined || firstLengthByte === undefined) {
+    throw new Error("Truncated DER");
+  }
+
+  let length: number;
+  let start: number;
+
+  if (firstLengthByte < 0x80) {
+    length = firstLengthByte;
+    start = offset + 2;
+  } else {
+    const lengthBytes = firstLengthByte & 0x7f;
+
+    if (lengthBytes === 0 || lengthBytes > 4) {
+      throw new Error("Unsupported DER length");
+    }
+
+    length = 0;
+    for (let i = 0; i < lengthBytes; i += 1) {
+      const byte = der[offset + 2 + i];
+      if (byte === undefined) throw new Error("Truncated DER length");
+      length = length * 256 + byte;
+    }
+    start = offset + 2 + lengthBytes;
+  }
+
+  const end = start + length;
+
+  if (end > der.length) {
+    throw new Error("Truncated DER content");
+  }
+
+  return { tag, start, end };
+}
+
+function readChildren(der: Uint8Array, parent: DerTlv): DerTlv[] {
+  const children: DerTlv[] = [];
+  let offset = parent.start;
+
+  while (offset < parent.end) {
+    const child = readTlv(der, offset);
+    children.push(child);
+    offset = child.end;
+  }
+
+  return children;
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes)
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function trimLeadingZeros(bytes: Uint8Array): Uint8Array {
+  let start = 0;
+  while (start < bytes.length - 1 && bytes[start] === 0x00) {
+    start += 1;
+  }
+  return bytes.subarray(start);
+}
+
+/**
+ * TimeStampResp에서 TSTInfo(서명 대상 평문) DER를 꺼낸다.
+ * TimeStampResp ::= SEQUENCE { status PKIStatusInfo, timeStampToken ContentInfo OPTIONAL }
+ * ContentInfo   ::= SEQUENCE { contentType OID, [0] EXPLICIT SignedData }
+ * SignedData    ::= SEQUENCE { version, digestAlgorithms, encapContentInfo, ... }
+ * encapContentInfo ::= SEQUENCE { eContentType OID, [0] EXPLICIT OCTET STRING(TSTInfo) }
+ */
+export function extractTstInfo(der: Uint8Array): Uint8Array | null {
+  try {
+    const response = readTlv(der, 0);
+    if (response.tag !== 0x30) return null;
+
+    const contentInfo = readChildren(der, response)[1];
+    if (!contentInfo || contentInfo.tag !== 0x30) return null;
+
+    const signedDataHolder = readChildren(der, contentInfo)[1];
+    if (!signedDataHolder || signedDataHolder.tag !== 0xa0) return null;
+
+    const signedData = readChildren(der, signedDataHolder)[0];
+    if (!signedData || signedData.tag !== 0x30) return null;
+
+    const encapContentInfo = readChildren(der, signedData)[2];
+    if (!encapContentInfo || encapContentInfo.tag !== 0x30) return null;
+
+    const eContent = readChildren(der, encapContentInfo)[1];
+    if (!eContent || eContent.tag !== 0xa0) return null;
+
+    const octetString = readChildren(der, eContent)[0];
+    if (!octetString || octetString.tag !== 0x04) return null;
+
+    return der.subarray(octetString.start, octetString.end);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * TSTInfo가 우리가 보낸 요청에 대한 응답인지 확인한다(재생·오배송·중간자 방어).
+ * TSTInfo ::= SEQUENCE { version, policy, messageImprint, serialNumber, genTime,
+ *                        accuracy?, ordering?, nonce?, tsa?, extensions? }
+ * 서명 검증(TSA 인증서 체인)은 여전히 외부 절차(`openssl ts -verify`) 소관이다 —
+ * 여기서는 "다른 다이제스트/다른 요청에 대한 토큰"을 증거로 채택하지 않게만 막는다.
+ */
+export function verifyTstInfo(
+  tstInfo: Uint8Array,
+  expectedSha256Hex: string,
+  nonce: Uint8Array,
+): boolean {
+  try {
+    const info = readTlv(tstInfo, 0);
+    if (info.tag !== 0x30) return false;
+
+    const fields = readChildren(tstInfo, info);
+    const messageImprint = fields[2];
+    if (!messageImprint || messageImprint.tag !== 0x30) return false;
+
+    const hashedMessage = readChildren(tstInfo, messageImprint)[1];
+    if (!hashedMessage || hashedMessage.tag !== 0x04) return false;
+
+    const stampedHex = toHex(tstInfo.subarray(hashedMessage.start, hashedMessage.end));
+    if (stampedHex !== expectedSha256Hex.toLowerCase()) return false;
+
+    // genTime(index 4) 다음의 첫 INTEGER가 nonce다(accuracy=SEQUENCE, ordering=BOOLEAN).
+    const responseNonce = fields.slice(5).find((field) => field.tag === 0x02);
+    if (!responseNonce) return false;
+
+    const stampedNonce = trimLeadingZeros(
+      tstInfo.subarray(responseNonce.start, responseNonce.end),
+    );
+
+    return toHex(stampedNonce) === toHex(trimLeadingZeros(nonce));
+  } catch {
+    return false;
+  }
+}
+
 export function createRfc3161TimestampProvider(
   url: string,
   fetchFn: typeof fetch = fetch,
@@ -147,7 +296,8 @@ export function createRfc3161TimestampProvider(
   return {
     async stamp(sha256Hex) {
       try {
-        const request = buildTimeStampReq(sha256Hex, randomBytes(8));
+        const nonce = randomBytes(8);
+        const request = buildTimeStampReq(sha256Hex, nonce);
 
         const response = await fetchFn(url, {
           method: "POST",
@@ -162,14 +312,28 @@ export function createRfc3161TimestampProvider(
         }
 
         const body = new Uint8Array(await response.arrayBuffer());
-        // status가 granted(0)/grantedWithMods(1)인지 최소 확인만 하고 응답 원문을 base64로 보존한다.
-        // TST 토큰 심층 파싱·검증은 하지 않는다 — 검증은 `openssl ts -verify -in <resp.der> -queryfile <req.der> ...` 외부 절차로 수행.
+        // 1) PKIStatus가 granted(0)/grantedWithMods(1)인지 확인.
         const status = parsePkiStatus(body);
         if (status !== 0 && status !== 1) {
           console.error(`[timestamp] TSA rejected the request: PKIStatus=${status} (${url})`);
           return null;
         }
 
+        // 2) 토큰이 "이 요청"에 대한 것인지 확인(messageImprint·nonce 일치).
+        //    불일치 토큰을 증거로 저장하면 분쟁 시 openssl 검증에서야 무효가 드러난다.
+        //    서명자 인증서 체인 검증은 여전히 외부 절차 소관이다.
+        const tstInfo = extractTstInfo(body);
+        if (!tstInfo) {
+          console.error(`[timestamp] TSA response has no parsable TSTInfo (${url})`);
+          return null;
+        }
+
+        if (!verifyTstInfo(tstInfo, sha256Hex, nonce)) {
+          console.error(`[timestamp] TSA response does not match the request (${url})`);
+          return null;
+        }
+
+        // 응답 원문을 base64로 보존한다(재검증은 `openssl ts -verify -in <resp.der> ...`).
         return {
           token: Buffer.from(body).toString("base64"),
           tsaUrl: url,

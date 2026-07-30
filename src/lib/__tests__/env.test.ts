@@ -3,6 +3,7 @@ import {
   parseAnthropicEnv,
   parsePublicEnv,
   parseServerEnv,
+  parseTimestampEnv,
   publicEnvSchema,
   serverEnvSchema,
 } from "@/lib/env";
@@ -69,6 +70,17 @@ describe("env runtime validation", () => {
       }),
     ).toThrow(
       "Invalid public environment variables: NEXT_PUBLIC_SUPABASE_URL",
+    );
+  });
+
+  // 0040(#33): 평문 TSA는 중간자가 임의 타임스탬프를 증거로 심을 수 있다.
+  it("rejects a non-https TSA_URL", () => {
+    expect(parseTimestampEnv({ TSA_URL: "https://freetsa.org/tsr" })).toEqual({
+      TSA_URL: "https://freetsa.org/tsr",
+    });
+    expect(parseTimestampEnv({})).toEqual({});
+    expect(() => parseTimestampEnv({ TSA_URL: "http://freetsa.org/tsr" })).toThrow(
+      /TSA_URL/,
     );
   });
 });

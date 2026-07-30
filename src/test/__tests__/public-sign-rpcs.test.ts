@@ -23,9 +23,16 @@ describe("public sign RPCs (0020)", () => {
   const OWNER_SIGNATURE_IMAGE_DATA =
     "data:image/png;base64," + Buffer.from("owner-png").toString("base64");
   const TSA_TOKEN = Buffer.from("timestamp-token").toString("base64");
+  // 0040: 완결 TSA 저장은 anon 무검증이 아니라 서버 경계 시크릿 게이트를 통과해야 한다.
+  const SERVER_SECRET = "test-cron-secret";
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: inject("pgConnectionString") });
+    await pool.query(
+      `insert into cron_config (id, cron_secret) values (true, $1)
+       on conflict (id) do update set cron_secret = excluded.cron_secret`,
+      [SERVER_SECRET],
+    );
     userA = await createUser(pool, OWNER_EMAIL);
 
     const clientResult = await runAs<{ id: string }>(
@@ -118,8 +125,8 @@ describe("public sign RPCs (0020)", () => {
   async function storeTsaTokenAsAnon(tokenHash: string, tsaToken = TSA_TOKEN) {
     const result = await runAsAnon<{ ok: boolean }>(
       pool,
-      "select store_completion_tsa_token($1, $2) as ok",
-      [tokenHash, tsaToken],
+      "select store_completion_tsa_token($1, $2, $3) as ok",
+      [tokenHash, tsaToken, SERVER_SECRET],
     );
 
     return result.rows[0].ok;
@@ -173,6 +180,38 @@ describe("public sign RPCs (0020)", () => {
         [requestId],
       );
       expect(stored.rows[0].completion_tsa_token).toBeNull();
+    });
+
+    // 0040 회귀: 서버 시크릿 없이(=토큰 소지자가 직접) 증거를 선점할 수 없어야 한다.
+    it("rejects calls without the server secret gate", async () => {
+      const contractId = await insertContractAs();
+      const { requestId, tokenHash } = await sendRequestAs(contractId);
+      await completeAsAnon(tokenHash);
+
+      await expect(
+        runAsAnon(
+          pool,
+          "select store_completion_tsa_token($1, $2, $3) as ok",
+          [tokenHash, Buffer.from("attacker-blob").toString("base64"), "wrong-secret"],
+        ),
+      ).rejects.toThrow(/unauthorized cron call/);
+
+      const stored = await pool.query<{ completion_tsa_token: string | null }>(
+        "select completion_tsa_token from signature_requests where id = $1",
+        [requestId],
+      );
+      expect(stored.rows[0].completion_tsa_token).toBeNull();
+    });
+
+    it("no longer exposes the ungated two-argument signature", async () => {
+      const exists = await pool.query<{ n: string }>(
+        `select count(*) as n
+         from pg_proc
+         where proname = 'store_completion_tsa_token'
+           and pronargs = 2`,
+      );
+
+      expect(exists.rows[0].n).toBe("0");
     });
 
     it("rejects malformed or oversized tokens", async () => {
