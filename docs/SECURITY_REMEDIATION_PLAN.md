@@ -35,27 +35,31 @@
 | 30 · 36 | High | 상태 전이 RPC DEFINER 전환 + 증거·감사 테이블 `revoke insert` | 완료 (0035·0036) |
 | 23 · 45 | Medium | 폐기된 단독 서명 엔드포인트 제거(+`sign_contract_with_event` drop) | 완료 (0035) — 배치 3에서 앞당김 |
 | 38 · 46 | Medium | 독촉 이벤트 INSERT 실패 무시 → RPC 전환하며 로깅 추가 | 완료 (0036) |
-| 31 · 6 | High/Medium | `contracts`·`invoices` 컬럼 수준 UPDATE 권한 | **잔여** — 배치 2-b |
+| 31 · 6 | High/Medium | `contracts`·`invoices` 컬럼 수준 UPDATE 권한 | 완료 (0037 · 커밋 6bbd47d) |
 
-### 배치 2-b (다음)
-`revoke update on contracts/invoices` + 도메인 컬럼만 `grant update(...)`. 선행 조건이던 RPC DEFINER 전환은 0035에서 끝났고, 남은 직접 쓰기 경로 2곳을 먼저 옮겨야 한다:
-- `src/app/api/contracts/[id]/pdf/route.ts` → `contracts.contract_pdf_url`
-- `src/app/(dashboard)/contracts/actions.ts` → 계약 삭제 시 `invoices.contract_snapshot`
+**여기까지 Critical 1건 + High 13건 전부 완료.** 커밋 335a314 · 6a454c5 · f6596f0 · 6bbd47d,
+마이그레이션 0032~0037 원격(jbfxkcjeoqwcdsxuemug) 적용·검증 완료.
 
-함께 처리: 증거 테이블의 잔여 `UPDATE`/`DELETE` grant 회수(현재는 정책 부재로만 차단됨).
-
-## 배치 3 — Medium
+## 배치 3 — Medium (다음 세션 시작 지점)
 
 | # | 항목 |
 |---|---|
-| 7 | 크론 DEFINER RPC의 invoices→clients/contracts 테넌트 조인 |
-| 17 | 완결 TSA 토큰이 anon 경계에서 무검증 주입·선점 |
-| 19 | PDF 추출 텍스트의 2차 프롬프트 인젝션 |
-| 28 | Supabase 세션 쿠키 HttpOnly·Secure |
-| 32 | `is_demo` 클라이언트 쓰기 → 데모 삭제 정책 악용 |
-| 37 | 크론 스윕 실패가 200 `ok:true`로 보고 |
+| 7 | 크론 DEFINER RPC의 invoices→clients/contracts 테넌트 조인 (`0031:44`·`0029:58`) |
+| 32 | `is_demo` 클라이언트 쓰기 + contracts/invoices **INSERT 컬럼 제한** — 0037에서 분리해 둔 항목. 데모 시드(`src/app/(dashboard)/demo/actions.ts`)를 DEFINER RPC로 옮겨야 한다 |
+| 17 | 완결 TSA 토큰이 anon 경계에서 무검증 주입·선점 (`0020:32`) |
+| 19 | PDF 추출 텍스트의 2차 프롬프트 인젝션 (`src/services/ai/contract-draft.ts:195`) |
+| 28 | Supabase 세션 쿠키 HttpOnly·Secure (`src/lib/supabase/server.ts:11`) |
+| 37 | 크론 스윕 실패가 200 `ok:true`로 보고 (`src/app/api/cron/daily/route.ts:23`) |
 | 41 · 42 · 43 · 44 | fail-open 게이트 · 발송 실패의 성공 처리 |
-| 10 | jsDelivr 외부 CSS 버전 미고정 + SRI 부재 |
+| 10 | jsDelivr 외부 CSS 버전 미고정 + SRI 부재 (`src/app/layout.tsx:36`) |
+
+## 작업 방식 메모 (다음 세션용)
+
+- **역검증 필수**: 새 회귀 테스트를 쓰면 해당 마이그레이션 파일을 잠깐 빼고 돌려 실제로 실패하는지 확인한다. 0032·0034에서 이 방식으로 테스트가 의미 있는지 확인했다.
+- **테스트 하네스의 한계**: `src/test/pg.ts:124 grantSupabaseRoles()`가 마이그레이션 적용 후 모든 테이블 권한을 다시 부여한다. 즉 `revoke`(테이블·컬럼 권한)는 로컬 테스트로 검증 불가 — 원격에서 `information_schema.role_table_grants` / `column_privileges` 조회로 확인할 것.
+- **원격 반영**: git 커밋만으로는 안 되고 `mcp__supabase__apply_migration`을 순서대로 호출해야 한다.
+- **미확인 사항**: 0035~0037 적용 후 실제 서명 발송 → `/sign/{token}` 열람 → 완결 → PDF 교부 플로우를 브라우저로 한 번도 태우지 않았다. DEFINER 전환이 정상 경로에 미치는 영향은 SQL 테스트로만 확인된 상태다. 다음 세션에서 우선 확인 권장.
+- E2E(`npx playwright test`)는 **dev 서버 대상**으로만 동작한다 — `/dev/test-login`이 `NODE_ENV=production`에서 404다. dev 첫 컴파일이 느려 `--timeout=600000`을 주고, 서명 발송 Server Action은 외부 TSA·Resend 호출로 30초 가까이 걸린다(Resend 키는 403 상태).
 
 ## 배치 4 — Low · Info
 
