@@ -36,7 +36,6 @@ const MAX_SOURCE_PDF_SIZE_BYTES = 5 * 1024 * 1024;
 
 type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
 type ContractUpdate = Database["public"]["Tables"]["contracts"]["Update"];
-type InvoiceUpdate = Database["public"]["Tables"]["invoices"]["Update"];
 type ContractActionField =
   | keyof ContractDraftInput
   | keyof ContractClausesInput
@@ -217,7 +216,6 @@ export async function createContractDraft(
     amount: parsed.amount,
     start_date: parsed.start_date,
     end_date: parsed.end_date,
-    status: "draft",
     clauses,
     // 계약 전체 평문요약은 조항별 복제 대신 계약 레벨에 1회만 저장한다.
     plain_summary: draft.plain_summary,
@@ -565,17 +563,10 @@ export async function deleteContract(id: string): Promise<ContractActionResult> 
 
   // 1) 인보이스에 삭제 시점 계약 스냅샷을 남긴다(아직 계약이 살아있는 동안 contract_id로 매칭).
   //    맥락 없는 고아 인보이스를 막아 세금·분쟁 시 "왜 받았는지"를 자기설명하게 한다.
-  const contractSnapshot = {
-    title: contract.title,
-    amount: contract.amount,
-    start_date: contract.start_date,
-    end_date: contract.end_date,
-  } satisfies Json;
-
-  const { error: snapshotError } = await supabase
-    .from("invoices")
-    .update({ contract_snapshot: contractSnapshot } satisfies InvoiceUpdate)
-    .eq("contract_id", id);
+  //    contract_snapshot은 서버 소유 필드라 값도 클라이언트가 넘기지 않고 RPC가 계약 행에서 만든다.
+  const { error: snapshotError } = await supabase.rpc("snapshot_invoices_for_contract", {
+    p_contract_id: id,
+  });
 
   if (snapshotError) {
     return dbError(snapshotError);

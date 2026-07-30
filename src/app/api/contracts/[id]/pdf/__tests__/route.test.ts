@@ -92,13 +92,6 @@ function createSignatureQuery(row: typeof counterpartySignatureRow | null) {
   };
 }
 
-function createUpdateQuery() {
-  const eq = vi.fn().mockResolvedValue({ error: null });
-  const update = vi.fn().mockReturnValue({ eq });
-
-  return { update, eq };
-}
-
 function createStorage() {
   const download = vi.fn().mockResolvedValue({
     data: {
@@ -130,11 +123,13 @@ describe("GET /api/contracts/[id]/pdf", () => {
 
   it("renders, uploads, stores only the private PDF key, and returns PDF bytes", async () => {
     const readQuery = createReadQuery();
-    const updateQuery = createUpdateQuery();
+    // 0037: contract_pdf_url은 서버 소유 필드라 컬럼 UPDATE 권한이 없다 → DEFINER RPC로 기록.
+    const rpc = vi.fn().mockResolvedValue({ data: "contract-1", error: null });
     const signatureQuery = createSignatureQuery(counterpartySignatureRow);
     const storage = createStorage();
     const supabase = {
       storage,
+      rpc,
       from: vi.fn((table: string) => {
         if (table === "contract_signatures") {
           return signatureQuery;
@@ -144,10 +139,7 @@ describe("GET /api/contracts/[id]/pdf", () => {
           throw new Error(`Unexpected table: ${table}`);
         }
 
-        return supabase.from.mock.calls.filter(([name]) => name === "contracts")
-          .length === 1
-          ? readQuery
-          : updateQuery;
+        return readQuery;
       }),
     };
     vi.mocked(createSupabaseClient).mockResolvedValue(
@@ -193,10 +185,10 @@ describe("GET /api/contracts/[id]/pdf", () => {
         upsert: true,
       }),
     );
-    expect(updateQuery.update).toHaveBeenCalledWith({
-      contract_pdf_url: "user-123/contract-1/contract.pdf",
+    expect(rpc).toHaveBeenCalledWith("set_contract_pdf_url", {
+      p_contract_id: "contract-1",
+      p_pdf_key: "user-123/contract-1/contract.pdf",
     });
-    expect(updateQuery.eq).toHaveBeenCalledWith("id", "contract-1");
     expect(response.headers.get("x-freesign-pdf-storage-key")).toBe(
       "user-123/contract-1/contract.pdf",
     );

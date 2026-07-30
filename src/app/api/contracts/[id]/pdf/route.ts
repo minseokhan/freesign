@@ -128,10 +128,12 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { error: updateError } = await supabase
-    .from("contracts")
-    .update({ contract_pdf_url: contractPdfKey })
-    .eq("id", contract.id);
+  // contract_pdf_url은 서버 소유 필드다. 0037에서 컬럼 UPDATE 권한을 회수했으므로
+  // 소유권을 재확인하는 DEFINER RPC로만 기록한다.
+  const { error: updateError } = await supabase.rpc("set_contract_pdf_url", {
+    p_contract_id: contract.id,
+    p_pdf_key: contractPdfKey,
+  });
 
   if (updateError) {
     await captureServerException(updateError, user.id, {

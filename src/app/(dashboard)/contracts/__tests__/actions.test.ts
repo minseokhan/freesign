@@ -221,11 +221,11 @@ describe("contract draft server actions", () => {
         amount: validInput.amount,
         start_date: validInput.start_date,
         end_date: validInput.end_date,
-        status: "draft",
         // 계약 전체 요약은 계약 레벨 컬럼에 1회만 저장한다.
         plain_summary: "서버 생성 요약입니다.",
       }),
     );
+    expect(insertTable.insert.mock.calls[0][0]).not.toHaveProperty("status");
     expect(insertTable.insert.mock.calls[0][0]).not.toHaveProperty("doc_hash");
     expect(insertTable.insert.mock.calls[0][0]).not.toHaveProperty("is_demo");
     expect(insertTable.insert.mock.calls[0][0].clauses).toEqual(
@@ -268,9 +268,9 @@ describe("contract draft server actions", () => {
       expect.objectContaining({
         title: validInput.title,
         clauses: expect.any(Array),
-        status: "draft",
       }),
     );
+    expect(updateTable.update.mock.calls[0][0]).not.toHaveProperty("status");
     expect(updateTable.eq).toHaveBeenCalledWith("id", "contract-1");
     expect(updateTable).not.toHaveProperty("insert");
   });
@@ -323,7 +323,6 @@ describe("contract draft server actions", () => {
     expect(insertTable.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         title: validInput.title,
-        status: "draft",
       }),
     );
   });
@@ -748,11 +747,11 @@ describe("contract draft server actions", () => {
       eq: vi.fn().mockReturnThis(),
       maybeSingle: vi.fn().mockResolvedValue({ data: contractData, error: null }),
     };
-    const invoiceUpdateEq = vi.fn().mockImplementation(() => {
+    // 0037: contract_snapshot은 컬럼 UPDATE 권한이 회수돼 DEFINER RPC로만 기록된다.
+    const snapshotRpc = vi.fn().mockImplementation(() => {
       calls.push("invoices.snapshot");
-      return Promise.resolve({ error: null });
+      return Promise.resolve({ data: 1, error: null });
     });
-    const invoiceUpdate = vi.fn().mockReturnValue({ eq: invoiceUpdateEq });
     const deleteEq = vi.fn().mockImplementation(() => {
       calls.push("contracts.delete");
       return Promise.resolve({ error: null });
@@ -764,9 +763,9 @@ describe("contract draft server actions", () => {
     });
     const storageFrom = vi.fn().mockReturnValue({ remove });
     const supabase = {
+      rpc: snapshotRpc,
       from: vi.fn((table: string) => {
         if (table === "contract_signatures") return counterpartyQuery;
-        if (table === "invoices") return { update: invoiceUpdate };
         const contractCalls = supabase.from.mock.calls.filter(
           ([name]) => name === "contracts",
         ).length;
@@ -779,8 +778,7 @@ describe("contract draft server actions", () => {
       calls,
       supabase,
       counterpartyQuery,
-      invoiceUpdate,
-      invoiceUpdateEq,
+      snapshotRpc,
       contractDelete,
       deleteEq,
       storageFrom,
@@ -808,7 +806,7 @@ describe("contract draft server actions", () => {
       "counterparty",
     );
     // 삭제 절차(스냅샷·물리 삭제·Storage 정리)가 하나도 실행되지 않아야 한다.
-    expect(mocks.invoiceUpdate).not.toHaveBeenCalled();
+    expect(mocks.snapshotRpc).not.toHaveBeenCalled();
     expect(mocks.contractDelete).not.toHaveBeenCalled();
     expect(mocks.storageFrom).not.toHaveBeenCalled();
     expect(revalidatePath).not.toHaveBeenCalled();
@@ -830,15 +828,10 @@ describe("contract draft server actions", () => {
       "contracts",
       "contract-1",
     );
-    expect(mocks.invoiceUpdate).toHaveBeenCalledWith({
-      contract_snapshot: {
-        title: "삭제될 계약",
-        amount: 3_000_000,
-        start_date: "2026-08-01",
-        end_date: "2026-08-31",
-      },
+    // 스냅샷 값은 클라이언트가 넘기지 않는다 — RPC가 계약 행에서 직접 만든다.
+    expect(mocks.snapshotRpc).toHaveBeenCalledWith("snapshot_invoices_for_contract", {
+      p_contract_id: "contract-1",
     });
-    expect(mocks.invoiceUpdateEq).toHaveBeenCalledWith("contract_id", "contract-1");
     expect(mocks.deleteEq).toHaveBeenCalledWith("id", "contract-1");
     expect(mocks.storageFrom).toHaveBeenCalledWith("contract-artifacts");
     // 원본 PDF 키(source_pdf_url)는 null이라 제거 대상에서 제외된다.

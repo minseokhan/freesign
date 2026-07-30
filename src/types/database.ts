@@ -948,6 +948,14 @@ export type Database = {
         }
         Returns: string
       }
+      set_contract_pdf_url: {
+        Args: { p_contract_id: string; p_pdf_key: string }
+        Returns: string
+      }
+      snapshot_invoices_for_contract: {
+        Args: { p_contract_id: string }
+        Returns: number
+      }
       store_completion_tsa_token: {
         Args: { p_token: string; p_token_hash: string }
         Returns: boolean
