@@ -127,4 +127,22 @@ describe("getEmailProvider", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(infoSpy).toHaveBeenCalled();
   });
+
+  // 콘솔 폴백은 본문 전문(= 원문 서명 토큰이 든 /sign/ URL)을 로그에 남긴다.
+  // 프로덕션에서 이게 돌면 로그 열람자가 미사용 서명 토큰을 그대로 획득한다.
+  it("프로덕션에서 RESEND_API_KEY가 없으면 콘솔 폴백 대신 fail-closed로 실패한다", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("RESEND_API_KEY", "");
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    const provider = getEmailProvider();
+    const result = await provider.send(message);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/not configured/);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(infoSpy).not.toHaveBeenCalled();
+  });
 });

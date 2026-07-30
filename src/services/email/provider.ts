@@ -89,11 +89,26 @@ export function createConsoleEmailProvider(): EmailProvider {
   };
 }
 
+// 미설정 프로바이더. 콘솔 폴백은 본문 전문(원문 서명 토큰이 든 /sign/ URL)을 로그에 남기므로
+// 프로덕션에서는 폴백하지 않고 실패를 그대로 알린다. 발송은 best-effort라 호출자는 이 실패로
+// 트랜잭션을 되돌리지 않고 재발송 버튼으로 복구한다.
+export function createUnconfiguredEmailProvider(): EmailProvider {
+  return {
+    async send() {
+      return { ok: false, error: "email provider not configured" };
+    },
+  };
+}
+
 export function getEmailProvider(): EmailProvider {
   const env = getEmailEnv();
 
   if (env.RESEND_API_KEY) {
     return createResendEmailProvider(env.RESEND_API_KEY, env.EMAIL_FROM ?? DEFAULT_FROM);
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    return createUnconfiguredEmailProvider();
   }
 
   return createConsoleEmailProvider();
