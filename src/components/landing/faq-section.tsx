@@ -37,11 +37,6 @@ export const FAQ_ITEMS: readonly FaqItem[] = [
     question: "Pro는 얼마인가요? 해지하면 데이터는 어떻게 되나요?",
     answer: `Pro는 월 ${formatKRW(PRO_PRICE_KRW)}이고 언제든 해지할 수 있습니다. 해지해도 계약·인보이스·입금 기록은 삭제되지 않고, 남은 결제 기간까지는 Pro 기능을 그대로 쓸 수 있습니다. 기간이 끝나면 Free 기능으로 계속 열람합니다.`,
   },
-  {
-    question: "내 데이터는 안전한가요?",
-    answer:
-      "모든 데이터는 Postgres 행 수준 보안(RLS)으로 계정별로 격리되고, 계약서·서명 이미지 같은 파일은 비공개 저장소에 두고 필요할 때만 짧게 유효한 링크로 내려받습니다. 다른 사용자는 물론 서버 코드도 로그인한 본인 범위 밖의 데이터를 읽지 못합니다.",
-  },
 ];
 
 export function FaqSection() {

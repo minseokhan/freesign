@@ -1,8 +1,5 @@
-import Link from "next/link";
-
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
 import { formatKRW } from "@/lib/metrics";
 import {
   FREE_FEATURES,
@@ -10,11 +7,6 @@ import {
   PRO_PRICE_KRW,
 } from "@/lib/plan-features";
 import { cn } from "@/lib/utils";
-
-type PricingSectionProps = {
-  ctaHref: string;
-  ctaLabel: string;
-};
 
 function CheckIcon() {
   return (
@@ -41,16 +33,12 @@ function PlanCard({
   caption,
   features,
   highlighted,
-  ctaHref,
-  ctaLabel,
 }: {
   name: string;
   price: number;
   caption: string;
   features: readonly string[];
   highlighted: boolean;
-  ctaHref: string;
-  ctaLabel: string;
 }) {
   return (
     <Card
@@ -84,28 +72,15 @@ function PlanCard({
           </li>
         ))}
       </ul>
-
-      <div className="mt-auto pt-sm">
-        <Link
-          href={ctaHref}
-          className={cn(
-            buttonBaseClass,
-            highlighted ? buttonVariants.primary : buttonVariants.secondary,
-            "w-full",
-          )}
-        >
-          {ctaLabel}
-        </Link>
-      </div>
     </Card>
   );
 }
 
 /**
- * 공개 랜딩용 요금제 비교. 앱 내부 `/billing`과 같은 목록(plan-features.ts)을 쓰되,
- * 비로그인 방문자에게는 결제 대신 가입 CTA만 건다(결제는 로그인 후 Polar 체크아웃).
+ * 공개 랜딩용 요금제 비교. 앱 내부 `/billing`과 같은 목록(plan-features.ts)을 쓴다.
+ * 카드 안에는 CTA를 두지 않는다(시작·결제는 히어로와 하단 CTA에서만).
  */
-export function PricingSection({ ctaHref, ctaLabel }: PricingSectionProps) {
+export function PricingSection() {
   return (
     <section
       id="pricing"
@@ -132,8 +107,6 @@ export function PricingSection({ ctaHref, ctaLabel }: PricingSectionProps) {
           caption="계약 한 건으로 서명부터 청구까지 흐름을 그대로 확인해 볼 수 있어요."
           features={FREE_FEATURES}
           highlighted={false}
-          ctaHref={ctaHref}
-          ctaLabel={ctaLabel}
         />
         <PlanCard
           name="Pro"
@@ -141,8 +114,6 @@ export function PricingSection({ ctaHref, ctaLabel }: PricingSectionProps) {
           caption="Free의 모든 기능에 더해, 반복 청구와 미수금 회수까지 자동으로 굴러가요."
           features={PRO_FEATURES}
           highlighted
-          ctaHref={ctaHref}
-          ctaLabel={ctaLabel}
         />
       </div>
 

@@ -6,7 +6,6 @@ import { FAQ_ITEMS, FaqSection } from "@/components/landing/faq-section";
 import { FeatureSection } from "@/components/landing/feature-section";
 import { FlowWalkthrough } from "@/components/landing/flow-walkthrough";
 import { LandingHeader } from "@/components/landing/landing-header";
-import { MenuGallery } from "@/components/landing/menu-gallery";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { TrustSection } from "@/components/landing/trust-section";
 import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
@@ -111,47 +110,29 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* Product screens by menu */}
-        <section className="border-t border-surface-border bg-white">
-          <div className="mx-auto max-w-6xl px-lg py-3xl">
-            <div className="max-w-2xl">
-              <h2 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
-                메뉴별 실제 화면 미리보기
-              </h2>
-              <p className="mt-md text-sm leading-relaxed text-text-body sm:text-base">
-                대시보드부터 리포트까지, FreeSign의 각 메뉴가 실제로 어떻게
-                보이는지 확인해 보세요. 모두 실제 제품 화면입니다.
-              </p>
-            </div>
-            <div className="mt-2xl">
-              <MenuGallery />
-            </div>
-          </div>
-        </section>
-
         {/* Features */}
-        <section className="border-t border-surface-border bg-surface-page">
+        <section className="border-t border-surface-border bg-white">
           <div className="mx-auto max-w-6xl px-lg py-3xl">
             <FeatureSection />
           </div>
         </section>
 
         {/* Pricing */}
-        <section className="border-t border-surface-border bg-white">
+        <section className="border-t border-surface-border bg-surface-page">
           <div className="mx-auto max-w-6xl px-lg py-3xl">
-            <PricingSection ctaHref={cta.href} ctaLabel={cta.label} />
+            <PricingSection />
           </div>
         </section>
 
         {/* FAQ */}
-        <section className="border-t border-surface-border bg-surface-page">
+        <section className="border-t border-surface-border bg-white">
           <div className="mx-auto max-w-6xl px-lg py-3xl">
             <FaqSection />
           </div>
         </section>
 
         {/* Closing CTA */}
-        <section className="border-t border-surface-border bg-white">
+        <section className="border-t border-surface-border bg-surface-page">
           <div className="mx-auto flex max-w-6xl flex-col items-center gap-lg px-lg py-3xl text-center">
             <h2 className="text-2xl font-semibold tracking-tight text-text-primary sm:text-3xl">
               지금 바로 정산을 정리하세요
