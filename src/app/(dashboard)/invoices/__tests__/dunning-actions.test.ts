@@ -42,9 +42,10 @@ function makeSupabase(rows: {
     dunning_reminders: tableBuilder(rows.reminder),
     invoices: tableBuilder(rows.invoice),
     clients: tableBuilder(rows.client),
-    invoice_events: tableBuilder(null),
   };
-  return { from: vi.fn((t: string) => builders[t]), _builders: builders };
+  // 0036: 발송 이력은 invoice_events 직접 INSERT가 아니라 append_invoice_event RPC로 남긴다.
+  const rpc = vi.fn(() => Promise.resolve({ data: "event-1", error: null }));
+  return { from: vi.fn((t: string) => builders[t]), rpc, _builders: builders, _rpc: rpc };
 }
 
 describe("approveAndSendDunning", () => {
@@ -94,8 +95,13 @@ describe("approveAndSendDunning", () => {
     );
     expect((supabase._builders.dunning_reminders as { update: ReturnType<typeof vi.fn> }).update)
       .toHaveBeenCalledWith(expect.objectContaining({ status: "sent" }));
-    expect((supabase._builders.invoice_events as { insert: ReturnType<typeof vi.fn> }).insert)
-      .toHaveBeenCalledWith(expect.objectContaining({ event_type: "invoice.dunning_sent" }));
+    expect(supabase._rpc).toHaveBeenCalledWith(
+      "append_invoice_event",
+      expect.objectContaining({
+        p_invoice_id: "inv-1",
+        p_event_type: "invoice.dunning_sent",
+      }),
+    );
   });
 
   it("클라이언트 이메일이 없으면 발송하지 않고 실패", async () => {

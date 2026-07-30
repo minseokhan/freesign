@@ -13,10 +13,6 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 type ClientInsert = Database["public"]["Tables"]["clients"]["Insert"];
 type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
 type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"];
-type ContractEventInsert =
-  Database["public"]["Tables"]["contract_events"]["Insert"];
-type InvoiceEventInsert =
-  Database["public"]["Tables"]["invoice_events"]["Insert"];
 
 const demoClauses = [
   {
@@ -136,41 +132,33 @@ export async function seedDemoData(): Promise<ActionResult> {
     return dbError(invoiceError);
   }
 
-  const contractEventPayload = {
-    user_id: user.id,
-    contract_id: contract.id,
-    actor: user.id,
-    from_status: null,
-    to_status: "signed",
-    event_type: "contract.demo_seeded",
-    meta: {
-      client_id: client.id,
-    },
-  } satisfies ContractEventInsert;
-  const { error: contractEventError } = await supabase
-    .from("contract_events")
-    .insert(contractEventPayload);
+  // 감사 이벤트는 클라이언트 직접 INSERT 표면을 없앤 뒤(0036) DEFINER RPC로만 기록한다.
+  // RPC가 부모 소유권을 auth.uid()로 재확인하고 user_id를 서버에서 채운다.
+  const { error: contractEventError } = await supabase.rpc("append_contract_event", {
+    p_contract_id: contract.id,
+    p_actor: user.id,
+    p_from_status: null,
+    p_to_status: "signed",
+    p_event_type: "contract.demo_seeded",
+    p_meta: { client_id: client.id },
+  });
 
   if (contractEventError) {
     return dbError(contractEventError);
   }
 
-  const invoiceEventPayload = {
-    user_id: user.id,
-    invoice_id: invoice.id,
-    actor: user.id,
-    from_status: null,
-    to_status: "paid",
-    event_type: "invoice.demo_seeded",
-    meta: {
+  const { error: invoiceEventError } = await supabase.rpc("append_invoice_event", {
+    p_invoice_id: invoice.id,
+    p_actor: user.id,
+    p_from_status: null,
+    p_to_status: "paid",
+    p_event_type: "invoice.demo_seeded",
+    p_meta: {
       contract_id: contract.id,
       client_id: client.id,
       payment_method: "bank_transfer",
     },
-  } satisfies InvoiceEventInsert;
-  const { error: invoiceEventError } = await supabase
-    .from("invoice_events")
-    .insert(invoiceEventPayload);
+  });
 
   if (invoiceEventError) {
     return dbError(invoiceEventError);

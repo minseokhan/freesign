@@ -95,17 +95,14 @@ describe("demo data server actions", () => {
       "contracts.insert",
     );
     const invoicesInsert = createInsertTableMock("invoice-1", calls, "invoices.insert");
-    const contractEventsInsert = createInsertTableMock(
-      "contract-event-1",
-      calls,
-      "contract_events.insert",
-    );
-    const invoiceEventsInsert = createInsertTableMock(
-      "invoice-event-1",
-      calls,
-      "invoice_events.insert",
-    );
+    // 0036: 감사 이벤트는 테이블 INSERT가 아니라 append_* DEFINER RPC로 기록한다.
+    const rpc = vi.fn((name: string) => {
+      calls.push(`rpc.${name}`);
+
+      return Promise.resolve({ data: "event-1", error: null });
+    });
     const supabase = {
+      rpc,
       from: vi.fn((table: string) => {
         if (table === "clients") {
           return supabase.from.mock.calls.filter(([name]) => name === "clients")
@@ -115,8 +112,6 @@ describe("demo data server actions", () => {
         }
         if (table === "contracts") return contractsInsert;
         if (table === "invoices") return invoicesInsert;
-        if (table === "contract_events") return contractEventsInsert;
-        if (table === "invoice_events") return invoiceEventsInsert;
         throw new Error(`Unexpected table: ${table}`);
       }),
     };
@@ -162,9 +157,25 @@ describe("demo data server actions", () => {
       "clients.insert",
       "contracts.insert",
       "invoices.insert",
-      "contract_events.insert",
-      "invoice_events.insert",
+      "rpc.append_contract_event",
+      "rpc.append_invoice_event",
     ]);
+    expect(rpc).toHaveBeenCalledWith(
+      "append_contract_event",
+      expect.objectContaining({
+        p_contract_id: "contract-1",
+        p_to_status: "signed",
+        p_event_type: "contract.demo_seeded",
+      }),
+    );
+    expect(rpc).toHaveBeenCalledWith(
+      "append_invoice_event",
+      expect.objectContaining({
+        p_invoice_id: "invoice-1",
+        p_to_status: "paid",
+        p_event_type: "invoice.demo_seeded",
+      }),
+    );
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
     expect(revalidatePath).toHaveBeenCalledWith("/clients");
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");

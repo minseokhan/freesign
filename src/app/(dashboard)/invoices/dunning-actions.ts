@@ -107,15 +107,20 @@ export async function approveAndSendDunning(
   if (updateError) return dbError(updateError);
 
   // 6. append-only 이벤트(발송 이력). 상태 전이는 아니므로 from=to=현재 결제상태.
-  await supabase.from("invoice_events").insert({
-    user_id: user.id,
-    invoice_id: invoice.id,
-    actor: user.id,
-    from_status: invoice.payment_status,
-    to_status: invoice.payment_status,
-    event_type: "invoice.dunning_sent",
-    meta: { reminder_id: reminder.id, ai_source: reminder.ai_source ?? null },
+  //    직접 INSERT 표면은 0036에서 닫혔고, 소유권을 재확인하는 DEFINER RPC로 기록한다.
+  //    이미 메일이 나갔으므로 실패해도 되돌리지 않되, 조용히 삼키지 않고 로그를 남긴다.
+  const { error: eventError } = await supabase.rpc("append_invoice_event", {
+    p_invoice_id: invoice.id,
+    p_actor: user.id,
+    p_from_status: invoice.payment_status,
+    p_to_status: invoice.payment_status,
+    p_event_type: "invoice.dunning_sent",
+    p_meta: { reminder_id: reminder.id, ai_source: reminder.ai_source ?? null },
   });
+
+  if (eventError) {
+    console.error("[dunning] append_invoice_event error:", eventError.message);
+  }
 
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${invoice.id}`);

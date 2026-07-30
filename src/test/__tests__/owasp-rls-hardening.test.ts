@@ -59,9 +59,9 @@ describe("OWASP RLS hardening (0032·0033)", () => {
   async function insertPendingRequestAs(userId: string, contractId: string) {
     const tokenHash = randomHash64();
 
-    const result = await runAs<{ id: string }>(
-      pool,
-      userId,
+    // 0036에서 클라이언트 INSERT 표면이 사라졌으므로(발송 RPC 전용) 픽스처는 superuser로 심는다.
+    // 여기서 검증 대상은 0032의 UPDATE 정책이다.
+    const result = await pool.query<{ id: string }>(
       `
         insert into signature_requests (
           user_id, contract_id, token_hash, recipient_email, recipient_name,

@@ -65,13 +65,14 @@ describe("RLS policies", () => {
     expect(policyResult.rows).toEqual([
       { tablename: "billing_events", commands: ["SELECT"] },
       { tablename: "clients", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
-      { tablename: "contract_events", commands: ["DELETE", "INSERT", "SELECT"] },
-      { tablename: "contract_signatures", commands: ["INSERT", "SELECT"] },
+      // 0036: 증거·감사 테이블의 INSERT 정책은 제거됐다(append_*·*_with_event DEFINER RPC 전용).
+      { tablename: "contract_events", commands: ["DELETE", "SELECT"] },
+      { tablename: "contract_signatures", commands: ["SELECT"] },
       { tablename: "contracts", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
-      { tablename: "invoice_events", commands: ["DELETE", "INSERT", "SELECT"] },
+      { tablename: "invoice_events", commands: ["DELETE", "SELECT"] },
       { tablename: "invoices", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "profiles", commands: ["INSERT", "SELECT", "UPDATE"] },
-      { tablename: "signature_requests", commands: ["INSERT", "SELECT", "UPDATE"] },
+      { tablename: "signature_requests", commands: ["SELECT", "UPDATE"] },
       { tablename: "subscriptions", commands: ["SELECT"] },
       { tablename: "usage_counters", commands: ["SELECT"] },
     ]);
@@ -171,17 +172,12 @@ describe("RLS policies", () => {
   it("keeps non-demo contract events append-only for authenticated users", async () => {
     const clientId = await insertClientAs(userA, "Event client");
     const contractId = await insertContractAs(userA, clientId);
+    // 0036: 이벤트 기록은 DEFINER RPC 전용(직접 INSERT 표면 제거).
     const eventResult = await runAs<{ id: string }>(
       pool,
       userA,
-      `
-        insert into contract_events (
-          user_id, contract_id, actor, from_status, to_status, event_type
-        )
-        values ($1, $2, 'user', null, 'draft', 'created')
-        returning id
-      `,
-      [userA, contractId],
+      "select append_contract_event($1, 'user', null, 'draft', 'created', '{}'::jsonb) as id",
+      [contractId],
     );
     const eventId = eventResult.rows[0].id;
 
@@ -217,14 +213,8 @@ describe("RLS policies", () => {
     const demoEventResult = await runAs<{ id: string }>(
       pool,
       userA,
-      `
-        insert into contract_events (
-          user_id, contract_id, actor, from_status, to_status, event_type
-        )
-        values ($1, $2, 'user', null, 'signed', 'demo')
-        returning id
-      `,
-      [userA, demoContractId],
+      "select append_contract_event($1, 'user', null, 'signed', 'demo', '{}'::jsonb) as id",
+      [demoContractId],
     );
 
     const blockedRealDelete = await runAs(
@@ -291,13 +281,8 @@ describe("RLS policies", () => {
     await runAs(
       pool,
       userA,
-      `
-        insert into contract_events (
-          user_id, contract_id, actor, from_status, to_status, event_type
-        )
-        values ($1, $2, 'user', null, 'draft', 'created')
-      `,
-      [userA, contractId],
+      "select append_contract_event($1, 'user', null, 'draft', 'created', '{}'::jsonb)",
+      [contractId],
     );
 
     const deleteResult = await runAs(

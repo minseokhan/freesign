@@ -779,6 +779,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      append_contract_event: {
+        Args: {
+          p_actor: string
+          p_contract_id: string
+          p_event_type: string
+          p_from_status?: string | null
+          p_meta?: Json
+          p_to_status: string
+        }
+        Returns: string
+      }
+      append_invoice_event: {
+        Args: {
+          p_actor: string
+          p_event_type: string
+          p_from_status?: string | null
+          p_invoice_id: string
+          p_meta?: Json
+          p_to_status: string
+        }
+        Returns: string
+      }
       assert_cron_secret: {
         Args: { p_secret: string }
         Returns: undefined
@@ -923,18 +945,6 @@ export type Database = {
           p_paid_at: string | null
           p_payment_method: string | null
           p_to_status: Database["public"]["Enums"]["payment_status"]
-        }
-        Returns: string
-      }
-      sign_contract_with_event: {
-        Args: {
-          p_actor: string
-          p_contract_id: string
-          p_doc_hash: string
-          p_event_type: string
-          p_meta?: Json
-          p_signature_image_path: string
-          p_signature_meta: Json
         }
         Returns: string
       }

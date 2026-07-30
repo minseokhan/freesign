@@ -51,10 +51,10 @@ describe("mutual signature schema", () => {
     return result.rows[0].id;
   }
 
+  // 0036 이후 이 두 테이블은 클라이언트 쓰기 표면이 없다(DEFINER RPC 전용).
+  // 여기서 검증하는 것은 테이블 제약·SELECT 격리이므로 픽스처는 superuser로 심는다.
   async function insertRequestAs(userId: string, contractId: string, token = crypto.randomUUID()) {
-    const result = await runAs<{ id: string }>(
-      pool,
-      userId,
+    const result = await pool.query<{ id: string }>(
       `
         insert into signature_requests (
           user_id, contract_id, token_hash, recipient_email, recipient_name,
@@ -84,9 +84,7 @@ describe("mutual signature schema", () => {
         ? `${userId}/${contractId}/signature.png`
         : "data:image/png;base64," + Buffer.from("png").toString("base64");
 
-    const result = await runAs<{ id: string }>(
-      pool,
-      userId,
+    const result = await pool.query<{ id: string }>(
       `
         insert into contract_signatures (
           user_id, contract_id, request_id, party, signer_email, signer_name,
@@ -232,9 +230,7 @@ describe("mutual signature schema", () => {
     const contractId = await insertContractAs();
 
     // 0022: owner 행은 Storage key와 base64 사본을 함께 가질 수 있다(둘 다 허용).
-    const bothResult = await runAs(
-      pool,
-      userA,
+    const bothResult = await pool.query(
       `
         insert into contract_signatures (
           user_id, contract_id, party, signer_email,
@@ -250,9 +246,7 @@ describe("mutual signature schema", () => {
     expect(bothResult.rowCount).toBe(1);
 
     await expect(
-      runAs(
-        pool,
-        userA,
+      pool.query(
         `
           insert into contract_signatures (
             user_id, contract_id, party, signer_email, doc_hash

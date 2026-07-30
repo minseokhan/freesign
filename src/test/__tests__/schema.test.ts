@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { inject } from "vitest";
 import { Pool } from "pg";
-import { createUser } from "../pg";
+import { createUser, runAs } from "../pg";
 
 describe("database schema migrations", () => {
   let pool: Pool;
@@ -112,6 +112,7 @@ describe("database schema migrations", () => {
             'transition_contract_status_with_event',
             'sign_contract_with_event',
             'import_signed_contract_with_event',
+            'send_signature_request_with_event',
             'issue_invoice_with_event',
             'set_invoice_payment_with_event'
           )
@@ -119,11 +120,13 @@ describe("database schema migrations", () => {
       `,
     );
 
+    // sign_contract_with_event(단독 서명)는 0035에서 제거됐다 — 조회 목록에는 남겨
+    // "되살아나지 않았는지"까지 확인한다.
     expect(functionResult.rows.map((row) => row.proname)).toEqual([
       "import_signed_contract_with_event",
       "issue_invoice_with_event",
+      "send_signature_request_with_event",
       "set_invoice_payment_with_event",
-      "sign_contract_with_event",
       "transition_contract_status_with_event",
     ]);
   });
@@ -283,7 +286,11 @@ describe("database schema migrations", () => {
     const contractResult = await insertContract({ status: "signed" });
     const contractId = contractResult.rows[0].id;
 
-    const result = await pool.query<{ transition_contract_status_with_event: string }>(
+    // 0035에서 DEFINER로 전환되며 소유권 판정이 auth.uid()로 옮겨갔다.
+    // superuser 연결에는 JWT 클레임이 없어 세션 있는 호출자로 실행해야 한다.
+    const result = await runAs<{ transition_contract_status_with_event: string }>(
+      pool,
+      userId,
       `
         select transition_contract_status_with_event(
           $1,
@@ -318,8 +325,12 @@ describe("database schema migrations", () => {
     const contractResult = await insertContract({ status: "signed" });
     const contractId = contractResult.rows[0].id;
 
+    // 세션 있는 호출자로 실행해야 소유권 가드가 아니라 이벤트 INSERT 실패(null event_type)로
+    // 롤백되는지를 검증할 수 있다.
     await expect(
-      pool.query(
+      runAs(
+        pool,
+        userId,
         `
           select transition_contract_status_with_event(
             $1,
@@ -332,7 +343,7 @@ describe("database schema migrations", () => {
         `,
         [contractId, userId],
       ),
-    ).rejects.toThrow();
+    ).rejects.toThrow(/event_type/);
 
     const stateResult = await pool.query<{ status: string; event_count: string }>(
       `
