@@ -73,7 +73,7 @@ describe("RLS policies", () => {
       { tablename: "profiles", commands: ["INSERT", "SELECT", "UPDATE"] },
       { tablename: "signature_requests", commands: ["INSERT", "SELECT", "UPDATE"] },
       { tablename: "subscriptions", commands: ["SELECT"] },
-      { tablename: "usage_counters", commands: ["INSERT", "SELECT", "UPDATE"] },
+      { tablename: "usage_counters", commands: ["SELECT"] },
     ]);
   });
 
