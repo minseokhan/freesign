@@ -7,6 +7,7 @@ import {
   getPostHogClient,
 } from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
+import { GENERIC_API_ERROR } from "@/lib/api-error";
 import type { Database } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -48,7 +49,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await captureServerException(error, user.id, {
       route: "contracts/source-pdf",
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   const contract = data as ContractRow | null;
@@ -72,7 +73,7 @@ export async function GET(_request: Request, context: RouteContext) {
     );
     return NextResponse.json(
       {
-        error: signedError?.message ?? "원본 계약서 PDF를 불러오지 못했습니다.",
+        error: GENERIC_API_ERROR,
       },
       { status: 500 },
     );

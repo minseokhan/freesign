@@ -14,6 +14,7 @@ import {
   getPostHogClient,
 } from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
+import { GENERIC_API_ERROR } from "@/lib/api-error";
 import type { Database } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -74,7 +75,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   if (error) {
     await captureServerException(error, user.id, { route: "contracts/pdf" });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   if (!data) {
@@ -100,7 +101,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await captureServerException(counterpartyError, user.id, {
       route: "contracts/pdf",
     });
-    return NextResponse.json({ error: counterpartyError.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   const document = mapContractPdfProps({
@@ -125,7 +126,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await captureServerException(uploadError, user.id, {
       route: "contracts/pdf",
     });
-    return NextResponse.json({ error: uploadError.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   // contract_pdf_url은 서버 소유 필드다. 0037에서 컬럼 UPDATE 권한을 회수했으므로
@@ -139,7 +140,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await captureServerException(updateError, user.id, {
       route: "contracts/pdf",
     });
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   revalidatePath("/contracts");

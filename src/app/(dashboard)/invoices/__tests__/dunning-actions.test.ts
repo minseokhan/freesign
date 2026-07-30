@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { requireUser } from "@/lib/auth";
 import { assertProFeature } from "@/lib/plan";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getEmailProvider } from "@/services/email/provider";
 
@@ -10,6 +11,10 @@ import { approveAndSendDunning, dismissDunning } from "../dunning-actions";
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth", () => ({ requireUser: vi.fn() }));
 vi.mock("@/lib/plan", () => ({ assertProFeature: vi.fn() }));
+vi.mock("@/lib/rate-limit", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/rate-limit")>()),
+  checkRateLimit: vi.fn(),
+}));
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/services/email/provider", () => ({ getEmailProvider: vi.fn() }));
 vi.mock("@/lib/posthog-server", () => ({
@@ -56,6 +61,7 @@ describe("approveAndSendDunning", () => {
     vi.mocked(requireUser).mockResolvedValue(user as never);
     vi.mocked(assertProFeature).mockResolvedValue({ ok: true, plan: "pro" });
     vi.mocked(getEmailProvider).mockReturnValue({ send } as never);
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
     send.mockResolvedValue({ ok: true });
   });
 
@@ -169,5 +175,34 @@ describe("dismissDunning", () => {
     expect(res.ok).toBe(true);
     expect((supabase._builders.dunning_reminders as { update: ReturnType<typeof vi.fn> }).update)
       .toHaveBeenCalledWith(expect.objectContaining({ status: "dismissed" }));
+  });
+});
+
+// #26: 제3자(클라이언트) 메일함으로 나가는 발송 경로에 상한이 없었다.
+describe("approveAndSendDunning 발송 상한", () => {
+  const send = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireUser).mockResolvedValue(user as never);
+    vi.mocked(assertProFeature).mockResolvedValue({ ok: true, plan: "pro" });
+    vi.mocked(getEmailProvider).mockReturnValue({ send } as never);
+    send.mockResolvedValue({ ok: true });
+  });
+
+  it("상한을 넘으면 메일을 보내지 않고 안내 문구를 반환한다", async () => {
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: false, retryAfter: 42 });
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      makeSupabase({ reminder: null, invoice: null, client: null }) as never,
+    );
+
+    const res = await approveAndSendDunning(reminderId);
+
+    expect(res).toEqual({
+      ok: false,
+      error: "독촉 발송이 잠시 제한되었어요. 42초 후 다시 시도해 주세요.",
+    });
+    expect(send).not.toHaveBeenCalled();
+    expect(checkRateLimit).toHaveBeenCalledWith(RATE_LIMITS.dunningSend);
   });
 });

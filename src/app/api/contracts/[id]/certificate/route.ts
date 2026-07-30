@@ -12,6 +12,7 @@ import { assertOwned, notDeleted } from "@/lib/db";
 import { getTimestampEnv } from "@/lib/env";
 import { captureServerException } from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
+import { GENERIC_API_ERROR } from "@/lib/api-error";
 import type { Json } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -58,7 +59,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await captureServerException(contractError, user.id, {
       route: "contracts/certificate",
     });
-    return NextResponse.json({ error: contractError.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   if (!contractData) {
@@ -97,7 +98,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await captureServerException(queryError, user.id, {
       route: "contracts/certificate",
     });
-    return NextResponse.json({ error: queryError.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   const certificate = buildCertificateProps({

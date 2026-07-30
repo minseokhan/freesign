@@ -10,6 +10,7 @@ import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { notDeleted } from "@/lib/db";
 import { assertProFeature } from "@/lib/plan";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getEmailProvider } from "@/services/email/provider";
@@ -33,6 +34,15 @@ export async function approveAndSendDunning(
 
   const gate = await assertProFeature();
   if (!gate.ok) return { ok: false, error: gate.message };
+
+  // 제3자 메일함으로 나가는 발송 경로 — 서명 요청 발송과 동일하게 상한을 둔다(대시보드 #26).
+  const limit = await checkRateLimit(RATE_LIMITS.dunningSend);
+  if (!limit.allowed) {
+    return {
+      ok: false,
+      error: `독촉 발송이 잠시 제한되었어요. ${limit.retryAfter}초 후 다시 시도해 주세요.`,
+    };
+  }
 
   const parsed = approveSchema.safeParse({ reminderId, editedSubject, editedBody });
   if (!parsed.success) return { ok: false, error: "입력값을 확인해 주세요." };

@@ -10,6 +10,7 @@ import { canCreateContract } from "@/lib/plan";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { contractDraftInputSchema } from "@/lib/validation/contract";
+import { GENERIC_API_ERROR } from "@/lib/api-error";
 import { generateContractDraft } from "@/services/ai/contract-draft";
 
 export async function POST(request: Request) {
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
       route: "contracts/draft",
     });
     return NextResponse.json(
-      { ok: false, error: clientError.message },
+      { ok: false, error: GENERIC_API_ERROR },
       { status: 500 },
     );
   }
@@ -97,7 +98,7 @@ export async function POST(request: Request) {
       route: "contracts/draft",
     });
     return NextResponse.json(
-      { ok: false, error: profileError.message },
+      { ok: false, error: GENERIC_API_ERROR },
       { status: 500 },
     );
   }

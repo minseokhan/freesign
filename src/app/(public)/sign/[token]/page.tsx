@@ -1,7 +1,9 @@
+import { headers } from "next/headers";
 import Link from "next/link";
 
 import { CounterpartySignForm } from "@/components/counterparty-sign-form";
 import { Card } from "@/components/ui/card";
+import { getHeadersIpHash } from "@/lib/request-meta";
 import { hashSigningToken } from "@/lib/signing-token";
 import { createAnonClient } from "@/lib/supabase/anon";
 import type { Json } from "@/types/database";
@@ -118,6 +120,32 @@ export default async function PublicSignPage({ params }: PublicSignPageProps) {
   }
 
   const supabase = createAnonClient();
+
+  // 형제 라우트(POST·PDF)와 같은 IP 단위 안티오토메이션(대시보드 #25).
+  // 이 페이지는 force-dynamic이라 캐시가 없고, 매 요청이 DB RPC + 열람 기록을 남긴다.
+  const ipHash = getHeadersIpHash(await headers());
+  const { data: allowed, error: rateError } = await supabase.rpc(
+    "consume_anon_rate_limit",
+    {
+      p_ip_hash: ipHash,
+      p_bucket: "signing_session_view",
+      p_limit: 20,
+      p_window_seconds: 60,
+    },
+  );
+
+  // 레이트리밋 저장소 오류는 열람을 막지 않는다(가용성 우선, api 라우트와 동일 정책).
+  if (rateError) {
+    console.error("[public-sign] 레이트리밋 확인 실패(fail-open):", rateError.message);
+  } else if (allowed === false) {
+    return (
+      <NoticeCard
+        title="잠시 후 다시 시도해 주세요"
+        description="짧은 시간에 요청이 너무 많았습니다. 1분 뒤 링크를 다시 열어 주세요."
+      />
+    );
+  }
+
   const { data, error } = await supabase.rpc("get_signing_session", {
     p_token_hash: hashSigningToken(token),
   });

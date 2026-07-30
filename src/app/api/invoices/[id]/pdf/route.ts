@@ -14,6 +14,7 @@ import {
   getPostHogClient,
 } from "@/lib/posthog-server";
 import { createClient } from "@/lib/supabase/server";
+import { GENERIC_API_ERROR } from "@/lib/api-error";
 import type { Database } from "@/types/database";
 
 export const runtime = "nodejs";
@@ -82,7 +83,7 @@ export async function GET(_request: Request, context: RouteContext) {
 
   if (error) {
     await captureServerException(error, user.id, { route: "invoices/pdf" });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   if (!data) {
@@ -102,7 +103,7 @@ export async function GET(_request: Request, context: RouteContext) {
     await captureServerException(profileError, user.id, {
       route: "invoices/pdf",
     });
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   const invoice = data as InvoiceRow;

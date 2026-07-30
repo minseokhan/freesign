@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   identify: vi.fn(),
   capture: vi.fn(),
   flush: vi.fn(),
+  captureServerException: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -13,6 +14,7 @@ vi.mock("@/lib/supabase/server", () => ({
 }));
 
 vi.mock("@/lib/posthog-server", () => ({
+  captureServerException: mocks.captureServerException,
   getPostHogClient: () => ({
     identify: mocks.identify,
     capture: mocks.capture,
@@ -78,6 +80,7 @@ describe("OAuth callback route", () => {
   });
 
   it("redirects to login without throwing when code exchange fails", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     mocks.exchangeCodeForSession.mockResolvedValue({
       error: new Error("invalid code"),
     });
@@ -89,6 +92,12 @@ describe("OAuth callback route", () => {
     expect(response.headers.get("location")).toBe(
       "http://localhost:3000/login?error=auth",
     );
+    // #39: 인증 실패가 무성 리다이렉트로 끝나면 급증을 탐지할 수 없다.
+    expect(warnSpy).toHaveBeenCalledWith("[auth] callback 실패:", "invalid code");
+    expect(mocks.captureServerException).toHaveBeenCalled();
+    // 인가 코드 값 자체는 로그에 남기지 않는다.
+    expect(JSON.stringify(warnSpy.mock.calls)).not.toContain("bad-code");
+    warnSpy.mockRestore();
   });
 
   it("ignores external next URLs to prevent open redirects", async () => {

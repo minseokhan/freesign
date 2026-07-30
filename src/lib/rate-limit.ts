@@ -14,6 +14,8 @@ export const RATE_LIMITS = {
   aiContractInsight: { bucket: "ai_contract_insight", max: 10, windowSeconds: 60 },
   // 서명 요청 발송·재발송(이메일 발송 동반) 공용 버킷 — 이메일 스팸/남용 방지.
   signatureSend: { bucket: "signature_send", max: 5, windowSeconds: 60 },
+  // 독촉 승인·발송도 제3자(클라이언트) 메일함으로 나가는 경로다(대시보드 #26).
+  dunningSend: { bucket: "dunning_send", max: 5, windowSeconds: 60 },
 } as const satisfies Record<string, RateLimitConfig>;
 
 export type RateLimitResult =
@@ -29,9 +31,12 @@ export function parseRateLimitResponse(
   data: unknown,
   error: { message?: string } | null,
   windowSeconds: number,
+  bucket?: string,
 ): RateLimitResult {
   if (error) {
-    console.error("[rate-limit] rpc error:", error.message);
+    // fail-open은 의도된 트레이드오프지만 무음이면 안 된다 — 저장소 장애 동안 상한이
+    // 통째로 사라지므로 관측 가능해야 한다(대시보드 #24·#47).
+    console.error("[rate-limit] rpc error (fail-open):", bucket, error.message);
     return { allowed: true };
   }
 
@@ -40,6 +45,9 @@ export function parseRateLimitResponse(
   if (res.allowed) {
     return { allowed: true };
   }
+
+  // 차단 발동(=남용 방어선이 실제로 동작한 순간)도 기록한다(대시보드 #40).
+  console.warn("[rate-limit] blocked:", bucket);
 
   return { allowed: false, retryAfter: res.retry_after ?? windowSeconds };
 }
@@ -60,10 +68,11 @@ export async function checkRateLimit(
       p_window_seconds: config.windowSeconds,
     });
 
-    return parseRateLimitResponse(data, error, config.windowSeconds);
+    return parseRateLimitResponse(data, error, config.windowSeconds, config.bucket);
   } catch (err) {
     console.error(
-      "[rate-limit] unavailable:",
+      "[rate-limit] unavailable (fail-open):",
+      config.bucket,
       err instanceof Error ? err.message : err,
     );
     return { allowed: true };

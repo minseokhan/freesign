@@ -3,13 +3,22 @@
 import { createHash } from "node:crypto";
 
 export function getRequestIp(request: Request): string {
-  const forwardedFor = request.headers.get("x-forwarded-for");
+  return getHeadersIp(request.headers);
+}
+
+/** RSC 페이지는 Request가 없고 headers()만 있으므로 Headers 기반 오버로드를 함께 둔다. */
+export function getHeadersIp(headers: Headers): string {
+  const forwardedFor = headers.get("x-forwarded-for");
 
   if (forwardedFor) {
     return forwardedFor.split(",")[0]?.trim() || "unknown";
   }
 
-  return request.headers.get("x-real-ip") ?? "unknown";
+  return headers.get("x-real-ip") ?? "unknown";
+}
+
+export function getHeadersIpHash(headers: Headers): string {
+  return createHash("sha256").update(getHeadersIp(headers), "utf8").digest("hex");
 }
 
 export function getRequestUserAgent(request: Request): string {

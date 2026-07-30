@@ -9,6 +9,7 @@ import {
 } from "@/lib/posthog-server";
 import { buildTaxLedgerSheet, type ReportLedgerRow } from "@/lib/reports-xlsx";
 import { createClient } from "@/lib/supabase/server";
+import { GENERIC_API_ERROR } from "@/lib/api-error";
 
 export const runtime = "nodejs";
 
@@ -59,7 +60,7 @@ export async function GET(request: Request) {
 
   if (error) {
     await captureServerException(error, user.id, { route: "reports" });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: GENERIC_API_ERROR }, { status: 500 });
   }
 
   const rows: ReportLedgerRow[] = (data ?? []).map((row) => ({
