@@ -259,14 +259,18 @@ Polar 구독의 내부 투영. 사용자당 1행(`user_id`가 PK).
 | 컬럼 | 타입 | 의미 |
 |------|------|------|
 | `id` | boolean PK, 기본 true, CHECK `id` | 단일 행 강제(`id = true`만 허용) |
-| `webhook_secret` / `cron_secret` | text | 대조용 시크릿(env 값과 동일하게 수동 주입) |
+| `webhook_secret` / `cron_secret` | text | **0041 이후 미사용**(항상 빈 문자열). 과거 평문 저장 컬럼 |
+| `secret_sha256` | text | 대조용 시크릿의 sha256 hex(0041) — 평문은 저장하지 않는다 |
 | `updated_at` | timestamptz | 갱신 시각 |
 
-> **RLS 활성 + 정책 없음 + `revoke all from anon, authenticated`**(이중 방어) — 직접 조회 불가. `upsert_subscription_from_polar`·`assert_cron_secret` 같은 SECURITY DEFINER 함수만 읽는다. Supabase `postgres` 롤은 커스텀 GUC ALTER 권한이 없어 GUC 대신 테이블에 둔다. 마이그레이션 적용 후 아래를 **수동 실행**해야 webhook/크론이 열린다(미설정 시 fail-closed로 전부 401/예외):
+> **RLS 활성 + 정책 없음 + `revoke all from anon, authenticated`**(이중 방어) — 직접 조회 불가. `upsert_subscription_from_polar`·`assert_cron_secret` 같은 SECURITY DEFINER 함수만 읽는다. Supabase `postgres` 롤은 커스텀 GUC ALTER 권한이 없어 GUC 대신 테이블에 둔다.
+>
+> **0041부터 시크릿은 sha256 해시로만 보관한다**(DB 덤프가 유출돼도 경계를 바로 통과할 수 없다). 게이트 함수가 입력을 같은 방식으로 해시해 비교하므로 env 값(`CRON_SECRET`·`POLAR_WEBHOOK_SECRET`)은 그대로 둔다. 설정·교체는 **평문 UPDATE가 아니라 헬퍼 함수**로 한다(SQL Editor에서 postgres 롤로 실행, 16자 이상):
 > ```sql
-> insert into cron_config (id, cron_secret) values (true, '<CRON_SECRET과 동일값>')
->   on conflict (id) do update set cron_secret = excluded.cron_secret;
+> select set_cron_secret('<CRON_SECRET과 동일값>');
+> select set_billing_webhook_secret('<POLAR_WEBHOOK_SECRET과 동일값>');
 > ```
+> 0041 마이그레이션은 기존 평문을 그대로 해시해 옮기므로 재주입이 필요 없다(신규 환경에서만 위 명령 필요).
 
 ---
 

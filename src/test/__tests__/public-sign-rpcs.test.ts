@@ -28,11 +28,8 @@ describe("public sign RPCs (0020)", () => {
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: inject("pgConnectionString") });
-    await pool.query(
-      `insert into cron_config (id, cron_secret) values (true, $1)
-       on conflict (id) do update set cron_secret = excluded.cron_secret`,
-      [SERVER_SECRET],
-    );
+    // 0041: 시크릿은 평문이 아니라 sha256 해시로 저장한다(set_cron_secret 헬퍼).
+    await pool.query("select set_cron_secret($1)", [SERVER_SECRET]);
     userA = await createUser(pool, OWNER_EMAIL);
 
     const clientResult = await runAs<{ id: string }>(

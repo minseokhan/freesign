@@ -20,11 +20,8 @@ describe("create_dunning_drafts_for_overdue 플랜 게이트·배치 상한 (003
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: inject("pgConnectionString") });
-    await pool.query(
-      `insert into cron_config (id, cron_secret) values (true, $1)
-       on conflict (id) do update set cron_secret = excluded.cron_secret`,
-      [CRON_SECRET],
-    );
+    // 0041: 시크릿은 평문이 아니라 sha256 해시로 저장한다(set_cron_secret 헬퍼).
+    await pool.query("select set_cron_secret($1)", [CRON_SECRET]);
   });
 
   afterAll(async () => {

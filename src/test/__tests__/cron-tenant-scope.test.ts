@@ -17,11 +17,8 @@ describe("크론 RPC 테넌트 스코프 · FK 부모 소유권 (0038)", () => {
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: inject("pgConnectionString") });
-    await pool.query(
-      `insert into cron_config (id, cron_secret) values (true, $1)
-       on conflict (id) do update set cron_secret = excluded.cron_secret`,
-      [CRON_SECRET],
-    );
+    // 0041: 시크릿은 평문이 아니라 sha256 해시로 저장한다(set_cron_secret 헬퍼).
+    await pool.query("select set_cron_secret($1)", [CRON_SECRET]);
   });
 
   afterAll(async () => {
