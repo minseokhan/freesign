@@ -1,6 +1,11 @@
+import { describe, expect, it, vi } from "vitest";
+
 import {
   CREATE_FREE_LIMIT,
+  GATE_UNAVAILABLE,
   IMPORT_FREE_LIMIT,
+  canCreateContract,
+  canSendSignature,
   derivePlan,
   mapPolarStatusToPlan,
   type SubscriptionRow,
@@ -102,5 +107,71 @@ describe("무료 티어 상한 상수", () => {
 
   it("새 계약 생성은 1건", () => {
     expect(CREATE_FREE_LIMIT).toBe(1);
+  });
+});
+
+// #41: count 쿼리 오류를 무시하면 (null ?? 0) < 1 이 참이 되어 무료 상한이 조용히 사라진다.
+describe("무료 게이트 fail-closed", () => {
+  function supabaseWithContractCount(result: { count: number | null; error: unknown }) {
+    const contractsQuery = {
+      select: vi.fn().mockReturnThis(),
+      is: vi.fn().mockReturnThis(),
+      neq: vi.fn().mockReturnThis(),
+      then(resolve: (value: unknown) => void) {
+        return Promise.resolve(result).then(resolve);
+      },
+    };
+
+    return {
+      from: vi.fn((table: string) => {
+        if (table === "subscriptions") {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          };
+        }
+
+        return contractsQuery;
+      }),
+    } as never;
+  }
+
+  it("계약 생성 게이트는 count 오류 시 거부한다", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await canCreateContract(
+      supabaseWithContractCount({ count: null, error: { message: "timeout" } }),
+      "user-1",
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      plan: "free",
+      reason: "create_limit",
+      message: GATE_UNAVAILABLE,
+    });
+    consoleError.mockRestore();
+  });
+
+  it("서명 발송 게이트도 count 오류 시 거부한다", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const result = await canSendSignature(
+      supabaseWithContractCount({ count: null, error: null }),
+      "user-1",
+    );
+
+    expect(result.ok).toBe(false);
+    consoleError.mockRestore();
+  });
+
+  it("정상 count는 그대로 통과시킨다(회귀)", async () => {
+    const result = await canCreateContract(
+      supabaseWithContractCount({ count: 0, error: null }),
+      "user-1",
+    );
+
+    expect(result).toEqual({ ok: true, plan: "free" });
   });
 });

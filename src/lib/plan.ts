@@ -32,6 +32,9 @@ export const SIGN_UPSELL =
   "무료 플랜은 새 계약 1건까지 서명 요청을 보낼 수 있어요. 계속하려면 Pro로 업그레이드해 주세요.";
 export const PRO_ONLY_UPSELL =
   "이 기능은 Pro 전용이에요. 업그레이드하면 바로 사용할 수 있어요.";
+// 게이트 판정 자체가 실패했을 때(DB 오류·타임아웃). 통과시키면 과금 경계가 조용히 사라진다.
+export const GATE_UNAVAILABLE =
+  "일시적으로 처리할 수 없어요. 잠시 후 다시 시도해 주세요.";
 
 export type GateReason =
   | "import_limit"
@@ -116,7 +119,8 @@ export async function getUserPlan(): Promise<Plan> {
 /**
  * 불러오기 파싱 누적 상한 소비. pro는 스킵(무제한).
  * free는 consume_lifetime_quota로 누적 1 증가·상한 판정.
- * 인프라 오류 시 fail-open(주 흐름 우선) — consume_rate_limit과 동일 정책.
+ * 인프라 오류 시 fail-closed — 이건 남용 방어(레이트리밋)가 아니라 Free/Pro 과금 경계라
+ * 오류를 유발할 수 있는 쪽에 상한 해제 권한을 주면 안 된다(대시보드 #41·#47).
  */
 export async function consumeImportQuota(): Promise<GateResult> {
   const user = await requireUser();
@@ -132,7 +136,7 @@ export async function consumeImportQuota(): Promise<GateResult> {
 
   if (error) {
     console.error("[plan] consume_lifetime_quota error:", error.message);
-    return { ok: true, plan }; // fail-open
+    return { ok: false, plan, reason: "import_limit", message: GATE_UNAVAILABLE };
   }
 
   const res = (data ?? {}) as { allowed?: boolean };
@@ -154,13 +158,19 @@ export async function canCreateContract(
   const plan = await resolvePlan(supabase, userId);
   if (plan === "pro") return { ok: true, plan };
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("contracts")
     .select("id", { count: "exact", head: true })
     .is("source_pdf_url", null)
     .is("deleted_at", null);
 
-  if ((count ?? 0) < CREATE_FREE_LIMIT) return { ok: true, plan };
+  // count가 null이면(오류·헤드 응답 이상) 통과가 아니라 거부다 — fail-closed(대시보드 #41).
+  if (error || count === null) {
+    console.error("[plan] canCreateContract count error:", error?.message ?? "count is null");
+    return { ok: false, plan, reason: "create_limit", message: GATE_UNAVAILABLE };
+  }
+
+  if (count < CREATE_FREE_LIMIT) return { ok: true, plan };
 
   return { ok: false, plan, reason: "create_limit", message: CREATE_UPSELL };
 }
@@ -176,14 +186,19 @@ export async function canSendSignature(
   const plan = await resolvePlan(supabase, userId);
   if (plan === "pro") return { ok: true, plan };
 
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from("contracts")
     .select("id", { count: "exact", head: true })
     .is("source_pdf_url", null)
     .is("deleted_at", null)
     .neq("status", "draft");
 
-  if ((count ?? 0) < SIGN_FREE_LIMIT) return { ok: true, plan };
+  if (error || count === null) {
+    console.error("[plan] canSendSignature count error:", error?.message ?? "count is null");
+    return { ok: false, plan, reason: "sign_limit", message: GATE_UNAVAILABLE };
+  }
+
+  if (count < SIGN_FREE_LIMIT) return { ok: true, plan };
 
   return { ok: false, plan, reason: "sign_limit", message: SIGN_UPSELL };
 }

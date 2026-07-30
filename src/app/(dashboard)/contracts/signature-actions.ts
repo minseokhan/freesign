@@ -85,6 +85,8 @@ async function getRequestMeta(): Promise<{ ip: string; ua: string }> {
 /**
  * 서명 요청 이메일 발송(best-effort). raw 토큰은 이 URL에만 존재하며
  * 로그·DB·반환값 어디에도 남기지 않는다.
+ * 발송 성공 여부는 반환한다 — 재발송처럼 "토큰을 이미 갈아 끼운" 경로는
+ * 실패를 알고 되돌려야 한다(대시보드 #44).
  */
 async function sendSignatureRequestEmailBestEffort(input: {
   recipientEmail: string;
@@ -93,7 +95,7 @@ async function sendSignatureRequestEmailBestEffort(input: {
   contractTitle: string;
   rawToken: string;
   expiresAt: string;
-}): Promise<void> {
+}): Promise<boolean> {
   try {
     const signUrl = `${resolveSiteUrl(process.env.NEXT_PUBLIC_SITE_URL)}/sign/${input.rawToken}`;
     const rendered = renderSignatureRequestEmail({
@@ -113,11 +115,14 @@ async function sendSignatureRequestEmailBestEffort(input: {
     if (!sent.ok) {
       console.error("[signature] 서명 요청 이메일 발송 실패:", sent.error);
     }
+
+    return sent.ok;
   } catch (error) {
     console.error(
       "[signature] 서명 요청 이메일 발송 실패:",
       error instanceof Error ? error.message : error,
     );
+    return false;
   }
 }
 
@@ -333,7 +338,7 @@ export async function resendSignatureRequestEmail(
 
   const { data: request, error: requestError } = await supabase
     .from("signature_requests")
-    .select("id,recipient_email,recipient_name")
+    .select("id,recipient_email,recipient_name,token_hash,expires_at")
     .eq("contract_id", contract.id)
     .eq("status", "pending")
     .maybeSingle();
@@ -369,7 +374,7 @@ export async function resendSignatureRequestEmail(
     return dbError(updateError);
   }
 
-  await sendSignatureRequestEmailBestEffort({
+  const sent = await sendSignatureRequestEmailBestEffort({
     recipientEmail: request.recipient_email,
     recipientName: request.recipient_name,
     senderName: profile?.display_name ?? user.email ?? "FreeSign 사용자",
@@ -377,6 +382,24 @@ export async function resendSignatureRequestEmail(
     rawToken,
     expiresAt,
   });
+
+  // 발송이 실패하면 새 원문 토큰은 어디에도 남지 않는다 — 되돌리지 않으면 기존 링크까지
+  // 죽어 아무도 서명할 수 없는 상태가 된다(대시보드 #44). 이전 토큰으로 복구하고 실패를 알린다.
+  if (!sent) {
+    const { error: rollbackError } = await supabase
+      .from("signature_requests")
+      .update({ token_hash: request.token_hash, expires_at: request.expires_at })
+      .eq("id", request.id);
+
+    if (rollbackError) {
+      console.error("[signature] 재발송 토큰 롤백 실패:", rollbackError.message);
+    }
+
+    return {
+      ok: false,
+      error: "메일 발송에 실패했어요. 잠시 후 다시 시도해 주세요.",
+    };
+  }
 
   revalidatePath("/contracts");
   revalidatePath(`/contracts/${contract.id}`);

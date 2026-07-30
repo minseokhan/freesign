@@ -38,9 +38,13 @@ export const contractDraftInputSchema = z
 
 export type ContractDraftInput = z.infer<typeof contractDraftInputSchema>;
 
+// 조항 본문 상한. 불러오기(PDF 추출)로 들어오는 외부 텍스트가 그대로 저장·재프롬프트되므로
+// 길이를 제한해 프롬프트 인젝션 페이로드의 크기와 토큰 비용을 함께 묶는다.
+export const MAX_CLAUSE_BODY_LENGTH = 4000;
+
 export const contractClauseSchema = z.object({
-  title: z.string().trim().min(1),
-  body: z.string().trim().min(1),
+  title: z.string().trim().min(1).max(200),
+  body: z.string().trim().min(1).max(MAX_CLAUSE_BODY_LENGTH),
   // AI 초안은 조항별 요약을 비워 두고(계약 레벨 plain_summary를 1회 노출) 저장하므로 빈 값을 허용한다.
   plain_summary: z.string().trim(),
   needs_review: z.boolean(),

@@ -80,4 +80,19 @@ describe("applySubscriptionEvent", () => {
 
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  // #43: 200(수신 성공)을 돌려주면 Polar가 재전송하지 않아 결제·해지 이벤트가 영구 유실된다.
+  it("RPC 실패는 throw 해서 라우트가 5xx를 내고 Polar 재시도를 유도한다", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const rpc = vi.fn().mockResolvedValue({ error: { message: "deadlock detected" } });
+    vi.mocked(createAnonClient).mockReturnValue({
+      rpc,
+    } as unknown as ReturnType<typeof createAnonClient>);
+
+    await expect(
+      applySubscriptionEvent(baseSubscription, "subscription.active"),
+    ).rejects.toThrow(/upsert_subscription_from_polar failed/);
+
+    consoleError.mockRestore();
+  });
 });

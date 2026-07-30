@@ -107,6 +107,8 @@ function createSupabaseMock({
     id: REQUEST_ID,
     recipient_email: "counterparty@example.test",
     recipient_name: "김담당",
+    token_hash: "a".repeat(64),
+    expires_at: "2026-08-01T00:00:00.000Z",
   } as Record<string, unknown> | null,
 } = {}) {
   const contractQuery = createMaybeSingleQuery(contract);
@@ -431,7 +433,9 @@ describe("signature request server actions", () => {
       expect(revalidatePath).toHaveBeenCalledWith(`/contracts/${CONTRACT_ID}`);
     });
 
-    it("still succeeds when the resent email fails", async () => {
+    // #44: 토큰을 먼저 갈아 끼우므로 발송이 실패하면 새 원문 토큰은 어디에도 남지 않는다.
+    // 되돌리지 않으면 상대방의 기존 링크까지 죽어 아무도 서명할 수 없다.
+    it("rolls the token back and reports failure when the resent email fails", async () => {
       const mocks = createSupabaseMock();
       useSupabaseMock(mocks);
       emailSend.mockResolvedValue({ ok: false, error: "delivery failed" });
@@ -443,8 +447,16 @@ describe("signature request server actions", () => {
         contractId: CONTRACT_ID,
       });
 
-      expect(result).toEqual({ ok: true, id: CONTRACT_ID });
-      expect(mocks.requestUpdate).toHaveBeenCalled();
+      expect(result).toEqual({
+        ok: false,
+        error: "메일 발송에 실패했어요. 잠시 후 다시 시도해 주세요.",
+      });
+      // 두 번째 update가 이전 token_hash·expires_at으로의 롤백이다.
+      expect(mocks.requestUpdate).toHaveBeenCalledTimes(2);
+      expect(mocks.requestUpdate).toHaveBeenLastCalledWith({
+        token_hash: "a".repeat(64),
+        expires_at: "2026-08-01T00:00:00.000Z",
+      });
 
       consoleError.mockRestore();
     });
