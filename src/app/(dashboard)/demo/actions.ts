@@ -6,34 +6,10 @@ import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { getPostHogClient } from "@/lib/posthog-server";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { calcWithholding } from "@/lib/tax";
-import type { Database, Json } from "@/types/database";
 
 type ActionResult = { ok: true } | { ok: false; error: string };
-type ClientInsert = Database["public"]["Tables"]["clients"]["Insert"];
-type ContractInsert = Database["public"]["Tables"]["contracts"]["Insert"];
-type InvoiceInsert = Database["public"]["Tables"]["invoices"]["Insert"];
 
-const demoClauses = [
-  {
-    title: "업무 범위",
-    body: "김하나는 무디의 브랜드 로고 리뉴얼과 인스타그램 템플릿 5종 제작 업무를 수행한다.",
-    plain_summary: "로고와 인스타 템플릿 5개를 3주 안에 만든다는 뜻입니다.",
-    needs_review: false,
-  },
-  {
-    title: "대금 및 지급",
-    body: "무디는 본 계약의 대가로 총 3,000,000원을 지급하며, 인보이스에 명시된 지급기한까지 입금한다.",
-    plain_summary: "총 대금은 300만원이고 청구서 기한까지 입금합니다.",
-    needs_review: false,
-  },
-  {
-    title: "저작권 및 사용권",
-    body: "최종 산출물의 사용 범위와 원본 파일 제공 여부는 당사자 간 별도 합의에 따른다.",
-    plain_summary: "산출물을 어디까지 쓸 수 있는지는 별도 확인이 필요합니다.",
-    needs_review: true,
-  },
-] satisfies Json[];
+// 데모 픽스처(클라이언트·계약·인보이스 값)는 0039 seed_demo_data RPC가 소유한다.
 
 function revalidateDemoPaths() {
   revalidatePath("/dashboard");
@@ -46,122 +22,13 @@ export async function seedDemoData(): Promise<ActionResult> {
   const user = await requireUser();
   const supabase = await createSupabaseClient();
 
-  const { data: existingDemo, error: existingDemoError } = await supabase
-    .from("clients")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("is_demo", true)
-    .limit(1)
-    .maybeSingle();
+  // 데모 행은 is_demo=true(=0007 물리삭제 정책의 열쇠)라 서버 소유 필드다. 0039에서
+  // 클라이언트 INSERT 컬럼 권한을 회수했으므로 시드 전체를 DEFINER RPC가 만든다
+  // (멱등 — 이미 데모가 있으면 false를 돌려주고 아무것도 만들지 않는다).
+  const { error } = await supabase.rpc("seed_demo_data");
 
-  if (existingDemoError) {
-    return dbError(existingDemoError);
-  }
-
-  if (existingDemo) {
-    revalidateDemoPaths();
-    return { ok: true };
-  }
-
-  const clientPayload = {
-    user_id: user.id,
-    name: "무디",
-    channel: "instagram",
-    contact_email: "hello@moodi.example",
-    memo: "인스타그램 DM으로 문의한 카페 브랜드",
-    is_demo: true,
-  } satisfies ClientInsert;
-
-  const { data: client, error: clientError } = await supabase
-    .from("clients")
-    .insert(clientPayload)
-    .select("id")
-    .single();
-
-  if (clientError) {
-    return dbError(clientError);
-  }
-
-  const contractPayload = {
-    user_id: user.id,
-    client_id: client.id,
-    title: "무디 브랜드 리뉴얼",
-    scope: "브랜드 로고 리뉴얼 + 인스타 템플릿 5종",
-    amount: 3_000_000,
-    start_date: "2026-07-01",
-    end_date: "2026-07-21",
-    status: "signed",
-    clauses: demoClauses,
-    is_demo: true,
-  } satisfies ContractInsert;
-
-  const { data: contract, error: contractError } = await supabase
-    .from("contracts")
-    .insert(contractPayload)
-    .select("id")
-    .single();
-
-  if (contractError) {
-    return dbError(contractError);
-  }
-
-  const { withholding, net } = calcWithholding(3_000_000, "wt_3_3");
-  const invoicePayload = {
-    user_id: user.id,
-    contract_id: contract.id,
-    client_id: client.id,
-    amount: 3_000_000,
-    issue_date: "2026-07-22",
-    due_date: "2026-08-05",
-    withholding_type: "wt_3_3",
-    withholding_amount: withholding,
-    net_amount: net,
-    payment_status: "paid",
-    paid_at: "2026-08-05T09:00:00+09:00",
-    payment_method: "bank_transfer",
-    is_demo: true,
-  } satisfies InvoiceInsert;
-
-  const { data: invoice, error: invoiceError } = await supabase
-    .from("invoices")
-    .insert(invoicePayload)
-    .select("id")
-    .single();
-
-  if (invoiceError) {
-    return dbError(invoiceError);
-  }
-
-  // 감사 이벤트는 클라이언트 직접 INSERT 표면을 없앤 뒤(0036) DEFINER RPC로만 기록한다.
-  // RPC가 부모 소유권을 auth.uid()로 재확인하고 user_id를 서버에서 채운다.
-  const { error: contractEventError } = await supabase.rpc("append_contract_event", {
-    p_contract_id: contract.id,
-    p_actor: user.id,
-    p_from_status: null,
-    p_to_status: "signed",
-    p_event_type: "contract.demo_seeded",
-    p_meta: { client_id: client.id },
-  });
-
-  if (contractEventError) {
-    return dbError(contractEventError);
-  }
-
-  const { error: invoiceEventError } = await supabase.rpc("append_invoice_event", {
-    p_invoice_id: invoice.id,
-    p_actor: user.id,
-    p_from_status: null,
-    p_to_status: "paid",
-    p_event_type: "invoice.demo_seeded",
-    p_meta: {
-      contract_id: contract.id,
-      client_id: client.id,
-      payment_method: "bank_transfer",
-    },
-  });
-
-  if (invoiceEventError) {
-    return dbError(invoiceEventError);
+  if (error) {
+    return dbError(error);
   }
 
   revalidateDemoPaths();

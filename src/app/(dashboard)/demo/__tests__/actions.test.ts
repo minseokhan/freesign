@@ -20,30 +20,6 @@ vi.mock("@/lib/supabase/server", () => ({
 
 const user = { id: "user-123", email: "freelancer@example.test" };
 
-function createDemoExistsQuery(exists: boolean) {
-  return {
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    limit: vi.fn().mockReturnThis(),
-    maybeSingle: vi.fn().mockResolvedValue({
-      data: exists ? { id: "demo-client-existing" } : null,
-      error: null,
-    }),
-  };
-}
-
-function createInsertTableMock(id: string, calls: string[], label: string) {
-  const select = vi.fn().mockReturnThis();
-  const single = vi.fn().mockResolvedValue({ data: { id }, error: null });
-  const insert = vi.fn((payload) => {
-    calls.push(label);
-
-    return { select, single, payload };
-  });
-
-  return { insert, select, single };
-}
-
 function createSelectIdsQuery(ids: string[]) {
   return {
     select: vi.fn().mockReturnThis(),
@@ -85,117 +61,40 @@ describe("demo data server actions", () => {
     );
   });
 
-  it("seeds demo rows with server-owned user_id, is_demo, and withholding snapshot", async () => {
-    const calls: string[] = [];
-    const demoExistsQuery = createDemoExistsQuery(false);
-    const clientsInsert = createInsertTableMock("client-1", calls, "clients.insert");
-    const contractsInsert = createInsertTableMock(
-      "contract-1",
-      calls,
-      "contracts.insert",
-    );
-    const invoicesInsert = createInsertTableMock("invoice-1", calls, "invoices.insert");
-    // 0036: 감사 이벤트는 테이블 INSERT가 아니라 append_* DEFINER RPC로 기록한다.
-    const rpc = vi.fn((name: string) => {
-      calls.push(`rpc.${name}`);
-
-      return Promise.resolve({ data: "event-1", error: null });
+  // 0039: 데모 시드는 클라이언트 INSERT가 아니라 seed_demo_data DEFINER RPC로만 만든다
+  // (is_demo·status·payment_status가 전부 서버 소유 필드라 INSERT 컬럼 권한이 회수됐다).
+  it("seeds demo rows through the server-owned seed_demo_data RPC", async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: true, error: null });
+    const from = vi.fn(() => {
+      throw new Error("데모 시드는 테이블에 직접 쓰지 않는다");
     });
-    const supabase = {
-      rpc,
-      from: vi.fn((table: string) => {
-        if (table === "clients") {
-          return supabase.from.mock.calls.filter(([name]) => name === "clients")
-            .length === 1
-            ? demoExistsQuery
-            : clientsInsert;
-        }
-        if (table === "contracts") return contractsInsert;
-        if (table === "invoices") return invoicesInsert;
-        throw new Error(`Unexpected table: ${table}`);
-      }),
-    };
     vi.mocked(createSupabaseClient).mockResolvedValue(
-      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+      { rpc, from } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
     );
 
     const result = await seedDemoData();
 
     expect(result).toEqual({ ok: true });
-    expect(clientsInsert.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: user.id,
-        name: "무디",
-        channel: "instagram",
-        is_demo: true,
-      }),
-    );
-    expect(contractsInsert.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: user.id,
-        client_id: "client-1",
-        title: "무디 브랜드 리뉴얼",
-        amount: 3_000_000,
-        status: "signed",
-        is_demo: true,
-      }),
-    );
-    expect(invoicesInsert.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: user.id,
-        contract_id: "contract-1",
-        client_id: "client-1",
-        amount: 3_000_000,
-        withholding_type: "wt_3_3",
-        withholding_amount: 99_000,
-        net_amount: 2_901_000,
-        payment_status: "paid",
-        is_demo: true,
-      }),
-    );
-    expect(calls).toEqual([
-      "clients.insert",
-      "contracts.insert",
-      "invoices.insert",
-      "rpc.append_contract_event",
-      "rpc.append_invoice_event",
-    ]);
-    expect(rpc).toHaveBeenCalledWith(
-      "append_contract_event",
-      expect.objectContaining({
-        p_contract_id: "contract-1",
-        p_to_status: "signed",
-        p_event_type: "contract.demo_seeded",
-      }),
-    );
-    expect(rpc).toHaveBeenCalledWith(
-      "append_invoice_event",
-      expect.objectContaining({
-        p_invoice_id: "invoice-1",
-        p_to_status: "paid",
-        p_event_type: "invoice.demo_seeded",
-      }),
-    );
+    expect(rpc).toHaveBeenCalledExactlyOnceWith("seed_demo_data");
+    expect(from).not.toHaveBeenCalled();
     expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
     expect(revalidatePath).toHaveBeenCalledWith("/clients");
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");
     expect(revalidatePath).toHaveBeenCalledWith("/invoices");
   });
 
-  it("does not insert duplicate demo data when demo rows already exist", async () => {
-    const demoExistsQuery = createDemoExistsQuery(true);
-    const insertTable = createInsertTableMock("unused", [], "insert");
-    vi.mocked(createSupabaseClient).mockResolvedValue({
-      from: vi.fn((table: string) =>
-        table === "clients" ? demoExistsQuery : insertTable,
-      ),
-    } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>);
+  it("returns an error when the seed RPC fails", async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: "permission denied for table contracts" },
+    });
+    vi.mocked(createSupabaseClient).mockResolvedValue(
+      { rpc } as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+    );
 
     const result = await seedDemoData();
 
-    expect(result).toEqual({ ok: true });
-    expect(insertTable.insert).not.toHaveBeenCalled();
-    expect(revalidatePath).toHaveBeenCalledWith("/dashboard");
+    expect(result.ok).toBe(false);
   });
 
   it("clears only demo rows in FK-safe child-to-parent order", async () => {

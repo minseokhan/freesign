@@ -948,6 +948,10 @@ export type Database = {
         }
         Returns: string
       }
+      seed_demo_data: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       set_contract_pdf_url: {
         Args: { p_contract_id: string; p_pdf_key: string }
         Returns: string

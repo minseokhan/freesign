@@ -72,6 +72,9 @@ describe("RLS policies", () => {
       { tablename: "invoice_events", commands: ["DELETE", "SELECT"] },
       { tablename: "invoices", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "profiles", commands: ["INSERT", "SELECT", "UPDATE"] },
+      // 0038: 부모(client·contract) 소유권 WITH CHECK를 넣으며 `to authenticated`로 재작성됐다.
+      // SELECT·DELETE 정책은 0029 원본대로 role 무지정이라 이 목록에 잡히지 않는다.
+      { tablename: "recurring_invoices", commands: ["INSERT", "UPDATE"] },
       { tablename: "signature_requests", commands: ["SELECT", "UPDATE"] },
       { tablename: "subscriptions", commands: ["SELECT"] },
       { tablename: "usage_counters", commands: ["SELECT"] },
