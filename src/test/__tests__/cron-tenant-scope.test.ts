@@ -28,6 +28,11 @@ describe("크론 RPC 테넌트 스코프 · FK 부모 소유권 (0038)", () => {
     await pool.end();
   });
 
+  // 스윕은 전 테넌트를 훑으므로, 같은 DB를 쓰는 다른 테스트 파일의 스윕과 동시에 돌면
+  // 같은 인보이스에 대해 초안을 두 번 만들려다 unique 인덱스에서 충돌한다.
+  // 스윕 호출끼리만 직렬화하는 advisory lock(같은 키를 dunning-cron-gate도 쓴다).
+  const SWEEP_LOCK_KEY = 918273;
+
   async function seedProOwner(client: PoolClient) {
     const user = await client.query<{ id: string }>(
       "insert into auth.users (email) values ($1) returning id",
@@ -86,6 +91,7 @@ describe("크론 RPC 테넌트 스코프 · FK 부모 소유권 (0038)", () => {
   };
 
   async function runDunningSweep(client: PoolClient, userId: string) {
+    await client.query("select pg_advisory_xact_lock($1)", [SWEEP_LOCK_KEY]);
     const result = await client.query<DunningCandidate>(
       "select user_id, client_name, contract_title from create_dunning_drafts_for_overdue($1, 7)",
       [CRON_SECRET],
@@ -153,6 +159,7 @@ describe("크론 RPC 테넌트 스코프 · FK 부모 소유권 (0038)", () => {
   }
 
   async function runRecurringSweep(client: PoolClient, userId: string) {
+    await client.query("select pg_advisory_xact_lock($1)", [SWEEP_LOCK_KEY]);
     const result = await client.query<{ user_id: string }>(
       "select user_id from generate_due_recurring_invoices($1)",
       [CRON_SECRET],

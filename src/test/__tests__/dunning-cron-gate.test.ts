@@ -11,6 +11,8 @@ describe("create_dunning_drafts_for_overdue 플랜 게이트·배치 상한 (003
   let pool: Pool;
 
   const CRON_SECRET = "test-cron-secret";
+  // cron-tenant-scope.test.ts와 공유하는 스윕 직렬화 키(같은 DB를 동시에 훑는다).
+  const SWEEP_LOCK_KEY = 918273;
   const PER_USER_CAP = 20;
   const PER_RUN_CAP = 200;
 
@@ -68,12 +70,24 @@ describe("create_dunning_drafts_for_overdue 플랜 게이트·배치 상한 (003
   }
 
   async function runSweep() {
-    const result = await pool.query<Candidate>(
-      "select user_id, invoice_id from create_dunning_drafts_for_overdue($1, 7)",
-      [CRON_SECRET],
-    );
+    const client = await pool.connect();
 
-    return result.rows;
+    try {
+      await client.query("begin");
+      await client.query("select pg_advisory_xact_lock($1)", [SWEEP_LOCK_KEY]);
+      const result = await client.query<Candidate>(
+        "select user_id, invoice_id from create_dunning_drafts_for_overdue($1, 7)",
+        [CRON_SECRET],
+      );
+      await client.query("commit");
+
+      return result.rows;
+    } catch (error) {
+      await client.query("rollback");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   it("free 플랜 소유자의 연체 인보이스는 후보에서 제외한다", async () => {

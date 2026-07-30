@@ -14,13 +14,31 @@ if (process.env.NODE_ENV === "development") {
 
 // 전 경로에 적용할 보안 응답 헤더.
 // 재무·전자서명 데이터를 다루므로 최소한의 하드닝을 프레임워크 레벨에서 강제한다.
-// CSP는 앱 리소스 로딩을 깨지 않도록 클릭재킹 방어(frame-ancestors)로 한정한다.
-// 전면 리소스 CSP(script-src 등)는 nonce 도입이 필요해 후속 과제로 둔다.
+//
+// CSP(대시보드 #8): 정적으로 안전하게 강제할 수 있는 지시자부터 채운다.
+//  - object-src/base-uri/form-action: 플러그인 실행·base 태그 하이재킹·폼 유출 차단
+//  - style-src/font-src: 스타일·폰트 출처를 self + 핀 고정한 jsDelivr(레이아웃 SRI)로 한정
+// script-src는 Next의 인라인 부트스트랩 때문에 요청별 nonce(middleware) 도입이 필요하고
+// 브라우저 실측 검증 없이 켜면 앱이 통째로 깨질 수 있어 후속 과제로 남긴다.
+const contentSecurityPolicy = [
+  "frame-ancestors 'none'",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+  "font-src 'self' data: https://cdn.jsdelivr.net",
+].join("; ");
+
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+  { key: "Content-Security-Policy", value: contentSecurityPolicy },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // 쓰지 않는 브라우저 기능은 명시적으로 끈다(서명 캔버스는 포인터 입력만 쓴다).
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+  },
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
