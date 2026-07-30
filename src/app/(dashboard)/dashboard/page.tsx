@@ -340,8 +340,33 @@ export default async function DashboardPage() {
           </div>
 
           {attentionInvoices.length === 0 ? (
-            <div className="px-xl py-2xl text-sm text-text-muted">
-              지연되었거나 곧 지급기한이 도래하는 인보이스가 없습니다.
+            <div className="px-xl pb-xl">
+              {/* 바로 위 설명문과 같은 크기·색이면 빈 상태인지 설명인지 구분되지 않아,
+                  점선 박스 + 체크 아이콘으로 "지금은 비어 있다"를 형태로 드러낸다. */}
+              <div className="flex items-center gap-md rounded-md border border-dashed border-surface-border bg-surface-muted px-lg py-xl">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-status-paid-bg text-green-700">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="size-4"
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="m5 12.5 4.5 4.5L19 7.5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+                <p className="text-sm font-medium text-text-body">
+                  챙길 지급기한이 없습니다.
+                  <span className="ml-xs font-normal text-text-muted">
+                    지연되거나 7일 안에 도래하는 인보이스가 아직 없어요.
+                  </span>
+                </p>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto px-md pb-md">
