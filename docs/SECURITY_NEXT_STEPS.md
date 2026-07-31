@@ -7,7 +7,7 @@
 
 ## 0. 지금 상태 — 먼저 읽어주세요
 
-> **업데이트 2026-07-31**: 마이그레이션 **0038~0041을 원격(`jbfxkcjeoqwcdsxuemug`)에 순서대로 적용 완료**했고, 아래 2번의 검증 쿼리 5개도 전부 기대값과 일치했습니다. 남은 것은 **3번(브라우저 플로우)·4번(환경변수)·5번(CI)·6번(판단 항목)** 입니다.
+> **업데이트 2026-07-31**: 마이그레이션 **0038~0041을 원격(`jbfxkcjeoqwcdsxuemug`)에 순서대로 적용 완료**했고, 아래 2번의 검증 쿼리 5개도 전부 기대값과 일치했습니다. 이후 권한 잔여분 정리(0042~0044)와 **5번(CI)** 도 끝났습니다. 남은 것은 **3번(브라우저 플로우)·4번(환경변수)·6번(판단 항목)** 입니다.
 
 OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐습니다.** 테스트 735개·lint·`build:verify`·`npm audit --omit=dev`(0건) 모두 그린입니다.
 
@@ -132,11 +132,21 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" https://freesign.vercel.app/api/
 
 ---
 
-## 5. [확인] CI가 그린인지
+## 5. [완료] CI — 사실은 한 번도 돈 적이 없었습니다
 
-이번에 CI에 **`npm audit --audit-level=high --omit=dev` 게이트**를 추가했습니다(프로덕션 의존성에 high 취약점이 있으면 빌드 실패). 지금은 0건이라 통과해야 합니다. GitHub Actions 탭에서 `7c0200a` 실행이 초록인지 확인해 주세요.
+이번에 CI에 **`npm audit --audit-level=high --omit=dev` 게이트**를 추가했습니다(프로덕션 의존성에 high 취약점이 있으면 빌드 실패).
 
-`.github/dependabot.yml`도 새로 넣었습니다(npm 주간 + GitHub Actions 월간). 다음 주부터 업데이트 PR이 자동으로 열립니다 — **PR이 오는 게 정상**입니다.
+이 문서는 원래 "지금은 0건이라 통과해야 합니다"라고 적었지만 **틀렸습니다.** 확인해 보니 CI는 최초 도입(`3bdf3d2`) 이후 **단 한 번도 성공한 적이 없었습니다.** 실행 이력이 전부 `0초 · 잡 0개`로 실패했는데, 원인은 e2e 잡의 job-level 조건이었습니다:
+
+```yaml
+if: ${{ secrets.E2E_TEST_EMAIL != '' && secrets.E2E_TEST_PASSWORD != '' }}
+```
+
+`jobs.<job_id>.if`에서 허용되는 컨텍스트는 `github`·`needs`·`vars`·`inputs`뿐이고 **`secrets`는 불가**입니다. 워크플로 검증 단계에서 거부되므로 잡이 아예 만들어지지 않고, 그래서 로그도 annotation도 남지 않아 아무도 눈치채지 못했습니다. 결과적으로 **공급망 게이트는 추가된 뒤 한 번도 실행되지 않았습니다.**
+
+`9cd482b`에서 secrets를 읽을 수 있는 step `env`로 판정해 job output으로 넘기는 게이트 잡(`e2e-gate`)을 두고, e2e는 `needs`로 그 값을 받도록 고쳤습니다. **실행 `30606656779`이 첫 그린입니다** — audit·lint·build·테스트 737개가 전부 실제로 돌았고, E2E는 시크릿 미설정이라 의도대로 스킵됐습니다.
+
+`.github/dependabot.yml`도 새로 넣었습니다(npm 주간 + GitHub Actions 월간). **PR이 오는 게 정상**입니다. 다만 지금 열려 있는 PR들은 위 결함 때문에 내용과 무관하게 red로 찍혀 있으니, 재실행해서 진짜 결과를 봐야 합니다. 그중 `eslint 9→10`·`tailwindcss 3→4`·`@testing-library/jest-dom 6→7`·`@vitejs/plugin-react 4→6`은 메이저 업그레이드라 실제로 깨질 수 있습니다.
 
 ---
 
@@ -183,5 +193,6 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" https://freesign.vercel.app/api/
 - [ ] `curl` 크론 호출 → `ok:true` 확인 (독촉 크론 부활 확인)
 - [ ] 브라우저 플로우 7단계 확인 (특히 데모 시드 + 서명 완결 + 증명서 타임스탬프)
 - [ ] Vercel `TSA_URL`이 https인지, `RESEND_API_KEY`가 들어 있는지
-- [ ] GitHub Actions `7c0200a` 초록인지
+- [x] GitHub Actions 초록인지 → CI 자체가 고장나 있었음. `9cd482b`로 수정, `30606656779` 그린 (2026-07-31)
+- [ ] Dependabot PR 재실행해서 진짜 red/green 확인 (메이저 4건 주의)
 - [ ] 6번 판단 항목 4가지 중 진행할 것 결정
