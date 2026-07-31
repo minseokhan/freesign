@@ -61,6 +61,27 @@ describe("GET /api/billing/checkout", () => {
     expect(params.get("customerEmail")).toBe("me@example.test");
   });
 
+  // 이 진입점은 로그인 사용자가 링크로 여는 GET이라 쿼리스트링을 누구나 붙일 수 있다.
+  // 예전에는 서버가 3개만 덮어쓰고 나머지는 그대로 결제 API로 흘려보냈다.
+  it("클라이언트가 붙인 쿼리스트링을 결제 API로 넘기지 않는다", async () => {
+    const handler = vi.fn().mockResolvedValue(new Response(null, { status: 307 }));
+    vi.mocked(Checkout).mockReturnValue(handler);
+
+    await GET(
+      new NextRequest(
+        "https://freesign.example/api/billing/checkout?discountId=disc_free&metadata[plan]=pro&allowDiscountCodes=true&amount=0",
+      ),
+    );
+
+    const params = new URL((handler.mock.calls[0][0] as NextRequest).url).searchParams;
+    expect(params.get("discountId")).toBeNull();
+    expect(params.get("metadata[plan]")).toBeNull();
+    expect(params.get("allowDiscountCodes")).toBeNull();
+    expect(params.get("amount")).toBeNull();
+    expect(params.get("products")).toBe("prod-123");
+    expect(params.get("customerExternalId")).toBe("user-1");
+  });
+
   // Polar env 미설정은 배포 상태이지 요청 오류가 아니다. getPolarEnv()를 그대로 부르면
   // zod가 던져 500이 나는데, 이 버튼은 대시보드 전면에 노출돼 있어 사용자가 그 500을 본다.
   it("결제가 구성되지 않았으면 500 대신 요금제 안내로 되돌린다", async () => {

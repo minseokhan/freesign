@@ -22,7 +22,10 @@ export async function GET(req: NextRequest) {
   const user = await requireUser();
   const env = getPolarEnv();
 
-  const url = new URL(req.url);
+  // 쿼리스트링은 서버가 처음부터 다시 만든다. 예전에는 요청 URL을 그대로 쓰고 3개만
+  // 덮어써서, discountId·metadata 같은 나머지 파라미터가 클라이언트가 넣은 대로 결제 API에
+  // 도달했다. 이 진입점은 링크로 여는 GET이라 누구나 쿼리스트링을 붙일 수 있다.
+  const url = new URL(req.nextUrl.pathname, req.nextUrl.origin);
   url.searchParams.set("products", env.POLAR_PRODUCT_ID);
   url.searchParams.set("customerExternalId", user.id);
   if (user.email) {
