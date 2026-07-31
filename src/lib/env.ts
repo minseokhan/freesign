@@ -181,6 +181,17 @@ export function getTimestampEnv() {
   });
 }
 
+// 결제 미구성(Polar env 없음)은 요청 오류가 아니라 배포 상태다. getPolarEnv()는 필수 스키마라
+// 미설정이면 던지므로, 호출부가 500 대신 안내로 되돌릴 수 있도록 먼저 판별한다.
+// POLAR_SERVER는 기본값이 있어 필수에서 제외한다.
+export function isPolarConfigured(): boolean {
+  return Boolean(
+    process.env.POLAR_ACCESS_TOKEN &&
+      process.env.POLAR_WEBHOOK_SECRET &&
+      process.env.POLAR_PRODUCT_ID,
+  );
+}
+
 export function getPolarEnv() {
   if (typeof window !== "undefined") {
     throw new Error("Server environment variables are not available in browser code.");

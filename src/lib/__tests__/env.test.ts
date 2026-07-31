@@ -1,5 +1,6 @@
 import {
   anthropicEnvSchema,
+  isPolarConfigured,
   parseAnthropicEnv,
   parsePublicEnv,
   parseServerEnv,
@@ -82,5 +83,19 @@ describe("env runtime validation", () => {
     expect(() => parseTimestampEnv({ TSA_URL: "http://freetsa.org/tsr" })).toThrow(
       /TSA_URL/,
     );
+  });
+
+  // 결제 미구성은 오류가 아니라 상태다 — 호출부가 500 대신 안내로 되돌리려면 먼저 판별이 필요하다.
+  it("detects whether Polar billing is configured", () => {
+    vi.stubEnv("POLAR_ACCESS_TOKEN", "tok");
+    vi.stubEnv("POLAR_WEBHOOK_SECRET", "whsec");
+    vi.stubEnv("POLAR_PRODUCT_ID", "prod-123");
+    expect(isPolarConfigured()).toBe(true);
+
+    // 하나라도 비면 미구성 — getPolarEnv()가 던지는 조합을 미리 걸러낸다.
+    vi.stubEnv("POLAR_PRODUCT_ID", "");
+    expect(isPolarConfigured()).toBe(false);
+
+    vi.unstubAllEnvs();
   });
 });

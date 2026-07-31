@@ -2,7 +2,7 @@ import { CustomerPortal } from "@polar-sh/nextjs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireUser } from "@/lib/auth";
-import { getPolarEnv } from "@/lib/env";
+import { getPolarEnv, isPolarConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -11,6 +11,10 @@ export const runtime = "nodejs";
 // Polar 호출이 실패하면(고객 없음·액세스 토큰 스코프 부족 등) 빈 화면 대신
 // 요금제 페이지로 사유와 함께 돌려보낸다.
 export async function GET(req: NextRequest) {
+  if (!isPolarConfigured()) {
+    return redirectToBilling(req, "not_configured");
+  }
+
   const env = getPolarEnv();
   const user = await requireUser();
   const supabase = await createClient();

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { CustomerPortal } from "@polar-sh/nextjs";
 import { requireUser } from "@/lib/auth";
-import { getPolarEnv } from "@/lib/env";
+import { getPolarEnv, isPolarConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 
 import { GET } from "../route";
@@ -18,6 +18,7 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/env", () => ({
   getPolarEnv: vi.fn(),
+  isPolarConfigured: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -43,6 +44,7 @@ describe("GET /api/billing/portal", () => {
     vi.mocked(requireUser).mockResolvedValue({
       id: "user-1",
     } as Awaited<ReturnType<typeof requireUser>>);
+    vi.mocked(isPolarConfigured).mockReturnValue(true);
     vi.mocked(getPolarEnv).mockReturnValue({
       POLAR_ACCESS_TOKEN: "tok",
       POLAR_WEBHOOK_SECRET: "whsec",
@@ -99,5 +101,20 @@ describe("GET /api/billing/portal", () => {
     expect(response.headers.get("location")).toBe(
       "https://freesign.example/billing?portal=portal_failed",
     );
+  });
+
+  // 결제 미구성 배포에서는 포털도 열 수 없다 — 500이 아니라 같은 안내로 되돌린다.
+  it("결제가 구성되지 않았으면 500 대신 요금제 안내로 되돌린다", async () => {
+    vi.mocked(isPolarConfigured).mockReturnValue(false);
+
+    const req = new NextRequest("https://freesign.example/api/billing/portal");
+    const response = await GET(req);
+
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://freesign.example/billing?portal=not_configured",
+    );
+    expect(CustomerPortal).not.toHaveBeenCalled();
+    expect(getPolarEnv).not.toHaveBeenCalled();
   });
 });
