@@ -42,10 +42,30 @@ jobs:
       - name: Unit and integration tests
         run: npm test
 
+  # job-level `if`는 secrets 컨텍스트를 읽을 수 없다(허용: github·needs·vars·inputs).
+  # secrets를 읽을 수 있는 step env로 판정해 job output으로 넘긴다.
+  e2e-gate:
+    name: Check E2E secrets
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+        run: |
+          if [ -n "$E2E_TEST_EMAIL" ] && [ -n "$E2E_TEST_PASSWORD" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-latest
-    if: ${{ secrets.E2E_TEST_EMAIL != '' && secrets.E2E_TEST_PASSWORD != '' }}
+    needs: e2e-gate
+    if: ${{ needs.e2e-gate.outputs.enabled == 'true' }}
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
