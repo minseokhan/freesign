@@ -1,21 +1,38 @@
 # 보안 수정 후속 작업 (한민석님이 해야 하는 일)
 
-작성: 2026-07-31 · 대상 커밋: `7c0200a`(origin/main에 push 완료)
+작성: 2026-07-31 · 최종 갱신: 2026-07-31 (커밋 `6d36be2`, origin/main push 완료)
 관련 문서: `docs/SECURITY_REMEDIATION_PLAN.md`(무엇을 왜 고쳤는지 정본), OWASP 대시보드 Artifact
 
 ---
 
 ## 0. 지금 상태 — 먼저 읽어주세요
 
-> **업데이트 2026-07-31**: 마이그레이션 **0038~0041을 원격(`jbfxkcjeoqwcdsxuemug`)에 순서대로 적용 완료**했고, 아래 2번의 검증 쿼리 5개도 전부 기대값과 일치했습니다. 이후 권한 잔여분 정리(0042~0044)와 **5번(CI)** 도 끝났습니다. 남은 것은 **3번(브라우저 플로우)·4번(환경변수)·6번(판단 항목)** 입니다.
+OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐습니다.** 테스트 749개·lint·`build:verify` 모두 그린입니다.
 
-OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐습니다.** 테스트 735개·lint·`build:verify`·`npm audit --omit=dev`(0건) 모두 그린입니다.
+### 끝난 것
+
+| 항목 | 결과 |
+|---|---|
+| 1·2절 — 원격 마이그레이션 0038~0041 | 순서대로 적용 완료, 검증 쿼리 5개 전부 기대값 일치 |
+| 2-1절 — 권한 잔여분 0042~0044 | 세션 없는 경계 RPC 실행권 최소화 (`838d8cc`) |
+| 5절 — CI | **한 번도 돈 적이 없었음**을 발견해 수정, 첫 그린 (`9cd482b`) |
+| 4절 일부 — Polar 미구성 500 | 폴백으로 해소 (`6d36be2`) |
+
+### 다음 세션에서 이어서 할 일 (우선순위 순)
+
+1. **3절 — 브라우저 플로우 7단계.** 남은 것 중 위험이 가장 큽니다. 0035~0044를 통틀어 아직 한 번도 브라우저로 태우지 않았습니다. 진행 시 **결제 경로는 제외**하고(4절 참고), 서명 요청 메일은 **본인 주소로** 보내세요(`EMAIL_FROM` 미설정 → `onboarding@resend.dev`는 제3자 발송이 거부될 수 있음).
+2. **크론 curl 검증**(2절 말미). 프로덕션에 초안을 만드는 호출이라 승인 후 실행.
+3. **Dependabot PR 재실행.** CI가 고쳐졌으니 이제 진짜 red/green이 나옵니다. 메이저 4건(`eslint 9→10`·`tailwindcss 3→4`·`jest-dom 6→7`·`plugin-react 4→6`)은 실제로 깨질 수 있습니다.
+4. **6절 판단 항목 4가지.** 전부 Low.
+5. (사업 판단이 서면) **Polar 프로덕션 전환** — 4절의 체크리스트 참고.
+
+> 왜 이런 순서가 됐나: 코드와 DB 권한이 한 쌍입니다. DB를 먼저 바꾸면 "예전 코드가 직접 INSERT하다가 권한 거부"로 깨지고, 코드를 먼저 배포하면 "새 코드가 아직 없는 함수를 호출"해서 깨집니다. 어느 쪽이든 몇 분짜리 창이 생기는데, 깨지는 범위가 더 좁은 쪽(코드 먼저)을 골랐습니다.
 
 > 왜 이런 순서가 됐나: 코드와 DB 권한이 한 쌍입니다. DB를 먼저 바꾸면 "예전 코드가 직접 INSERT하다가 권한 거부"로 깨지고, 코드를 먼저 배포하면 "새 코드가 아직 없는 함수를 호출"해서 깨집니다. 어느 쪽이든 몇 분짜리 창이 생기는데, 깨지는 범위가 더 좁은 쪽(코드 먼저)을 골랐습니다.
 
 ---
 
-## 1. [완료] 원격 마이그레이션 0038~0041 적용
+## 1. [완료 2026-07-31] 원격 마이그레이션 0038~0041 적용
 
 ### 왜 해야 하나
 
@@ -27,13 +44,11 @@ OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐
 - **0040** — 서명 완결 시각 증거 선점 구멍. 서명 링크를 가진 쪽이 완결 직후 **아무 값이나 먼저 밀어넣으면**(write-once라 먼저 쓴 값이 확정) 진짜 TSA 타임스탬프가 저장되지 못하고 가짜가 증명서에 박혔습니다. 이제 서버 시크릿을 아는 우리 서버만 저장할 수 있습니다.
 - **0041** — 크론·웹훅 시크릿이 DB에 **평문**으로 들어 있었습니다. DB 덤프/백업이 한 번 새면 크론·결제 웹훅 경계를 바로 통과할 수 있습니다. 이제 sha256 해시만 저장합니다.
 
-### 어떻게 하나
+### 어떻게 했나
 
-새 Claude Code 세션에서 아래처럼 요청하시면 됩니다(제가 MCP로 직접 적용합니다):
+Supabase MCP `apply_migration`으로 0038 → 0039 → 0040 → 0041 순서대로 적용했습니다. 적용 전 `cron_config`·`billing_config`에 평문 시크릿이 **둘 다 남아 있어서**(64자·49자) 0041이 그대로 sha256으로 옮겼습니다 — 따라서 **시크릿 재입력은 불필요**했습니다.
 
-> "supabase MCP로 supabase/migrations/0038, 0039, 0040, 0041을 순서대로 apply_migration 해줘"
-
-직접 하시려면 Supabase 대시보드 SQL Editor에 파일 내용을 **번호 순서대로** 붙여넣어 실행해도 됩니다. 순서가 중요합니다(0041이 0038~0040이 만든 함수를 다시 정의하지는 않지만, 0040은 0027의 게이트 함수를, 0041은 그 게이트 함수를 다시 씁니다).
+(참고: 직접 하시려면) Supabase 대시보드 SQL Editor에 파일 내용을 **번호 순서대로** 붙여넣어 실행해도 됩니다. 순서가 중요합니다(0041이 0038~0040이 만든 함수를 다시 정의하지는 않지만, 0040은 0027의 게이트 함수를, 0041은 그 게이트 함수를 다시 씁니다).
 
 | 파일 | 한 줄 요약 |
 |---|---|
@@ -53,7 +68,9 @@ OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐
 
 ---
 
-## 2. [필수] 적용 후 원격 검증
+## 2. [완료 2026-07-31] 적용 후 원격 검증
+
+아래 쿼리 5개를 원격에서 실행해 **전부 기대값과 일치**함을 확인했습니다. `get_advisors(security)`도 돌렸고 ERROR 0건 · 새 회귀 없음이었습니다.
 
 로컬 테스트로는 **권한 회수(revoke)를 검증할 수 없습니다.** 테스트 하네스가 마이그레이션 적용 후 모든 테이블 권한을 다시 부여하기 때문입니다(`src/test/pg.ts`의 `grantSupabaseRoles`). 그래서 원격에서 직접 확인해야 합니다.
 
@@ -93,7 +110,7 @@ select tablename, policyname, cmd from pg_policies
 where tablename in ('invoices', 'recurring_invoices') order by 1, 3;
 ```
 
-### 크론 살아났는지 확인 (권장)
+### 크론 살아났는지 확인 (권장 · **아직 안 했음**)
 
 ```bash
 curl -i -H "Authorization: Bearer $CRON_SECRET" https://freesign.vercel.app/api/cron/daily
@@ -101,12 +118,31 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" https://freesign.vercel.app/api/
 - **기대**: `200` + `{"ok":true,"ran":{"dunning":{"ok":true,...},"recurring":{"ok":true,...}}}`
 - 하나라도 실패하면 이제 **500**이 나옵니다(예전엔 실패해도 200이라 몰랐던 부분).
 - 안전성: 이 호출은 독촉 **초안(pending_review)** 과 인보이스 **draft**만 만듭니다. 클라이언트에게 메일이 나가지 않습니다(발송은 앱에서 승인해야만).
+- 참고: `CRON_SECRET`이 DB 해시와 **일치함은 이미 확인**했습니다(로컬 `.env.local` 값의 sha256 == 원격 `cron_config.secret_sha256`). 즉 게이트 통과는 보장되고, 이 curl은 0038이 고친 회귀(스윕 자체가 죽던 문제)가 실제로 살아났는지를 봅니다.
 
 ---
 
-## 3. [필수] 브라우저로 실제 플로우 확인
+## 2-1. [완료 2026-07-31] 권한 잔여분 정리 (0042~0044)
 
-**0035~0041을 통틀어 아직 한 번도 브라우저로 태워본 적이 없습니다.** 상태 전이·서명·데모 경로를 전부 DB 함수 뒤로 옮겼기 때문에, SQL 테스트가 그린이어도 실제 화면에서 한 번은 확인해야 안심할 수 있습니다. 아래 순서로 5~10분이면 됩니다.
+0038~0041 적용 후 원격 `pg_proc.proacl`을 훑어 **세션 없는 경계 함수 전체**의 실행 권한을 점검했고, 남아 있던 구멍 3건을 회수했습니다. 커밋 `838d8cc`.
+
+| 파일 | 회수 | 왜 |
+|---|---|---|
+| `0042_tsa_token_grant_cleanup.sql` | `store_completion_tsa_token`에서 `authenticated` | 0040이 만든 **새 함수**라 Supabase의 public 스키마 기본 권한(`ALTER DEFAULT PRIVILEGES`)이 자동으로 EXECUTE를 붙였다. `revoke all from public`으로는 지워지지 않는 직접 권한 |
+| `0043_cron_gate_grant_cleanup.sql` | `assert_cron_secret`에서 `anon`+`authenticated` | 맞으면 void·틀리면 예외라 REST로 직접 부를 수 있으면 **부작용 없는 브루트포스 오라클**. 호출자 4개가 전부 DEFINER(owner=postgres)라 회수해도 게이트는 동작 |
+| `0044_cron_rpc_authenticated_revoke.sql` | 크론 RPC 3개에서 `authenticated` | 0028·0029가 `to anon, authenticated`로 줬지만 호출자는 anon 클라이언트를 쓰는 일일 크론뿐 |
+
+**최종 상태**: 세션 없는 경계 함수 10개가 전부 `anon=true, authenticated=false`, `assert_cron_secret`은 둘 다 `false`.
+
+불변 검사는 `src/test/__tests__/sessionless-rpc-grants.test.ts` 한 곳에 모았습니다(함수 8개 × 두 롤). 0043·0044는 fail-first 확인 후 적용했고, 0042는 로컬에 Supabase 기본 권한 설정이 없어 재현되지 않아 **불변 잠금 역할**입니다.
+
+> **정직하게 남기는 한계**: 0043으로 브루트포스 오라클이 사라지지는 **않았습니다.** 크론 RPC 자체는 anon에 열려 있어야 하고(ADR-011) 틀린 시크릿에 같은 예외를 돌려줍니다. 없앤 것은 "부작용도 연산 비용도 없는 가장 값싼 오라클"이고, 근본 방어는 여전히 `CRON_SECRET`의 엔트로피(현재 64자)입니다.
+
+---
+
+## 3. [필수 · 미완] 브라우저로 실제 플로우 확인
+
+**0035~0044를 통틀어 아직 한 번도 브라우저로 태워본 적이 없습니다.** 상태 전이·서명·데모 경로를 전부 DB 함수 뒤로 옮겼기 때문에, SQL 테스트가 그린이어도 실제 화면에서 한 번은 확인해야 안심할 수 있습니다. 아래 순서로 5~10분이면 됩니다.
 
 1. **로그인 → 대시보드** — 세션 쿠키를 `httpOnly`로 바꿨습니다(#28). 로그인·새로고침·로그아웃이 정상이면 통과. (개발자도구 → Application → Cookies에서 `sb-*` 쿠키의 HttpOnly 체크가 켜져 있으면 성공)
 2. **데모 데이터 채우기 → 지우기** — 0039의 핵심. 채우기가 되면 새 `seed_demo_data` RPC가 정상, 지우기가 되면 데모 삭제 정책이 그대로 동작.
@@ -116,19 +152,60 @@ curl -i -H "Authorization: Bearer $CRON_SECRET" https://freesign.vercel.app/api/
 6. **계약 삭제** — 물리 삭제 후 인보이스가 남고 계약 요약(`contract_snapshot`)이 유지되는지.
 7. (선택) 서명 페이지를 1분 안에 20번 이상 새로고침 → 21번째부터 "잠시 후 다시 시도" 카드가 나오면 #25 정상.
 
+**진행 시 주의 2가지**
+- **결제/업그레이드 경로는 건너뛰세요.** Polar가 프로덕션에 미구성이라 지금은 "결제 준비 중" 안내로 빠집니다(4절).
+- **서명 요청 메일은 본인 주소로** 보내세요. `EMAIL_FROM`이 미설정이라 발신자가 `FreeSign <onboarding@resend.dev>`인데(`src/services/email/provider.ts:29`), Resend의 이 공용 도메인은 보통 계정 본인 주소로만 발송이 허용됩니다.
+
 ---
 
-## 4. [확인] 환경변수 2개 점검
+## 4. [부분 완료] 환경변수 점검
 
-### `TSA_URL` — **https여야 합니다** (안 그러면 500)
+### 확인된 것 (2026-07-31)
 
-평문 TSA는 중간자가 가짜 타임스탬프를 증거로 심을 수 있어서 `https://`만 허용하도록 바꿨습니다(#33). Vercel 환경변수의 `TSA_URL`이 `http://`로 시작하면 **완결증명서 PDF 라우트가 500**이 납니다. 기본값 `https://freetsa.org/tsr`면 문제없습니다.
+프로덕션 env 목록을 `vercel env ls`로 확인했습니다.
 
-### `RESEND_API_KEY` — 없으면 재발송이 이제 "실패"로 보입니다
+| 변수 | 상태 |
+|---|---|
+| `TSA_URL` | 존재(14일 전 등록). **값 확인 불가** — 아래 참고 |
+| `RESEND_API_KEY` | 존재(11일 전) |
+| `CRON_SECRET` | 존재(Preview+Production). **DB 해시와 일치 확인됨** |
+| `POLAR_*` 4개 | **전부 없음** → 아래 별도 항목 |
+| `EMAIL_FROM` | 없음 → 발신자가 `onboarding@resend.dev`로 폴백 |
 
-예전에는 키가 없어도 콘솔 폴백이 `ok:true`를 돌려줘서 "보낸 것처럼" 보였습니다(그리고 서명 토큰이 그대로 서버 로그에 찍혔습니다 — 배치 1에서 차단). 지금은 프로덕션에서 키가 없으면 발송이 정직하게 실패하고, **서명 재발송 버튼은 에러 메시지를 띄우며 토큰을 원래대로 되돌립니다**(#44 — 예전엔 토큰만 바꿔놓고 메일이 안 나가서 아무도 서명 못 하는 상태가 됐습니다).
+`CRON_SECRET` 일치는 로컬 `.env.local` 값의 sha256이 원격 `cron_config.secret_sha256`과 같은지로 확인했습니다(값은 셸 안에서만 계산). 이게 중요한 이유: 0040 이후 **서명 완결 TSA 저장도 이 시크릿 게이트를 통과**해야 합니다. 즉 크론과 TSA 증거 저장이 둘 다 살아 있습니다.
 
-키를 아직 안 넣으셨다면 지금이 넣을 때입니다.
+### `TSA_URL` — 값을 읽을 수 없습니다 (Sensitive)
+
+평문 TSA는 중간자가 가짜 타임스탬프를 증거로 심을 수 있어서 `https://`만 허용하도록 바꿨습니다(#33). `http://`로 시작하면 **완결증명서 PDF 라우트 2개가 500**입니다(`src/app/api/sign/[token]/certificate/route.ts:74`, `src/app/api/contracts/[id]/certificate/route.ts:109` — `getTimestampEnv()`가 try 밖이라 zod 예외가 그대로 500). 반면 **서명 완결 자체는 안 깨집니다**(`src/app/api/sign/[token]/route.ts:302`는 try/catch 안).
+
+이 변수는 Vercel에 **Sensitive 타입**으로 등록돼 있어 대시보드에서도 `vercel env pull`로도 값을 읽을 수 없습니다(pull은 `[SENSITIVE]` 문자열을 돌려줍니다). 덮어쓰기만 가능합니다.
+
+**판단: 3절 브라우저 검증으로 미룹니다.** 5단계의 완결증명서 PDF가 200이면 https가 맞고, 500이면 http입니다 — 검증이 곧 판정입니다. 500이 나오면 그때 `vercel env rm/add TSA_URL production` 후 재배포하면 됩니다(로컬 값은 `https://freetsa.org/tsr`로 올바름).
+
+> 문서 초판의 "기본값 `https://freetsa.org/tsr`면 문제없습니다"는 오해 소지가 있어 정정합니다. **미설정 시 기본값이 자동 적용되지 않습니다.** `DEFAULT_PUBLIC_TSA_URL`은 문서화용 상수고, `TSA_URL`이 없으면 500이 아니라 **조용한 noop**(타임스탬프 없음)입니다 — `src/services/timestamp/provider.ts:17-19`.
+
+### `RESEND_API_KEY` — 설정돼 있습니다
+
+예전에는 키가 없어도 콘솔 폴백이 `ok:true`를 돌려줘서 "보낸 것처럼" 보였습니다(그리고 서명 토큰이 그대로 서버 로그에 찍혔습니다 — 배치 1에서 차단). 지금은 프로덕션에서 키가 없으면 발송이 정직하게 실패하고, **서명 재발송 버튼은 에러 메시지를 띄우며 토큰을 원래대로 되돌립니다**(#44).
+
+키는 있으므로 남은 건 `EMAIL_FROM`뿐입니다 — 도메인 인증 후 설정하면 제3자 발송이 열립니다.
+
+### Polar 미구성 — 500은 [완료], 프로덕션 전환은 [보류]
+
+**발견**: `POLAR_ACCESS_TOKEN`·`POLAR_WEBHOOK_SECRET`·`POLAR_PRODUCT_ID`·`POLAR_SERVER`가 프로덕션에 전부 없어 `/api/billing/checkout`·`portal`이 `getPolarEnv()`의 필수 스키마에서 던지고 **500**이었습니다. `UpgradeCard`/`UpgradeButton`이 대시보드·리포트·인보이스 상세·반복 인보이스에 렌더되므로 **Free 사용자가 대시보드에서 바로 밟는 500**이었습니다.
+
+**조치**(`6d36be2`): 미구성은 요청 오류가 아니라 배포 상태이므로, `isPolarConfigured()`로 먼저 판별해 `/billing?portal=not_configured`로 되돌리고 그 화면은 오류(`alert`)가 아니라 안내(`status`)로 렌더합니다. env를 채우면 이 분기는 자동으로 비활성화됩니다.
+
+webhook 라우트는 손대지 않았습니다 — 시크릿이 빈 문자열이면 SDK 서명 검증에서 먼저 막혀 `applySubscriptionEvent`까지 도달하지 않습니다(이미 fail-closed).
+
+**나중에 프로덕션 결제로 전환할 때 체크리스트**
+1. Polar 대시보드에서 프로덕션 조직·상품·액세스 토큰·웹훅 엔드포인트(`https://freesign.vercel.app/api/billing/webhook`) 생성
+2. Vercel에 `POLAR_ACCESS_TOKEN`·`POLAR_WEBHOOK_SECRET`·`POLAR_PRODUCT_ID` 등록 + `POLAR_SERVER=production`
+3. **DB 시크릿 교체** — `select set_billing_webhook_secret('<프로덕션 웹훅 시크릿>');`
+   지금 원격 `billing_config`는 **로컬 sandbox 시크릿의 해시**를 들고 있습니다. 이 단계를 빠뜨리면 웹훅이 전부 `unauthorized billing webhook call`로 거부되고 **결제한 사용자가 Free로 남습니다.**
+4. 재배포 후 실제 결제 1건으로 구독 행 생성 확인
+
+> sandbox 값을 프로덕션에 그대로 넣는 선택지는 **택하지 않았습니다.** sandbox 체크아웃은 실제 청구가 없어 누구나 무료로 Pro를 받게 됩니다.
 
 ---
 
@@ -182,17 +259,22 @@ if: ${{ secrets.E2E_TEST_EMAIL != '' && secrets.E2E_TEST_PASSWORD != '' }}
   grant insert, update on public.clients to authenticated;
   grant insert, update on public.contracts to authenticated;
   ```
+  0042~0044(함수 실행권 회수)를 되돌려야 한다면 `grant execute on function <시그니처> to authenticated;`입니다. 다만 이 3건은 **쓰이지 않던 권한을 회수한 것**이라 앱 동작으로 되돌릴 일은 없어야 정상입니다.
 - 어느 쪽이든, 원인 로그는 Vercel 함수 로그와 PostHog 에러 트래킹에 남습니다(이번에 크론·인증 실패·레이트리밋 차단 로깅을 전부 추가했습니다).
 
 ---
 
 ## 체크리스트 (복사해서 쓰세요)
 
-- [x] 0038 → 0039 → 0040 → 0041 순서로 원격 적용 (2026-07-31 완료)
-- [x] 검증 쿼리 5개 실행해서 기대값 확인 (2026-07-31 완료)
+- [x] 0038 → 0039 → 0040 → 0041 순서로 원격 적용 (2026-07-31)
+- [x] 검증 쿼리 5개 실행해서 기대값 확인 (2026-07-31)
+- [x] 권한 잔여분 0042~0044 적용 — 세션 없는 경계 RPC 실행권 최소화 (2026-07-31, `838d8cc`)
+- [x] GitHub Actions 초록인지 → CI 자체가 고장나 있었음. `9cd482b`로 수정, `30606656779` 첫 그린 (2026-07-31)
+- [x] `RESEND_API_KEY`·`CRON_SECRET` 확인 — 둘 다 존재, `CRON_SECRET`은 DB 해시와 일치 (2026-07-31)
+- [x] Polar 미구성 500 → "결제 준비 중" 안내 폴백 (2026-07-31, `6d36be2`)
+- [ ] **브라우저 플로우 7단계** (데모 시드 + 서명 완결 + 증명서 타임스탬프. 결제 경로 제외, 메일은 본인 주소로) ← **다음 세션 최우선**
 - [ ] `curl` 크론 호출 → `ok:true` 확인 (독촉 크론 부활 확인)
-- [ ] 브라우저 플로우 7단계 확인 (특히 데모 시드 + 서명 완결 + 증명서 타임스탬프)
-- [ ] Vercel `TSA_URL`이 https인지, `RESEND_API_KEY`가 들어 있는지
-- [x] GitHub Actions 초록인지 → CI 자체가 고장나 있었음. `9cd482b`로 수정, `30606656779` 그린 (2026-07-31)
+- [ ] `TSA_URL` https 여부 → 위 브라우저 5단계에서 증명서 PDF가 200이면 확정
 - [ ] Dependabot PR 재실행해서 진짜 red/green 확인 (메이저 4건 주의)
 - [ ] 6번 판단 항목 4가지 중 진행할 것 결정
+- [ ] (사업 판단 후) Polar 프로덕션 전환 — 4절 체크리스트. **`set_billing_webhook_secret` 빠뜨리지 말 것**
