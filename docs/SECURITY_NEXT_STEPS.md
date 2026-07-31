@@ -24,7 +24,7 @@ OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐
 ### 다음 세션에서 이어서 할 일 (우선순위 순)
 
 1. **8/1 06:00(KST) 이후 Vercel 함수 로그에서 일일 크론 실제 실행 1회 확인** — 유일하게 시점이 안 된 항목입니다.
-2. **Dependabot #8** — rebase 후 초록이면 병합. #7(vite 7 선행)·#9(tailwind v4)는 별도 작업.
+2. **Dependabot #9(tailwind v4)** — 별도 세션. 급하지 않습니다(5절 참조).
 3. (사업 판단이 서면) **Polar 프로덕션 전환** — 4절의 체크리스트 참고.
 
 > 재스캔 high 4건(6-1절)·6절 (1)~(4) 판단·`TSA_URL` 프로덕션 확정(4절)·배포 후 브라우저 확인(8절)은 전부 끝났습니다.
@@ -299,14 +299,25 @@ if: ${{ secrets.E2E_TEST_EMAIL != '' && secrets.E2E_TEST_PASSWORD != '' }}
 
 메이저 4건 중 실제로 깨진 건 3건이고, 셋 다 **우리 코드가 아니라 생태계 호환성** 문제입니다.
 
-### [완료 2026-07-31] 병합 결과
+### [완료 2026-07-31] 처리 결과 — 8건 중 7건 정리
 
-- **병합**: #5(minor-and-patch 14건) · #4 · #3 · #2.
-- **닫음**: #6(eslint 10) — Next가 지원할 때까지 할 수 있는 게 없습니다. 지원되면 Dependabot이 다시 엽니다.
-- **재시도 대기**: #8 — #5가 `package-lock.json`을 바꿔 충돌이 났습니다. `@dependabot rebase`를 걸어뒀으니 초록이 되면 병합하면 됩니다.
-- **남김**: #7(vite 7 선행 필요) · #9(tailwind v4 설정 마이그레이션).
+- **병합**: #5(minor-and-patch 14건) · #4 · #3 · #2 · #8(jest-dom 7 — rebase 후 초록 확인하고 병합).
+- **닫음 #6**(eslint 10) — `eslint-config-next@15.5.20`이 peer로 받지 않습니다. Next가 지원하면 Dependabot이 다시 엽니다.
+- **닫음 #7**(plugin-react 6) — **대안 조합으로 해결**했습니다. 6.x는 vite `^8`을 요구하는데 vitest 3.2.7은 vite `^5||^6||^7`까지만 받습니다. 대신 vite `^4~^7`을 모두 받는 **plugin-react 5.2.0 + vite 7.3.6**을 main에 직접 반영(`7ac4ede`). 문서 초판의 "vite 7이 필요"는 부정확했고 실제로는 vite 8이 필요했습니다.
+- **남김 #9**(tailwind 3→4) — 아래 참조.
 
-병합 후 로컬 재검증: 테스트 780개 그린, `npm audit --omit=dev` **0건**(CI 게이트 기준). dev 포함 시 3건(vite·esbuild·brace-expansion)이 남는데 전부 devDependency이고, #7(vite 7)이 병합되면 해소됩니다.
+**audit 변화**: 3건(vite high · esbuild moderate · brace-expansion high) → **1건**(brace-expansion). 남은 1건은 eslint 체인 경유라 eslint 10이 필요하고 그건 #6과 같은 이유로 막혀 있습니다. 전부 devDependency이고 `npm audit --omit=dev`는 **0건**이라 CI 게이트에는 영향이 없습니다.
+
+> `npm audit fix`를 돌리면 취약 항목이 1건에서 9건으로 "늘어난 것처럼" 보입니다. 실제 취약 패키지는 `brace-expansion` 하나 그대로이고, 브레이킹 없이 고칠 수 없게 되자 npm이 그것을 의존하는 eslint 체인 전체를 나열하기 때문입니다. 놀라지 마세요.
+
+### #9 (tailwind 3→4) — 별도 세션 권장
+
+의존성 PR로 끝나지 않는 진짜 마이그레이션입니다.
+
+- `postcss.config.mjs`의 플러그인이 `@tailwindcss/postcss`로 분리되고, `globals.css`의 `@tailwind` 지시자가 `@import "tailwindcss"`로 바뀝니다.
+- `tailwind.config.ts`(124줄)에 커스텀 색·간격 토큰이 있고, **`.tsx`에서 커스텀 간격 토큰 사용이 911곳**입니다. v4는 JS 설정을 `@config`로 계속 읽을 수 있어 한 번에 포팅할 필요는 없지만, 기본값 변경(테두리 색·ring 두께·`shadow-sm`→`shadow-xs` 등)이 화면에 그대로 드러납니다.
+- `tailwind-merge`도 v4용으로 올려야 하고, 그 과정에서 알려진 `cn()` 커스텀 간격 토큰 인식 문제를 같이 봐야 합니다.
+- **지금 급하지 않은 이유**: tailwind 3.4.19에는 보안 권고가 없습니다. 테스트로는 시각 회귀를 못 잡으므로 브라우저 확인이 함께 필요한 작업입니다.
 
 ---
 
@@ -524,7 +535,7 @@ fail-open이 적용되는 버킷은 5개입니다(`src/lib/rate-limit.ts:12-18`)
 - [x] Dependabot 8건 재실행 → 그린 5 · 레드 3, 원인 규명 (2026-07-31)
 - [x] 6번 (1) CSP nonce 구현 + dev·프로덕션 빌드 실측 · 커밋 (2026-07-31, `07cfbbd`)
 - [x] `TSA_URL` https 여부(**프로덕션**) — 프로덕션 서명 완결에서 완결 TSA 토큰이 저장돼 https 확정 (2026-07-31, 4절)
-- [x] Dependabot 병합 #5·#4·#3·#2 · #6 닫음 (2026-07-31) — #8은 rebase 대기, #7·#9는 별도 작업
+- [x] Dependabot 8건 중 7건 정리 (2026-07-31) — 병합 #5·#4·#3·#2·#8, 닫음 #6·#7(대안 조합으로 해결), 남김 #9(tailwind v4)
 - [x] 6번 (2)(3) 현상 유지 · (4) 불필요로 닫음 (2026-07-31)
 - [x] **재스캔 high 4건 전부 수정·배포** (6-1절, 2026-07-31)
 - [x] 배포 후 브라우저 확인 — 분석 이벤트 수신 · 서명 링크 정상 렌더 · 서명 완결까지 (2026-07-31, 8절)
