@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { CounterpartySignForm } from "@/components/counterparty-sign-form";
 import { Card } from "@/components/ui/card";
+import { isFrozenDocHashIntact } from "@/lib/contracts/frozen-doc-hash";
+import { captureServerException } from "@/lib/posthog-server";
 import { getHeadersIpHash } from "@/lib/request-meta";
 import { hashSigningToken } from "@/lib/signing-token";
 import { createAnonClient } from "@/lib/supabase/anon";
@@ -212,6 +214,24 @@ export default async function PublicSignPage({ params }: PublicSignPageProps) {
           </Link>
         </div>
       </Card>
+    );
+  }
+
+  // 아래 카드가 "문서 지문으로 검증합니다"라고 약속하는 그 검증을 실제로 수행한다.
+  // 지문은 발송 RPC의 파라미터라 본문과 무관한 값이 동결돼 있을 수 있고, 그 상태로 서명이
+  // 완결되면 증명서에 다른 문서의 지문이 박힌다. 서명 전에 막는다.
+  if (!isFrozenDocHashIntact(session.clauses, session.frozen_doc_hash)) {
+    await captureServerException(
+      new Error("frozen doc hash does not match contract clauses"),
+      undefined,
+      { route: "sign/token" },
+    );
+
+    return (
+      <NoticeCard
+        title="이 서명 링크는 사용할 수 없습니다"
+        description="계약 본문과 발송 시점 문서 지문이 일치하지 않습니다. 안전을 위해 서명을 진행할 수 없으니, 계약을 보낸 분에게 서명 요청 재발송을 부탁해 주세요."
+      />
     );
   }
 
