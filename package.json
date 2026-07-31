@@ -40,7 +40,7 @@
     "@types/pg": "^8.20.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "^4.3.4",
+    "@vitejs/plugin-react": "^5.2.0",
     "autoprefixer": "^10.5.4",
     "chrome-launcher": "^1.2.1",
     "embedded-postgres": "^18.4.0-beta.17",
@@ -54,6 +54,7 @@
     "supabase": "^2.110.0",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.7.2",
+    "vite": "^7.3.6",
     "vitest": "^3.2.6"
   },
   "overrides": {
