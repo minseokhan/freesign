@@ -1,14 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
 
-const mockInit = vi.fn();
+const mockBoot = vi.fn();
 
-vi.mock("posthog-js", () => ({
-  default: { init: mockInit },
+vi.mock("@/lib/posthog-boot", () => ({
+  bootPostHog: mockBoot,
 }));
 
 describe("instrumentation-client", () => {
-  it("posthog.init를 호출한다", async () => {
+  it("PostHog 부트스트랩을 건다", async () => {
     await import("./instrumentation-client");
-    expect(mockInit).toHaveBeenCalledOnce();
+    expect(mockBoot).toHaveBeenCalledOnce();
   });
 });
