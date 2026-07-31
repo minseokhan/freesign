@@ -2,7 +2,7 @@ import { setDefaultResultOrder } from "node:dns";
 import { setDefaultAutoSelectFamilyAttemptTimeout } from "node:net";
 import type { NextConfig } from "next";
 
-// dev 전용: /ingest→PostHog 리라이트 프록시의 ETIMEDOUT 방지 (2026-07 실측).
+// dev 전용: /ingest→PostHog 프록시의 ETIMEDOUT 방지 (2026-07 실측).
 // 1) IPv6 미작동 네트워크에서 AAAA 주소 우선 접속 시도를 피하도록 IPv4 우선.
 // 2) Happy Eyeballs 주소별 시도 타임아웃 기본 250ms가 미국 서버 TCP 연결(~244ms)과
 //    경계에 걸려 전 주소 실패(AggregateError) — 여유 있게 늘린다.
@@ -66,22 +66,8 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-  async rewrites() {
-    return [
-      {
-        source: "/ingest/static/:path*",
-        destination: "https://us-assets.i.posthog.com/static/:path*",
-      },
-      {
-        source: "/ingest/array/:path*",
-        destination: "https://us-assets.i.posthog.com/array/:path*",
-      },
-      {
-        source: "/ingest/:path*",
-        destination: "https://us.i.posthog.com/:path*",
-      },
-    ];
-  },
+  // PostHog 프록시는 rewrite가 아니라 라우트 핸들러(`src/app/ingest/[...path]/route.ts`)다.
+  // rewrite는 받은 Cookie 헤더를 그대로 외부 호스트로 넘겨 Supabase 세션 토큰이 함께 나갔다.
   skipTrailingSlashRedirect: true,
   outputFileTracingIncludes: {
     "/api/contracts/[id]/pdf": [
