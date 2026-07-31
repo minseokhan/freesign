@@ -451,9 +451,9 @@ describe("signature request RPCs", () => {
       const { tokenHash } = await sendRequestAs(userA, contractId);
 
       // 발송 후 계약 조항이 수정되어 문서 해시가 달라진 상황을 재현한다.
-      await runAs(
-        pool,
-        userA,
+      // 0045가 클라이언트의 발송 후 UPDATE를 막았으므로(그게 이 드리프트의 원래 경로였다)
+      // 픽스처는 superuser로 심는다. 여기서 보려는 것은 RPC의 해시 대조다.
+      await pool.query(
         `
           update contracts
           set clauses = '[{"title":"제1조","body":"변경된 본문"}]'::jsonb,

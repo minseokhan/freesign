@@ -318,12 +318,9 @@ describe("RLS policies", () => {
   it("allows an owner to hard-delete a signed contract regardless of status", async () => {
     const clientId = await insertClientAs(userA, "Signed delete client");
     const contractId = await insertContractAs(userA, clientId);
-    await runAs(
-      pool,
-      userA,
-      "update contracts set status = 'signed' where id = $1",
-      [contractId],
-    );
+    // 0045 이후 클라이언트는 초안이 아닌 계약을 UPDATE할 수 없다(status 승격도 마찬가지).
+    // 여기서 검증하려는 것은 삭제 정책이므로 상태는 superuser로 만들어 둔다.
+    await pool.query("update contracts set status = 'signed' where id = $1", [contractId]);
 
     const deleteResult = await runAs(
       pool,
