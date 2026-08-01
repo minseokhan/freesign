@@ -40,11 +40,16 @@ describe("buildContentSecurityPolicy", () => {
     expect(directive(policy, "base-uri")).toBe("base-uri 'self'");
     expect(directive(policy, "form-action")).toBe("form-action 'self'");
     expect(directive(policy, "style-src")).toBe(
-      "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+      "style-src 'self' 'unsafe-inline'",
     );
-    expect(directive(policy, "font-src")).toBe(
-      "font-src 'self' data: https://cdn.jsdelivr.net",
-    );
+    expect(directive(policy, "font-src")).toBe("font-src 'self' data:");
+  });
+
+  it("쓰지 않는 외부 출처는 허용하지 않는다", () => {
+    const policy = buildContentSecurityPolicy({ nonce: "abc123", isDev: false });
+
+    // CDN 웹폰트를 걷어낸 뒤로 jsdelivr에서 받는 리소스가 없다.
+    expect(policy).not.toContain("jsdelivr");
   });
 
   it("스크립트 인라인을 통째로 열어두지 않는다", () => {

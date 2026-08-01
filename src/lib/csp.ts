@@ -24,8 +24,8 @@ export function buildContentSecurityPolicy(input: {
     "base-uri 'self'",
     "form-action 'self'",
     scriptSrc,
-    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
-    "font-src 'self' data: https://cdn.jsdelivr.net",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
   ].join("; ");
 }
 

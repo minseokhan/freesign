@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import posthog from "posthog-js";
 
 import { Button } from "@/components/ui/button";
+import { bootPostHogNow } from "@/lib/posthog-boot";
 
 export default function GlobalError({
   error,
@@ -14,7 +15,8 @@ export default function GlobalError({
 }) {
   useEffect(() => {
     // 에러 바운더리가 잡은 렌더링 예외는 window.onerror에 도달하지 않으므로 명시 캡처한다.
-    posthog.captureException(error);
+    // 부트가 유휴 시점까지 미뤄져 있으면 초기 렌더 크래시가 유실되므로 먼저 초기화한다.
+    void bootPostHogNow().then(() => posthog.captureException(error));
   }, [error]);
 
   return (
