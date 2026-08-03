@@ -29,7 +29,9 @@ const ROUTES = [
   { path: "/invoices", auth: true },
 ];
 
-const VERCEL_URL = "https://maedeup.app";
+// maedeup.app은 Cloudflare DNS 설정 전까지 해석되지 않는다(docs/REBRAND_MANUAL_TASKS.md 1번).
+// 그때까지는 살아 있는 배포 URL을 쓰고, DNS가 붙으면 maedeup.app으로 바꾼다.
+const VERCEL_URL = "https://freesign.vercel.app";
 const LOCAL_PORT = 3100;
 
 // ── 인자 파싱 ────────────────────────────────────────────────

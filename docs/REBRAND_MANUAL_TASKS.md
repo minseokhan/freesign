@@ -75,6 +75,15 @@ cd ~/freesign && vercel domains inspect maedeup.app
 발송되며, **본인 계정 주소로만 수신됩니다.** 클라이언트에게 실제로 메일이 가려면
 이 단계가 반드시 필요합니다.
 
+**성공 기준은 화면 문구가 아니라 이벤트 로그입니다.** 본인이 아닌 주소로 인보이스를
+하나 발송한 뒤 `invoice_events`에 `invoice.sent`가 남아야 합니다:
+```sql
+select event_type, created_at, meta from invoice_events
+ where invoice_id = '<id>' order by created_at desc;
+```
+실패하면 Vercel 런타임 로그의 `[invoice] 청구 안내 이메일 발송 실패:` 에 Resend가 준
+사유가 함께 찍힙니다. (상세: `docs/EMAIL_DOMAIN_SETUP.md` 5절)
+
 ---
 
 ## 3. Vercel — 환경 변수 갱신 (1·2번 완료 후에)
@@ -146,9 +155,19 @@ https://polar.sh 대시보드 (현재 **sandbox** 환경)
 - Settings → Webhooks: 엔드포인트를
   `https://freesign.vercel.app/api/billing/webhook` → `https://maedeup.app/api/billing/webhook`
   로 변경
-  > ⚠️ 엔드포인트를 새로 만들면 **서명 시크릿이 새로 발급된다.** 새 시크릿을 받으면
-  > Vercel `POLAR_WEBHOOK_SECRET`과 **DB `billing_config` 테이블 둘 다** 갱신해야 한다
-  > (`docs/BILLING_PLAN.md` 참조). 기존 엔드포인트를 **수정**하면 시크릿이 유지된다 — 수정 권장.
+  > ⚠️ 엔드포인트를 **새로 만들면 서명 시크릿이 새로 발급된다.** 기존 엔드포인트를
+  > **수정**하면 시크릿이 유지되므로 수정을 권장한다.
+  >
+  > 시크릿이 바뀌었다면 **두 곳을 모두** 갱신해야 한다. 하나라도 빠뜨리면 웹훅이 전량
+  > `unauthorized`로 거부되고 **결제한 사용자가 Free 플랜에 남는다**(조용히 실패한다):
+  > ```bash
+  > vercel env rm POLAR_WEBHOOK_SECRET production && vercel env add POLAR_WEBHOOK_SECRET production
+  > ```
+  > ```sql
+  > -- Supabase SQL 에디터에서. 원격 billing_config는 아직 sandbox 시크릿 해시를 들고 있다.
+  > select set_billing_webhook_secret('<위와 동일한 시크릿>');
+  > ```
+  > 상세: `docs/SECURITY_NEXT_STEPS.md` 4절 · `docs/BILLING_PLAN.md`
 - 상품/조직 표시명의 `FreeSign` → `매듭`
 - 프로덕션 전환은 별건 — `docs/BILLING_PLAN.md`의 프로덕션 체크리스트 참고
 
