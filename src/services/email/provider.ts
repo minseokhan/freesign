@@ -28,6 +28,36 @@ const RESEND_EMAILS_URL = "https://api.resend.com/emails";
 // EMAIL_FROM 미설정 시 Resend 테스트 발신 주소(자기 계정 주소로만 발송 가능).
 const DEFAULT_FROM = "FreeSign <onboarding@resend.dev>";
 
+// Resend는 실패 사유를 본문에 담아 준다(예: 발신 도메인 미인증 403). 상태 코드만 남기면
+// 로그에서 원인이 사라지므로 사유를 함께 싣는다. 본문을 못 읽어도 실패 판정은 그대로.
+async function readResendErrorReason(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.text()).trim();
+
+    if (!body) {
+      return null;
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(body);
+      const message =
+        typeof parsed === "object" && parsed !== null
+          ? (parsed as { message?: unknown }).message
+          : null;
+
+      if (typeof message === "string" && message.trim()) {
+        return message.trim().slice(0, 300);
+      }
+    } catch {
+      // JSON이 아니면 원문을 그대로 쓴다.
+    }
+
+    return body.slice(0, 300);
+  } catch {
+    return null;
+  }
+}
+
 export function createResendEmailProvider(
   apiKey: string,
   from: string,
@@ -60,9 +90,13 @@ export function createResendEmailProvider(
         });
 
         if (!response.ok) {
+          const reason = await readResendErrorReason(response);
+
           return {
             ok: false,
-            error: `Resend API responded with status ${response.status}`,
+            error: reason
+              ? `Resend API responded with status ${response.status}: ${reason}`
+              : `Resend API responded with status ${response.status}`,
           };
         }
 

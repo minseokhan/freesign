@@ -82,6 +82,48 @@ describe("createResendEmailProvider", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toContain("422");
   });
+
+  // 발신 도메인 미인증(403)이 여기로 온다. 상태 코드만 남기면 "왜 안 나갔는지"가
+  // 로그에서 사라져 도메인 셋업 중 원인을 못 찾는다.
+  it("Resend가 준 실패 사유(JSON message)를 error에 담는다", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          statusCode: 403,
+          message: "The freesign.example domain is not verified.",
+        }),
+        { status: 403 },
+      ),
+    );
+    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+
+    const result = await provider.send(message);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("403");
+    expect(result.error).toContain("domain is not verified");
+  });
+
+  it("본문이 JSON이 아니면 원문 텍스트를 사유로 담는다", async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(new Response("<html>Bad Gateway</html>", { status: 502 }));
+    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+
+    const result = await provider.send(message);
+
+    expect(result.error).toContain("502");
+    expect(result.error).toContain("Bad Gateway");
+  });
+
+  it("본문이 비어 있어도 상태 코드만으로 실패를 알린다", async () => {
+    const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 500 }));
+    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+
+    const result = await provider.send(message);
+
+    expect(result).toEqual({ ok: false, error: "Resend API responded with status 500" });
+  });
 });
 
 describe("createConsoleEmailProvider", () => {
