@@ -44,7 +44,7 @@ describe("bootPostHog", () => {
     vi.useRealTimers();
   });
 
-  it("서명 토큰 유출 방지용 sanitize_properties를 넘긴다", async () => {
+  it("서명 토큰 유출 방지용 before_send를 넘긴다", async () => {
     vi.useFakeTimers();
     const { bootPostHog } = await import("../posthog-boot");
 
@@ -55,7 +55,9 @@ describe("bootPostHog", () => {
       api_host: "/ingest",
       disable_surveys: true,
     });
-    expect(typeof mockInit.mock.calls[0][1].sanitize_properties).toBe("function");
+    expect(typeof mockInit.mock.calls[0][1].before_send).toBe("function");
+    // deprecated 옵션은 콘솔에 경고를 찍는다.
+    expect(mockInit.mock.calls[0][1]).not.toHaveProperty("sanitize_properties");
 
     vi.useRealTimers();
   });

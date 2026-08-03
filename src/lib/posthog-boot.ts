@@ -1,6 +1,6 @@
 import posthog from "posthog-js";
 
-import { sanitizeAnalyticsProperties } from "@/lib/analytics-sanitize";
+import { sanitizeAnalyticsEvent } from "@/lib/analytics-sanitize";
 
 // PostHog 부트스트랩(설정 요청 /flags·/e/, exception-autocapture·dead-clicks·web-vitals 번들)이
 // 초기 로드와 대역폭·메인스레드를 다투지 않도록 유휴 시점으로 미룬다.
@@ -23,7 +23,7 @@ function initNow(): void {
     capture_exceptions: true,
     debug: process.env.NODE_ENV === "development",
     // /sign/{token} 의 원문 서명 토큰이 $current_url 등으로 PostHog에 저장되는 것을 막는다.
-    sanitize_properties: sanitizeAnalyticsProperties,
+    before_send: sanitizeAnalyticsEvent,
     // 설문을 쓰지 않는데도 surveys.js(~98KB)가 매 로드마다 받아진다. 설문을 도입하면 되돌릴 것.
     disable_surveys: true,
   });

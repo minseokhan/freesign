@@ -1,7 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 
-import { REDACTED_SIGN_PATH, sanitizeAnalyticsProperties } from "@/lib/analytics-sanitize";
+import {
+  REDACTED_SIGN_PATH,
+  sanitizeAnalyticsEvent,
+  sanitizeAnalyticsProperties,
+} from "@/lib/analytics-sanitize";
 
 describe("sanitizeAnalyticsProperties", () => {
   it("서명 토큰이 든 URL 속성에서 토큰을 제거한다", () => {
@@ -50,5 +54,37 @@ describe("sanitizeAnalyticsProperties", () => {
     expect(props.$screen_height).toBe(1080);
     expect(props.$feature_flags).toEqual(["a", "b"]);
     expect(props.nothing).toBeNull();
+  });
+});
+
+describe("sanitizeAnalyticsEvent", () => {
+  it("properties·$set·$set_once의 토큰을 모두 지운다", () => {
+    const event = sanitizeAnalyticsEvent({
+      uuid: "u-1",
+      event: "$pageview",
+      properties: { $current_url: "https://freesign.vercel.app/sign/tok_abc" },
+      $set: { $current_url: "https://freesign.vercel.app/sign/tok_abc" },
+      $set_once: { $initial_current_url: "https://freesign.vercel.app/sign/tok_abc" },
+    });
+
+    const redacted = `https://freesign.vercel.app${REDACTED_SIGN_PATH}`;
+    expect(event?.properties.$current_url).toBe(redacted);
+    expect(event?.$set?.$current_url).toBe(redacted);
+    expect(event?.$set_once?.$initial_current_url).toBe(redacted);
+  });
+
+  it("$set·$set_once가 없으면 만들지 않는다", () => {
+    const event = sanitizeAnalyticsEvent({
+      uuid: "u-2",
+      event: "$pageview",
+      properties: {},
+    });
+
+    expect(event).not.toHaveProperty("$set");
+    expect(event).not.toHaveProperty("$set_once");
+  });
+
+  it("앞선 before_send가 드롭한 이벤트(null)는 그대로 흘린다", () => {
+    expect(sanitizeAnalyticsEvent(null)).toBeNull();
   });
 });
