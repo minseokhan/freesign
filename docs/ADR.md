@@ -42,7 +42,7 @@
 
 ### ADR-008: soft-delete(`deleted_at`) 통일 + `is_demo` 플래그
 **결정**: 도메인 3테이블 모두 `deleted_at` soft-delete로 통일(기록 체인·증빙 보존). `is_demo` 플래그로 데모 데이터만 선별 물리 삭제. `deleted_at IS NULL` 필터는 RLS가 아니라 공용 쿼리 헬퍼에서 적용.
-**이유**: 정산 증빙·감사·세금 CSV는 삭제 후에도 보존돼야 하므로 물리 삭제 대신 soft-delete. 데모는 "채우기/지우기"로 비파괴 탐색을 지원. RLS에 필터를 넣으면 soft-delete 행이 복원·감사에서 사라져 목적과 충돌.
+**이유**: 정산 증빙·감사·세금 리포트는 삭제 후에도 보존돼야 하므로 물리 삭제 대신 soft-delete. 데모는 "채우기/지우기"로 비파괴 탐색을 지원. RLS에 필터를 넣으면 soft-delete 행이 복원·감사에서 사라져 목적과 충돌.
 **트레이드오프**: 모든 공용 쿼리가 헬퍼를 거쳐야 함(직접 조회 시 삭제 행 노출 위험). FK `ON DELETE RESTRICT` + 앱 레이어 하위 존재 검사로 부모 삭제를 막아야 하는 복잡도. 데모 삭제는 이벤트 선삭제 순서를 지켜야 FK RESTRICT와 충돌하지 않음.
 **갱신(2026-07-14)**: 계약(contracts)만 이 결정을 뒤집어 **물리(hard) 삭제**로 전환한다(인보이스·클라이언트는 soft-delete 유지). 계약은 소유자가 상태와 무관하게 삭제할 수 있고, 삭제 시 (1) 딸린 인보이스는 보존하되 `contract_id`를 `ON DELETE SET NULL`로 끊고 삭제 시점의 계약 핵심 정보(제목·금액·기간)를 `invoices.contract_snapshot(jsonb)`에 스냅샷으로 남겨 맥락 없는 고아를 방지, (2) 계약 감사 이벤트(`contract_events`)는 `ON DELETE CASCADE`로 함께 제거(append-only delete 정책 부재를 cascade가 우회), (3) Storage 아티팩트는 best-effort로 제거한다. **이유**: 계약은 인보이스와 달리 그 자체가 세금 신고 대상이 아니고, 미성사·오입력 계약을 완전히 지우려는 실제 요구가 있어 soft-delete 잔존이 오히려 노이즈. 증빙 체인의 핵심인 "왜 받았는지"는 인보이스 스냅샷이 대신 보존한다. 관련 정책: `contracts_delete_own`(소유자 delete), `contract_artifacts_delete_own`(Storage delete). 마이그레이션 `0013_contract_hard_delete.sql`.
 
@@ -59,7 +59,7 @@
 
 ### ADR-010: 유료화 — Polar 결제 + Free/Pro 경계 + SECURITY DEFINER webhook
 **결정**: 구독 결제를 Polar(`@polar-sh/nextjs`)로 붙이고(마이그레이션 `0024`, `docs/BILLING_PLAN.md`) 다음을 확정한다.
-1. **Free/Pro 경계 = "불러오기 Free / 새 계약 생성·서명 Pro"** — 이미 서명된 외부 계약 **불러오기**(AI 파싱, 누적 5회)와 인보이스·클라이언트·입금추적은 무료(기록 체인 락인). 앱에서 **새 계약 생성 → 쌍방 서명 → TSA → 완결증명서**로 도는 풀 워크플로우는 Pro. 단 activation을 위해 무료도 **새 계약 생성·서명을 1건 체험**(2건째부터 Pro). 세금 CSV export·고급 대시보드(채널·클라이언트 랭킹)도 Pro. 서명·TSA·증명서는 "새 계약 생성"에만 존재하므로 별도 게이트 없이 자동 Pro.
+1. **Free/Pro 경계 = "불러오기 Free / 새 계약 생성·서명 Pro"** — 이미 서명된 외부 계약 **불러오기**(AI 파싱, 누적 5회)와 인보이스·클라이언트·입금추적은 무료(기록 체인 락인). 앱에서 **새 계약 생성 → 쌍방 서명 → TSA → 완결증명서**로 도는 풀 워크플로우는 Pro. 단 activation을 위해 무료도 **새 계약 생성·서명을 1건 체험**(2건째부터 Pro). 세금 리포트 export·고급 대시보드(채널·클라이언트 랭킹)도 Pro. 서명·TSA·증명서는 "새 계약 생성"에만 존재하므로 별도 게이트 없이 자동 Pro.
 2. **게이팅 방식 — 상한별 이원화**: 불러오기 파싱은 저장 없는 호출도 토큰 비용이 나가므로 `usage_counters` 누적 카운터(`consume_lifetime_quota`)로 "호출 자체"를 카운트. 새 계약 생성·서명은 별도 카운터 없이 **`contracts` 실시간 count**(`source_pdf_url IS NULL` = 생성 계약)로 판정 — 실데이터 기반이라 **다운그레이드(pro때 만든 계약이 그대로 카운트) 시 "기존 읽기전용 유지, 신규만 재적용" 정책과 자동 일치**. 모든 게이트는 **free일 때만** 검사하므로 업그레이드는 즉시 무제한.
 3. **플랜 판정은 순수 함수 `derivePlan`**(`lib/plan.ts`) — 행 없음/plan=free/revoked→free, 기간 만료→free, 취소예정이나 기간 잔여→pro 유지(유예). `mapPolarStatusToPlan`이 Polar status→내부 상태 매핑(active/trialing/past_due→pro, 그 외→free).
 4. **Webhook은 SECURITY DEFINER RPC 경계** — Polar webhook은 로그인 세션이 없어 남의 구독 행을 써야 한다. `service_role`(마스터키)을 요청 경로에 두는 대신, 서명 검증 후 **anon 클라이언트**(`createAnonClient`)로 `upsert_subscription_from_polar`(DEFINER) 하나만 호출해 구독 행 upsert + `billing_events` 기록. anon 직접 호출로 남을 pro로 올리는 권한상승을 막기 위해 **webhook 시크릿을 파라미터로 받아 `billing_config`(RLS·grant로 anon/authenticated 조회 차단, DEFINER만 읽음)의 저장값과 대조**(미설정 시 fail-closed). ADR-009의 anon DEFINER 경계 컨벤션 재사용. (Supabase `postgres` 롤은 커스텀 GUC ALTER 권한이 없어 GUC 대신 테이블에 시크릿을 둔다 — 0026.)
@@ -69,7 +69,7 @@
 
 **갱신(2026-07-25)**: 상한 구조(2·3·4항)는 유지하되 **Pro의 정체성을 "무제한 계약 생성" → "청구·수금 자동화 + 인사이트"로 재배치**한다(ADR-011). 이유는 위 1항의 결함이다 — 매달 쓰는 가치(인보이스·입금추적)는 전부 Free인데 Pro의 대표 가치(새 계약 생성·서명)는 몰아서 쓰는(bursty) 기능이라, "계약 1건 → 몇 달 작업"인 프리랜서에게 월 구독의 정당성이 매달 서지 않는다. 그래서 매달 가치가 발생하는 3기능(미수금 자동 독촉·반복 인보이스·AI 계약 인사이트)을 Pro로 신설했다. 현재 경계는 `src/components/billing/plan-comparison.tsx`가 사용자에게 보여주는 목록이 정본이다:
 - **Free** — 클라이언트·인보이스 무제한, 새 계약 1건·서명 발송 1건, 불러오기 파싱 누적 5회, 미수금·이달 수익 대시보드, 계약서·인보이스 PDF.
-- **Pro** — 위 상한 전부 무제한 + 반복 인보이스 자동 초안 + 미수금 독촉 메일 초안 + AI 계약 인사이트 + 채널/클라이언트 수익 랭킹 + 세금 CSV.
+- **Pro** — 위 상한 전부 무제한 + 반복 인보이스 자동 초안 + 미수금 독촉 메일 초안 + AI 계약 인사이트 + 채널/클라이언트 수익 랭킹 + 세금 리포트 export.
 - **다운그레이드해도 데이터는 지우지 않는다** — 자동화와 뷰만 잠근다(반복 스케줄은 행을 남긴 채 생성만 중단). 요금제 화면은 `/settings`의 카드에서 전용 페이지 `/billing`으로 분리했고, Pro 전용 메뉴(반복 인보이스)는 free에게 사이드바에서 아예 숨긴다.
 
 ### ADR-011: Pro 자동화 3기능 — 단일 일일 크론 + "초안까지만" 반자동

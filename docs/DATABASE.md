@@ -6,7 +6,7 @@
 
 **공통 규칙**
 - 모든 사용자 데이터 테이블은 `user_id`로 스코프되고 RLS로 격리된다(§ RLS 참조).
-- 소프트 삭제: `deleted_at IS NULL`이 활성 레코드. 필터는 RLS가 아니라 공용 쿼리 헬퍼에서 적용(복원·감사·CSV 보존 목적).
+- 소프트 삭제: `deleted_at IS NULL`이 활성 레코드. 필터는 RLS가 아니라 공용 쿼리 헬퍼에서 적용(복원·감사·리포트 보존 목적).
 - 금액은 모두 `bigint`(원 단위, KRW). 소수점 없음.
 - 타임스탬프는 `timestamptz`, 리포트 집계의 연/월 경계는 KST(`Asia/Seoul`) 기준.
 - `created_at`/`updated_at`은 기본값 `now()`, `updated_at`은 `set_updated_at()` 트리거로 갱신(events 테이블 제외).
@@ -432,7 +432,7 @@ Polar 구독의 내부 투영. 사용자당 1행(`user_id`가 PK).
 - `get_report_channel_revenue(year)` → 채널별 net_amount 합 + 전체 합계(윈도우).
 - `get_report_client_revenue(year)` → 고객별 net_amount 합 + 전체 합계(윈도우).
 - `get_report_outstanding(year)` → 미수 건수/금액 + 연체 건수/금액(연체 = `due_date` < KST 오늘). 발행일 기준.
-- `get_report_tax_ledger(year)` → 세무 정리용 인보이스 원장(입금일 오름차순, CSV 내보내기 전용).
+- `get_report_tax_ledger(year)` → 세무 정리용 인보이스 원장(입금일 오름차순, xlsx 내보내기 전용).
 
 ---
 

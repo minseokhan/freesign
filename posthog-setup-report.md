@@ -40,7 +40,7 @@ The wizard has completed a deep integration of PostHog into the Maedeup project.
 | `contract_pdf_downloaded` | 계약서 PDF 다운로드 (증빙 활용) | `src/app/api/contracts/[id]/pdf/route.ts` |
 | `invoice_pdf_downloaded` | 인보이스 PDF 다운로드 | `src/app/api/invoices/[id]/pdf/route.ts` |
 | `contract_source_pdf_downloaded` | 불러온 원본 계약서 PDF 열람 | `src/app/api/contracts/[id]/source-pdf/route.ts` |
-| `report_exported` | 세금 장부 CSV 내보내기 (year, row_count) | `src/app/api/reports/route.ts` |
+| `report_exported` | 세금 장부 Excel 내보내기 (year, row_count) | `src/app/api/reports/route.ts` |
 | `demo_seeded` / `demo_cleared` | 데모 데이터 시드/정리 (온보딩 활성화) | `src/app/(dashboard)/demo/actions.ts` |
 
 `contract_draft_created`에는 `draft_source`(ai/skeleton) 프로퍼티가 추가되었다.

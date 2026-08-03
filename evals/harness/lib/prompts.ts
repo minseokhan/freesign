@@ -15,7 +15,7 @@ export const REVIEW_SYSTEM_PROMPT = `너는 매듭(Maedeup, Next.js 15 + Supabas
 
 [read-boundary] 읽기는 RSC에서 Supabase 직접 조회(RLS 스코프). 읽기를 내부 /api fetch로 우회 금지.
 [write-boundary] 쓰기는 Server Action에서만. 클라이언트 컴포넌트/RSC에서 직접 insert·update·delete 금지.
-[secret-boundary] Claude·서명 해시·PDF·CSV·service_role 등 시크릿/외부 API는 app/api 라우트나 서버 전용 모듈에서만. service_role 키는 요청 경로에서 절대 금지(CLI 시드 전용). 클라이언트 직접 호출 금지.
+[secret-boundary] Claude·서명 해시·PDF·XLSX·service_role 등 시크릿/외부 API는 app/api 라우트나 서버 전용 모듈에서만. service_role 키는 요청 경로에서 절대 금지(CLI 시드 전용). 클라이언트 직접 호출 금지.
 [zod-allowlist] Server Action은 client 입력 전용 zod allowlist(도메인 필드만) 수신. user_id는 항상 getUser()에서. 서버 소유 필드(status·paid_at·doc_hash·signature_meta·is_demo·금액 스냅샷·pdf 경로)는 client 입력 금지. FK 참조는 소유권 재조회 검증 후 insert.
 [provider-boundary] 전자서명·결제는 services/ 의 Provider 인터페이스 뒤로만 접근. AI 계약서 결과는 항상 "초안" 취급, 실패 시 골격 폴백(필수 게이트 아님).
 [definer-rpc-scope] SECURITY DEFINER 함수는 RLS를 우회한다. 세션 있는 경계의 파괴적 RPC(계정 삭제 등)는 대상을 클라이언트 인자(p_user_id 등)로 받지 말고 auth.uid()로 정해야 한다. 앱이 옳게 넘겨준다는 주석은 근거가 아니다 — PostgREST로 직접 호출 가능하다.

@@ -31,7 +31,7 @@ async function expectAnyKrwAtLeast(pageText: Promise<string>, minimum: number) {
   expect(amounts.some((value) => parseKrw(value) >= minimum)).toBe(true);
 }
 
-test("runs the core settlement chain from client to paid invoice and report CSV", async ({
+test("runs the core settlement chain from client to paid invoice and report export", async ({
   page,
 }) => {
   // 실제 Claude API 초안 생성이 ~25초 걸려 기본 30초 테스트 예산을 초과한다.
@@ -235,13 +235,13 @@ test("runs the core settlement chain from client to paid invoice and report CSV"
   await expectAnyKrwAtLeast(page.locator("body").innerText(), netAmount);
 
   // page.request 는 브라우저 컨텍스트의 인증 쿠키를 공유한다(standalone request 는 미인증).
-  const csvResponse = await page.request.get(
+  const exportResponse = await page.request.get(
     `/api/reports?year=${currentKstYear()}`,
   );
 
-  expect(csvResponse.status()).toBe(200);
+  expect(exportResponse.status()).toBe(200);
   // 2a0e4a0에서 세무 리포트가 CSV → 서식 있는 xlsx로 바뀌었다.
-  expect(csvResponse.headers()["content-type"]).toContain(
+  expect(exportResponse.headers()["content-type"]).toContain(
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   );
 });

@@ -46,7 +46,7 @@ const DIMENSIONS = [
 - service_role 키가 요청 경로(src/app, 라우트 핸들러, Server Action)에 등장하면 CRITICAL(시드/CLI 전용).
 - zod allowlist: Server Action은 도메인 필드만 담은 zod로 입력받아야 함. user_id·status·paid_at·doc_hash·signature_meta·is_demo·금액 스냅샷·pdf 경로 등 서버 소유 필드가 client 입력 스키마에 있으면 결함.
 - FK 참조(invoice→contract/client)는 insert 전 소유권 서버 재조회 검증(FK는 RLS 우회). 검증 없이 client FK id 사용은 결함.
-- 시크릿·외부 API(Claude·서명해시·PDF·CSV·service_role)는 서버 전용에서만. 'use client'에서 직접 호출은 결함.
+- 시크릿·외부 API(Claude·서명해시·PDF·XLSX·service_role)는 서버 전용에서만. 'use client'에서 직접 호출은 결함.
 - Storage: private 버킷 + {user_id}/ 경로, DB엔 key만, 읽기는 단기 signed URL. public URL 노출·경로 user_id 누락은 결함.`,
   },
   {

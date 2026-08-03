@@ -16,7 +16,7 @@
 - **무료도 "새 계약 생성·쌍방 서명"을 1건 경험할 수 있다** — 제품의 히어로 기능(생성→서명→TSA→증명서)을 한 번 맛보게 해 activation·전환을 살린다. 2건째부터 Pro. (아하 순간이 페이월 뒤에 있는 리스크 완화.)
 - **인보이스·클라이언트는 별도 상한 없음** — 불러온 계약 기준으로 청구·입금추적·거래처 관리는 무료로 온전히 제공(기록 체인 = 무료 락인).
 - **AI 초안(새 계약 생성)은 무료 1건까지, 이후 Pro.** AI 파싱(불러오기)은 무료 5회.
-- **세금 CSV export·고급 대시보드는 Pro** (별도 게이트 유지).
+- **세금 리포트 export·고급 대시보드는 Pro** (별도 게이트 유지).
 - **과금 형태: 월 정기구독 단일** (가격은 Polar 대시보드 설정).
 - **Webhook 아키텍처: SECURITY DEFINER RPC** — Polar webhook은 로그인 세션이 없어 남의 구독 행을 써야 한다. `service_role`(마스터키)을 요청 경로에 두는 대신, 서명 검증 후 anon 클라이언트로 정의자권한 RPC 하나만 호출해 구독 행을 upsert. 기존 `..._with_event` RPC 컨벤션·보안 정책 유지.
 
@@ -31,7 +31,7 @@
 | 세금 리포트 화면 조회 | ✅ | ✅ |
 | **새 계약 생성 (AI 초안)** | ✅ **1건까지** | 무제한 |
 | **쌍방 서명 + TSA + 완결증명서** | ✅ **1건까지**(새 계약 1건에 딸림) | 무제한 |
-| **세금 리포트 CSV export** | ❌ | ✅ |
+| **세금 리포트 Excel export** | ❌ | ✅ |
 | **고급 대시보드(채널·클라이언트 매출 랭킹)** | ❌ (업셀 표시) | ✅ |
 
 **요지**: 무료 = "이미 맺은 계약들을 불러와 청구·입금까지 정리"(5건 파싱) + "직접 계약 만들어 서명받기 1건 체험". Pro = 불러오기·새 계약·서명 모두 무제한. 업그레이드 동기는 (a) 5회 초과 불러오기, (b) 2건째 새 계약 생성·서명.
@@ -88,7 +88,7 @@ billing_events(id, user_id, polar_subscription_id, event_type, status, meta json
 | **불러오기 5회** | `src/app/api/contracts/import/parse/route.ts` + `createImportedContract`(`contracts/actions.ts`) | 파싱 **전** `consume_lifetime_quota('ai_import_parse', 5)` (free만). 초과 시 업셀 메시지 |
 | **새 계약 생성 (무료 1건)** | `contracts/actions.ts`(`createContractDraft`) + `src/app/api/contracts/draft/route.ts` + `contracts/new`·`ContractForm` 진입 | free는 생성한 새 계약 수 < 1이면 허용, 이후 업셀. (`consume_lifetime_quota('create_contract', 1)` 또는 생성 계약 count) |
 | **서명 발송(쌍방, 무료 1건)** | `contracts/signature-actions.ts`(`sendSignatureRequest`) | free는 서명 진행한 새 계약 1건까지 허용, 이후 Pro. 서버 방어 이중 |
-| CSV export | `src/app/api/reports/route.ts`(export 경로) | `assertProFeature` — free 403/업셀 |
+| 리포트 export | `src/app/api/reports/route.ts`(export 경로) | `assertProFeature` — free 403/업셀 |
 | 고급 대시보드 | `dashboard/page.tsx`·`reports/page.tsx` | 채널/클라이언트 랭킹 섹션 free는 업셀 카드로 대체 |
 
 TSA·완결증명서는 새 계약 서명 플로우 안에서만 산출되므로 별도 게이트 불필요(§Context).
@@ -112,10 +112,10 @@ TSA·완결증명서는 새 계약 서명 플로우 안에서만 산출되므로
 
 ## 검증 (end-to-end)
 
-1. **단위 테스트 (TDD 선작성)**: `npm run test` — `derivePlan`(만료/취소/무행), `mapPolarStatusToPlan`. free가 6번째 파싱·2건째 새 계약 생성·서명·CSV export 시 게이트 에러 반환(1건째는 허용).
+1. **단위 테스트 (TDD 선작성)**: `npm run test` — `derivePlan`(만료/취소/무행), `mapPolarStatusToPlan`. free가 6번째 파싱·2건째 새 계약 생성·서명·리포트 export 시 게이트 에러 반환(1건째는 허용).
 2. **빌드/린트**: `npm run build`, `npm run lint`, `npm run test` 그린.
 3. **Polar sandbox E2E**: `POLAR_SERVER=sandbox`로 checkout→결제→webhook→`subscriptions` pro 전환 확인. webhook 로컬 수신은 ngrok(Polar는 로컬 포워더 없음). dev-browser CLI로 업셀→checkout 리다이렉트 확인.
-4. **게이트 실동작**: free로 새 계약 1건 생성·서명 성공(TSA·증명서 확인) → 2건째 차단, 불러오기 5회 후 6회째 차단, CSV export 차단 확인 → Pro 전환 후 전부 해제 확인.
+4. **게이트 실동작**: free로 새 계약 1건 생성·서명 성공(TSA·증명서 확인) → 2건째 차단, 불러오기 5회 후 6회째 차단, 리포트 export 차단 확인 → Pro 전환 후 전부 해제 확인.
 5. **보안 회귀**: `subscriptions` 클라이언트 직접 INSERT/UPDATE 불가(RLS), webhook 라우트에 `service_role` 키 부재, `get_advisors`로 신규 테이블 RLS 린트.
 
 ## 열린 항목 (실행 중 확정)

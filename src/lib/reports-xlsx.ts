@@ -45,10 +45,10 @@ const HEADERS = [
 
 const COLUMN_WIDTHS = [13, 13, 20, 14, 16, 14, 16, 16];
 
-// 앱 UI와 같은 팔레트(slate/blue)로 맞춰 내려받은 파일도 같은 제품처럼 보이게 한다.
+// 앱 UI와 같은 팔레트(slate + 브랜드 남색 틴트)로 맞춰 내려받은 파일도 같은 제품처럼 보이게 한다.
 // 테두리는 엑셀 기본 눈금선과 구분되도록 한 단계 진한 회색을 쓴다.
 const BORDER = "#94A3B8";
-const TITLE_BG = "#EFF6FF";
+const TITLE_BG = "#EEF0FB";
 const HEADER_BG = "#E2E8F0";
 const TOTAL_BG = "#F1F5F9";
 const MUTED_TEXT = "#64748B";

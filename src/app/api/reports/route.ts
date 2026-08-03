@@ -34,7 +34,7 @@ type ReportRpcClient = {
 export async function GET(request: Request) {
   const user = await requireUser();
 
-  // 세금 리포트 CSV export는 Pro 전용(화면 조회는 무료).
+  // 세금 리포트 Excel(xlsx) export는 Pro 전용(화면 조회는 무료).
   const proGate = await assertProFeature();
   if (!proGate.ok) {
     return NextResponse.json(

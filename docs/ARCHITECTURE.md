@@ -21,7 +21,7 @@ src/
 │   ├── (auth)/login          # Google 로그인
 │   ├── (dashboard)/          # 인증 후: dashboard, clients, contracts, invoices(+recurring), reports, billing, settings
 │   ├── (public)/sign/[token] # 비로그인 상대방 서명 화면 (anon DEFINER RPC 경유)
-│   └── api/                  # 라우트 핸들러 — Claude·서명 해시·PDF·CSV·시크릿·webhook·크론은 여기서만
+│   └── api/                  # 라우트 핸들러 — Claude·서명 해시·PDF·XLSX·시크릿·webhook·크론은 여기서만
 ├── components/               # shadcn/ui 기반 UI (billing/·pdf/·landing/ 하위 그룹)
 ├── types/                    # 도메인 타입 + Supabase 생성 타입
 ├── lib/
@@ -55,7 +55,7 @@ src/
 /invoices/[id]        인보이스 상세 — 원천징수 내역·정산 상태 토글·PDF·상태 이력 + 독촉 초안 검토 패널(Pro·연체 시)
 /invoices/recurring   반복 인보이스 스케줄 목록(Pro 전용, free는 사이드바에서 숨김)
 /invoices/recurring/new  반복 스케줄 생성 — 주기·지급기한 오프셋·원천징수 스냅샷
-/reports              세금 요약(무료) + 채널·클라이언트 랭킹·계약 피드백 요약·CSV 내보내기(Pro)
+/reports              세금 요약(무료) + 채널·클라이언트 랭킹·계약 피드백 요약·Excel 내보내기(Pro)
 /billing              요금제 — 현재 플랜 배지 + Free/Pro 비교 + Pro 기능 소개 + 업그레이드/구독 관리 CTA
 /settings             프로필·기본 원천징수율·계좌정보
 /sign/[token]         비로그인 상대방 서명 — 계약 열람·서명·완결 PDF/증명서 내려받기(anon DEFINER RPC 경유)
@@ -68,7 +68,7 @@ API 라우트(전부 서버 전용)
 /api/contracts/[id]/insights      온디맨드 AI 계약 인사이트(Pro, free는 402 + upsell)
 /api/invoices/[id]/pdf            인보이스 PDF
 /api/sign/[token]/(route|pdf|certificate)   비로그인 서명 제출·완결 문서 교부
-/api/reports                      세금 원장 CSV 내보내기(Pro)
+/api/reports                      세금 원장 xlsx 내보내기(Pro)
 /api/billing/(checkout|portal|webhook)      Polar 체크아웃·고객 포털·webhook(서명 검증 후 DEFINER RPC)
 /api/cron/daily                   Vercel Cron 단일 진입점 — 독촉·반복 스윕(Bearer CRON_SECRET, fail-closed)
 ```
@@ -163,7 +163,7 @@ contract_insights    -- AI 계약 인사이트. 온디맨드(세션 있는 Pro A
 - **공통 컬럼**: 도메인 3테이블 모두 `is_demo`(데모 시드 표식), `deleted_at`(soft-delete), `updated_at`(트리거 자동 갱신).
 - **RLS**: SELECT/UPDATE는 `USING`, **INSERT/UPDATE는 `WITH CHECK (user_id = (select auth.uid()))` 둘 다 명시**(없으면 타 user_id 삽입·소유권 이관 가능). `select` 래핑으로 플래너 캐싱. 이벤트 테이블은 select/insert만 허용(UPDATE/DELETE 정책 없음 = append-only).
 - **DB CHECK 제약**: `amount > 0`, `0 <= withholding_amount <= amount`, `net_amount >= 0`, `due_date >= issue_date`.
-- **`deleted_at IS NULL` 필터는 RLS가 아니라 공용 쿼리 헬퍼에서** — RLS에 넣으면 soft-delete 행이 복원·감사·세금 CSV에서 사라짐(soft-delete 목적과 충돌). FK는 `ON DELETE RESTRICT` + 앱 레이어에서 "비삭제 하위가 있으면 부모 삭제 차단".
+- **`deleted_at IS NULL` 필터는 RLS가 아니라 공용 쿼리 헬퍼에서** — RLS에 넣으면 soft-delete 행이 복원·감사·세금 리포트에서 사라짐(soft-delete 목적과 충돌). FK는 `ON DELETE RESTRICT` + 앱 레이어에서 "비삭제 하위가 있으면 부모 삭제 차단".
 - **하드삭제**: 실데이터 `paid` 인보이스는 하드삭제 금지. `is_demo=true`만 예외("데모 지우기"). 데모 삭제 Server Action은 **demo 이벤트를 먼저 삭제한 뒤 demo 도메인 행 삭제**(FK RESTRICT 충돌 방지). 실데이터 이벤트는 여전히 append-only. **예외: 계약(contracts)은 상태 무관 물리 삭제**(ADR-008 갱신) — `deleteContract` Server Action이 ① 딸린 인보이스에 계약 스냅샷(`contract_snapshot`) 기록(계약 살아있는 동안) → ② 계약 행 DELETE(DB가 `invoices.contract_id` SET NULL + `contract_events` CASCADE 동시 처리) → ③ Storage 아티팩트 best-effort 제거 순으로 수행. 스냅샷을 삭제 앞에, 파일 정리를 DB 삭제 뒤에 둬 부분 실패 시 데이터 유실을 막는다.
 - **계정 삭제(회원 탈퇴)**: soft-delete 대상이 아니라 **즉시 물리 삭제**(ADR-012). `deleteAccount` Server Action이 ① Storage `{user_id}/` 객체 제거(실패 시 여기서 중단 — DB는 건드리지 않는다) → ② `delete_own_account()` DEFINER RPC → ③ `signOut()` 순으로 수행. RPC 내부는 활성 구독 검사 → 결제 기록을 `billing_records_retained`로 익명 이관 → `invoice_events → invoices → contracts → clients` 명시 삭제 → `delete from auth.users` 순이다. **`auth.users` FK를 새로 만들 때는 반드시 `on delete cascade`를 붙일 것** — 빠뜨리면 계정 삭제가 런타임에 실패하고, `src/lib/db/__tests__/account-delete.test.ts`가 이를 잡는다.
 - **원천징수 계산**(`lib/tax.ts`): 소득세(원 미만 절사) + 지방소득세(10원 미만 절사) 분리. 발행 시점 스냅샷 저장(drift 방지), draft 동안만 재계산.
@@ -172,14 +172,14 @@ contract_insights    -- AI 계약 인사이트. 온디맨드(세션 있는 Pro A
 - **플랜 게이팅**(ADR-010·011, `lib/plan.ts`): 유효 플랜은 순수함수 `derivePlan(subscription, now)`로 판정(만료·취소유예·revoked 포함). 게이트는 **free일 때만** 검사(pro는 무제한) → 업그레이드 즉시 해제. 게이트는 세 종류다.
   - **누적 상한**: 불러오기 파싱 5회는 `usage_counters`+`consume_lifetime_quota`(저장 여부와 무관하게 "호출 자체"를 카운트, 비용 기준).
   - **실데이터 count**: 새 계약 생성 1건·서명 발송 1건은 별도 카운터 없이 `contracts` 실시간 count(`source_pdf_url IS NULL`=생성 계약) — 다운그레이드 시 실데이터를 그대로 반영해 "기존 읽기전용·신규만 재적용" 정책과 자동 일치.
-  - **Pro 전용**(`assertProFeature()`): 반복 인보이스·미수금 독촉 승인·AI 계약 인사이트·세금 CSV·채널/클라이언트 랭킹. Server Action은 `{ok:false,error}`, API 라우트는 402+`upsell:true`, 페이지는 `getUserPlan()`+`UpgradeCard`로 표면화한다.
+  - **Pro 전용**(`assertProFeature()`): 반복 인보이스·미수금 독촉 승인·AI 계약 인사이트·세금 리포트 export·채널/클라이언트 랭킹. Server Action은 `{ok:false,error}`, API 라우트는 402+`upsell:true`, 페이지는 `getUserPlan()`+`UpgradeCard`로 표면화한다.
   - **다운그레이드는 데이터를 지우지 않는다** — 뷰·자동화만 잠근다. 반복 인보이스는 크론 RPC의 `plan=pro` 조건이 free 유저 스케줄을 건너뛰어 생성만 일시중지(행 보존).
   - Webhook은 anon 클라이언트→`upsert_subscription_from_polar`(DEFINER, webhook 시크릿을 `billing_config` 저장값과 대조 fail-closed)로만 구독 행 기록.
 
 ## 패턴 (렌더링·데이터 접근)
 - **읽기**: RLS 스코프된 **Server Component에서 직접 Supabase 조회**. 읽기를 내부 `/api` fetch로 우회하지 않는다(안티패턴).
 - **쓰기(뮤테이션)**: **Server Actions에서만**. `revalidatePath`로 갱신, 토글류는 `useOptimistic`.
-- **시크릿·외부 API**(Claude·서명 해시·PDF·CSV·이메일·TSA): `app/api/` 라우트 핸들러 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지. Claude PDF 추출(`contract-import.ts`)도 서버 전용 모듈과 `/api/contracts/import/parse` 라우트에서만 호출한다.
+- **시크릿·외부 API**(Claude·서명 해시·PDF·XLSX·이메일·TSA): `app/api/` 라우트 핸들러 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지. Claude PDF 추출(`contract-import.ts`)도 서버 전용 모듈과 `/api/contracts/import/parse` 라우트에서만 호출한다.
 - **세션 없는 경계**(Polar webhook·일일 크론): anon 클라이언트(`lib/supabase/anon.ts`) → 시크릿 인자를 받는 SECURITY DEFINER RPC 하나만 호출. `service_role`은 요청 경로에서 여전히 금지.
 - **크론은 초안까지만**: 스윕은 소유자 검토 대기물(`dunning_reminders.pending_review`·인보이스 `draft`)과 소유자 알림 메일만 만든다. 클라이언트 발송·인보이스 발행은 세션 있는 Server Action에서 승인 후에만 일어난다.
 - **이메일은 best-effort**: `getEmailProvider().send()`는 throw하지 않고 `{ok,error}`를 돌려준다 — 메일 실패가 서명·독촉 트랜잭션을 되돌리지 않게.

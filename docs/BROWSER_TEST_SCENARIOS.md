@@ -5,7 +5,7 @@
 > 도구: 수동 검증은 `dev-browser` CLI(권장) 또는 `agent-browser`(openclaw-agent-browser 스킬) + 로컬 dev 서버.
 > 최초 실측: 2026-07-09 (아래 "검증 상태"는 그 시점 기록 — 회귀 여부는 매회 갱신).
 >
-> **자동화**: S2~S9의 핵심 정산 체인(로그인→클라이언트→계약+AI초안→서명→인보이스+원천징수→입금→대시보드→리포트 CSV)은 `e2e/happy-path.spec.ts`(Playwright, `npm run test:e2e`)가 자동 커버한다. 이 스펙은 계약 제목 필수 입력, 저장 완료를 UUID URL로 대기(`/contracts/[0-9a-f-]{36}$`), 서명 캔버스 `scrollIntoViewIfNeeded`, CSV는 브라우저 인증 쿠키 공유(`page.request`)로 검증하며, 실제 Claude API 지연(~25초, 저장 시 재생성)을 감안해 `test.setTimeout(180s)`를 쓴다. 수동 플레이북은 이 자동 커버 밖의 시각·엣지 확인용으로 보완 사용.
+> **자동화**: S2~S9의 핵심 정산 체인(로그인→클라이언트→계약+AI초안→서명→인보이스+원천징수→입금→대시보드→리포트 Excel)은 `e2e/happy-path.spec.ts`(Playwright, `npm run test:e2e`)가 자동 커버한다. 이 스펙은 계약 제목 필수 입력, 저장 완료를 UUID URL로 대기(`/contracts/[0-9a-f-]{36}$`), 서명 캔버스 `scrollIntoViewIfNeeded`, 리포트 다운로드는 브라우저 인증 쿠키 공유(`page.request`)로 검증하며, 실제 Claude API 지연(~25초, 저장 시 재생성)을 감안해 `test.setTimeout(180s)`를 쓴다. 수동 플레이북은 이 자동 커버 밖의 시각·엣지 확인용으로 보완 사용.
 
 ---
 
@@ -52,7 +52,7 @@ agent-browser state save auth.json                              # 세션 저장(
    ```
    단, textarea/number를 **eval로 넣으면 RHF 미동기화로 검증 실패**한다. → **텍스트·숫자는 `fill`, 날짜만 eval** 조합을 쓸 것.
 4. **날짜 피커 버튼("날짜 선택도구 표시")**은 native OS 캘린더 → DOM 자동화 불가.
-5. **PDF/CSV 다운로드**는 링크 클릭 대신 쿠키를 넘겨 endpoint를 직접 curl로 검증하는 게 확실하다:
+5. **PDF/Excel 다운로드**는 링크 클릭 대신 쿠키를 넘겨 endpoint를 직접 curl로 검증하는 게 확실하다:
    ```bash
    COOKIE=$(agent-browser eval "document.cookie" | tr -d '"')
    curl -s -D - -o out.pdf -H "Cookie: $COOKIE" "http://localhost:3000/api/..."
@@ -143,11 +143,19 @@ agent-browser state save auth.json                              # 세션 저장(
 - `[검증]` ✅ 미수 전환 시 미수금 합계 ₩0 → ₩3,000,000 반영. 임박/지연은 지급기한이 7일 밖이면 미표시(정상).
 - 참고: 데모 인보이스 입금일이 2026.08.05(당월 밖)라 "이달 수익 ₩0", 2026 연간 합계 ₩2,901,000 — **정합**(버그 아님).
 
-### S9. 리포트 연 결산 + CSV 내보내기 (인증)
+### S9. 리포트 연 결산 + Excel 내보내기 (인증)
 - **경로**: `/reports` → `/api/reports?year=YYYY`
-- **절차**: 연도 필터 선택 → 4개 섹션 확인 → "CSV 내보내기"
-- **기대**: 입금 기준으로 (1) KPI 카드(연간 입금 수익·총 원천징수·미수/연체), (2) 연간 세무 요약(원천징수 유형별 청구액·원천징수액·실지급액), (3) 채널별 수익, (4) 클라이언트별 수익 표, (5) 미수/연체 결산(발행 기준). CSV는 입금 인보이스 상세 원장.
-- `[검증]` ✅ `/api/reports?year=2026` → 200, `content-disposition: attachment; filename="maedeup-report-2026.csv"`, `text/csv`. 내용: BOM + `입금일,발행일,클라이언트,채널,청구액(원),원천징수유형,원천징수액(원),실지급액(원)` 헤더 + 인보이스별 행 + `합계` 행(청구 ₩5,000,000 / 원천징수 ₩165,000 / 실지급 ₩4,835,000). 연도 탭 2026~2022.
+- **절차**: 연도 필터 선택 → 4개 섹션 확인 → "Excel 내보내기"
+- **기대**: 입금 기준으로 (1) KPI 카드(연간 입금 수익·총 원천징수·미수/연체), (2) 연간 세무 요약(원천징수 유형별 청구액·원천징수액·실지급액), (3) 채널별 수익, (4) 클라이언트별 수익 표, (5) 미수/연체 결산(발행 기준). 내려받는 xlsx는 입금 인보이스 상세 원장.
+- `[검증]` ✅ `/api/reports?year=2026` → 200,
+  `content-disposition: attachment; filename="maedeup-report-2026.xlsx"`,
+  `content-type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+  시트명 `2026년 세무 원장`, 구성은 제목 행 → 생성 정보 행 → 빈 줄 →
+  `입금일 / 발행일 / 클라이언트 / 채널 / 청구액(원) / 원천징수유형 / 원천징수액(원) / 실지급액(원)`
+  머리글 → 인보이스별 행 → `합계` 행(청구 ₩5,000,000 / 원천징수 ₩165,000 / 실지급 ₩4,835,000).
+  연도 탭 2026~2022.
+  > 원래 CSV(UTF-8 BOM)였으나 `2a0e4a0`에서 서식 있는 xlsx로 바뀌었다.
+  > 바이너리라 `curl | head`로 내용을 못 읽으니, 받아서 엑셀로 열어 확인한다.
 
 ---
 

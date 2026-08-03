@@ -87,7 +87,7 @@
 **스택 추가 체크 (매듭 도메인)**
 - 서명 무결성: 계약 `doc_hash`·`signature_meta`가 서버에서 생성되고 위변조 검증 가능한지. 클라이언트가 해시를 주입하거나 재계산 검증이 없으면 서명 증빙 붕괴(방어 가능한 코어).
 - signed URL TTL: Storage 읽기 URL이 장기/영구가 아니라 단기여야 함. 긴 TTL·URL DB 저장은 유출 창 확대.
-- PII 스코프: 클라이언트·사업자번호·계좌 등 민감 필드가 응답/로그/CSV에 불필요하게 포함되는지.
+- PII 스코프: 클라이언트·사업자번호·계좌 등 민감 필드가 응답/로그/리포트 export에 불필요하게 포함되는지.
 - 시크릿 생성/보관: 서명 해시·웹훅 시크릿이 서버 전용 모듈에서만 다뤄지는지(A02 service_role과 연계).
 
 ---
@@ -106,7 +106,7 @@
 - Server Action zod allowlist: 액션이 **도메인 필드만** 담은 zod로 입력받아야 함. 미검증 `formData`/body 직접 사용, 또는 서버 소유 필드(`status`·`paid_at`·`doc_hash`·`signature_meta`·`is_demo`·금액 스냅샷·pdf 경로)가 클라이언트 입력 스키마에 있으면 결함(과잉 신뢰 → mass assignment).
 - Supabase raw SQL/RPC: `.rpc()`·raw SQL에 사용자 입력을 문자열로 끼워넣는지. 필터 `.eq/.in` 값에 미검증 입력이 그대로.
 - 프롬프트 인젝션: Claude 계약서 초안 등 LLM 호출에서 사용자 입력이 시스템 지시를 덮어쓸 수 있는지. 결과는 항상 "초안"으로만 취급.
-- CSV/PDF 생성: CSV 수식 인젝션(`=`,`+`,`-`,`@`로 시작하는 셀), PDF 템플릿에 이스케이프 없는 입력.
+- XLSX/PDF 생성: 스프레드시트 수식 인젝션(`=`,`+`,`-`,`@`로 시작하는 셀), PDF 템플릿에 이스케이프 없는 입력.
 
 ---
 
@@ -158,7 +158,7 @@
 - 이벤트 로그 순서: 상태 전이는 **도메인 UPDATE 후 이벤트 INSERT를 순차**로. status 변경을 쓰기 순서 앞쪽에 두면 부분 실패 시 미완 상태(이벤트 없는 status)로 무결성 붕괴.
 - append-only 보장: 이벤트 로그가 append-only인지(UPDATE/DELETE 정책 차단). 로그 변조 가능하면 감사 증빙 무력화.
 - 스냅샷 무결성: 계약 물리삭제 시 `invoices.contract_snapshot`(jsonb)에 삭제 시점 요약을 남기고 `contract_id`를 SET NULL로 끊는지(ADR-008). 스냅샷 없이 삭제하면 추적 단절.
-- soft-delete 무결성: `deleted_at IS NULL` 필터가 공용 쿼리 헬퍼 경유인지(복원·감사·CSV 보존). 개별 쿼리에서 누락하면 삭제 데이터 노출·집계 오염.
+- soft-delete 무결성: `deleted_at IS NULL` 필터가 공용 쿼리 헬퍼 경유인지(복원·감사·리포트 보존). 개별 쿼리에서 누락하면 삭제 데이터 노출·집계 오염.
 
 ---
 

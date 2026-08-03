@@ -84,7 +84,7 @@ npm run build        # 프로덕션 빌드
 `npm test`는 내장 Postgres를 자체 부팅하므로 **라이브 Supabase 없이도** 스키마·RLS 경계·세금 계산·집계 로직이 검증됩니다.
 
 ### 2-2. E2E (phase 8 step1 — 현재 blocked, 해제하려면)
-실제 브라우저로 로그인~정산~CSV 해피패스를 돌리려면:
+실제 브라우저로 로그인~정산~리포트 해피패스를 돌리려면:
 1. 라이브 Supabase에 **테스트 유저**를 하나 만든다(이메일/비번).
 2. `.env.local`에 추가:
    ```
@@ -125,7 +125,7 @@ npm run build        # 프로덕션 빌드
 | `/invoices` | 인보이스 목록(상태 필터: unpaid/paid) |
 | `/invoices/new` | 인보이스 발행 — 계약 선택, **원천징수 스냅샷**(발행 시점 고정) |
 | `/invoices/[id]` | 인보이스 상세 — 원천징수 내역·입금 계좌, **정산 토글**(unpaid↔paid, 낙관적 UI), **PDF 다운로드** |
-| `/reports` | **채널별 수익 리포트** — 연도 필터, 입금 기준(paid_at·KST), **CSV 내보내기** |
+| `/reports` | **채널별 수익 리포트** — 연도 필터, 입금 기준(paid_at·KST), **Excel 내보내기** |
 | `/settings` | (준비 중 플레이스홀더 — 프로필·기본 원천징수율은 이후 연결) |
 | `/dev/test-login` | **개발 전용** E2E 테스트 로그인(프로덕션 404) |
 
@@ -139,7 +139,7 @@ npm run build        # 프로덕션 빌드
 | `GET /api/contracts/[id]/pdf` | 계약 PDF(한글 임베드) |
 | `GET /api/contracts/[id]/source-pdf` | 불러온 계약의 원본 PDF signed URL 반환 |
 | `GET /api/invoices/[id]/pdf` | 인보이스 PDF |
-| `GET /api/reports?year=YYYY` | 채널 수익 CSV(서버 생성, UTF-8 BOM) |
+| `GET /api/reports?year=YYYY` | 세무 원장 xlsx(서버 생성, write-excel-file) |
 
 ---
 
@@ -153,7 +153,7 @@ npm run build        # 프로덕션 빌드
 4. `/contracts/new` → AI 초안으로 계약 생성 → `/contracts/[id]`에서 조항 확정 → **서명** → PDF 확인
 5. `/invoices/new` → 그 계약으로 인보이스 발행(원천징수 자동 계산) → `/invoices/[id]`에서 **정산 토글(paid)**
 6. `/dashboard` → 방금 정산이 **이달 수익 KPI**에, 미발행/미수가 **미수금**에 반영되는지 확인
-7. `/reports` → 채널별 수익 확인 후 **CSV 내보내기**
+7. `/reports` → 채널별 수익 확인 후 **Excel 내보내기**
 
 ---
 
