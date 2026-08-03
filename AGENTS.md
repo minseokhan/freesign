@@ -12,7 +12,7 @@
 - Claude API (`@anthropic-ai/sdk`) — 계약서 초안 및 기존 계약 PDF 조항 추출(시나리오 B)
 - @react-pdf/renderer — 계약서·인보이스 PDF (Node 런타임)
 - Polar (`@polar-sh/nextjs`) — 구독 결제(Free/Pro), webhook은 SECURITY DEFINER RPC 경계 (ADR-010, `lib/plan.ts` 게이팅)
-- Resend (`services/email`) — 서명 요청·독촉·크론 알림 메일. 전송 실패는 best-effort(주 트랜잭션과 분리)
+- Resend (`services/email`) — 서명 요청·청구 안내·독촉·크론 알림 메일. 전송 실패는 best-effort(주 트랜잭션과 분리)
 - RFC 3161 TSA (`services/timestamp`) — 서명 발송·완결 시점 타임스탬프(기본 freeTSA.org, `TSA_URL`로 교체)
 - Vercel Cron — 단일 일일 잡 `/api/cron/daily`가 독촉·반복 인보이스 스윕을 순차 실행 (ADR-011)
 - react-hook-form + zod, Vitest + Playwright
@@ -24,7 +24,7 @@
 - CRITICAL: 전자서명·결제는 `services/`의 **v1 전용 Provider 인터페이스** 뒤로만 접근. AI 계약서 초안·PDF 추출 결과는 항상 비권위적 검토 보조로 취급·면책 노출, AI는 필수 게이트가 아닌 보강(실패 시 골격/수기 입력 폴백).
 - CRITICAL: **세션 없는 경계(webhook·크론)의 멀티유저 쓰기는 시크릿 게이트 DEFINER RPC로만.** anon 클라이언트(`lib/supabase/anon.ts`) → `p_*_secret` 인자를 받는 `SECURITY DEFINER` 함수 → 내부에서 `billing_config`/`cron_config` 대조(fail-closed). 여기서도 `service_role` 금지 (ADR-010·011).
 - CRITICAL: **세션 있는 경계의 파괴적 DEFINER RPC는 대상을 인자로 받지 않는다.** 계정 삭제처럼 RLS를 우회해 지우는 함수는 `auth.uid()`로 대상을 정하고 인자를 두지 않는다 — `p_user_id`를 받으면 로그인한 누구나 남의 계정을 지울 수 있다(앱이 옳게 넘겨줘도 PostgREST로 직접 호출 가능). 실행권은 `authenticated`에만 (ADR-012).
-- CRITICAL: **크론은 클라이언트에게 직접 발송·발행하지 않는다.** 크론 산출물은 항상 소유자 검토 대기 상태(`pending_review`·인보이스 `draft`)이고, 실제 발송·발행은 세션 있는 Server Action에서 `assertProFeature()` 통과 후에만.
+- CRITICAL: **크론은 클라이언트에게 직접 발송·발행하지 않는다.** 크론 산출물은 항상 소유자 검토 대기 상태(`pending_review`·인보이스 `draft`)이고, 실제 발송·발행은 세션 있는 Server Action에서만. 독촉 발송·반복 인보이스 스케줄은 추가로 `assertProFeature()`를 통과해야 한다(청구서 발송은 무료 — ADR-013).
 - 상태 전이(계약 status·인보이스 결제)는 **append-only 이벤트 로그에 함께 기록**(도메인 UPDATE 후 이벤트 INSERT, 순차). status 변경을 쓰기 순서 앞쪽에 두지 말 것(부분 실패 시 미완 방지).
 - `deleted_at IS NULL` 필터는 RLS가 아니라 **공용 쿼리 헬퍼**에서(복원·감사·CSV 보존). **단 계약(contracts)은 예외로 물리 삭제**(ADR-008, 마이그레이션 0013): 삭제 시 딸린 인보이스는 `contract_id`를 `SET NULL`로 끊고 `invoices.contract_snapshot`(jsonb, 서버 소유 필드)에 삭제 시점 계약 요약을 남긴다. 인보이스·클라이언트는 soft-delete 유지. Storage는 private 버킷 + `{user_id}/...` 경로, DB엔 key만 저장·읽기는 단기 signed URL.
 - 서버 인가는 `getUser()`(`getSession()` 아님). middleware는 토큰 갱신 전용(보안 경계 아님).
