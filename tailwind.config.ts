@@ -19,11 +19,12 @@ const config: Config = {
           muted: "#64748b",
           disabled: "#94a3b8"
         },
+        // 매듭 브랜드 남색. primary/ring은 로고에서 직접 추출한 값이다.
         brand: {
-          primary: "#2563eb",
-          hover: "#1d4ed8",
-          ring: "#3b82f6",
-          point: "#eff6ff"
+          primary: "#2b3587",
+          hover: "#212a6c",
+          ring: "#4e61f6",
+          point: "#eef0fb"
         },
         status: {
           paid: {

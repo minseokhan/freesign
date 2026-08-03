@@ -2,9 +2,9 @@
 // 루프의 제안 단계 서브에이전트에게 구체적 표적을 먹이기 위함.
 //
 //   node scripts/lighthouse-loop/diagnose.mjs <url>
-//   node scripts/lighthouse-loop/diagnose.mjs https://freesign.vercel.app/
+//   node scripts/lighthouse-loop/diagnose.mjs https://maedeup.app/
 
-const url = process.argv[2] ?? "https://freesign.vercel.app/";
+const url = process.argv[2] ?? "https://maedeup.app/";
 
 const chromeLauncher = await import("chrome-launcher");
 const { default: lighthouse } = await import("lighthouse");

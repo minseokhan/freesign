@@ -21,7 +21,7 @@ vi.mock("@/lib/env", () => ({
 }));
 
 vi.mock("@/lib/seo", () => ({
-  getSiteUrl: () => "https://freesign.example",
+  getSiteUrl: () => "https://maedeup.example",
 }));
 
 describe("GET /api/billing/checkout", () => {
@@ -44,13 +44,13 @@ describe("GET /api/billing/checkout", () => {
     const handler = vi.fn().mockResolvedValue(new Response(null, { status: 307 }));
     vi.mocked(Checkout).mockReturnValue(handler);
 
-    await GET(new NextRequest("https://freesign.example/api/billing/checkout"));
+    await GET(new NextRequest("https://maedeup.example/api/billing/checkout"));
 
     expect(Checkout).toHaveBeenCalledWith(
       expect.objectContaining({
         accessToken: "tok",
         server: "sandbox",
-        successUrl: "https://freesign.example/settings?checkout=success",
+        successUrl: "https://maedeup.example/settings?checkout=success",
       }),
     );
 
@@ -69,7 +69,7 @@ describe("GET /api/billing/checkout", () => {
 
     await GET(
       new NextRequest(
-        "https://freesign.example/api/billing/checkout?discountId=disc_free&metadata[plan]=pro&allowDiscountCodes=true&amount=0",
+        "https://maedeup.example/api/billing/checkout?discountId=disc_free&metadata[plan]=pro&allowDiscountCodes=true&amount=0",
       ),
     );
 
@@ -88,12 +88,12 @@ describe("GET /api/billing/checkout", () => {
     vi.mocked(isPolarConfigured).mockReturnValue(false);
 
     const response = await GET(
-      new NextRequest("https://freesign.example/api/billing/checkout"),
+      new NextRequest("https://maedeup.example/api/billing/checkout"),
     );
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://freesign.example/billing?portal=not_configured",
+      "https://maedeup.example/billing?portal=not_configured",
     );
     expect(Checkout).not.toHaveBeenCalled();
     expect(getPolarEnv).not.toHaveBeenCalled();

@@ -18,7 +18,7 @@ Artifact가 감싼다). 라이트/다크 테마 대응, 가로 스크롤 격리,
           "title": str, "file": str, "line": int?,
           "evidence": str?, "impact": str?, "remediation": str?,
           "confidence": "confirmed"|"plausible"?,
-          "scope_tag": "generic"|"stack"?, "freesign_rule": str? }
+          "scope_tag": "generic"|"stack"?, "maedeup_rule": str? }
       ]
     }
 """
@@ -253,8 +253,8 @@ def render(data):
                 out.append(f'<div class="row"><div class="k">영향</div>{esc(f["impact"])}</div>')
             if f.get("remediation"):
                 out.append(f'<div class="row"><div class="k">수정 방안</div>{esc(f["remediation"])}</div>')
-            if f.get("freesign_rule"):
-                out.append(f'<div class="row"><div class="k">관련 규칙</div>{esc(f["freesign_rule"])}</div>')
+            if f.get("maedeup_rule"):
+                out.append(f'<div class="row"><div class="k">관련 규칙</div>{esc(f["maedeup_rule"])}</div>')
             out.append("</div></div>")
 
     out.append(

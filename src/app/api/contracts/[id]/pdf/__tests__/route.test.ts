@@ -189,7 +189,7 @@ describe("GET /api/contracts/[id]/pdf", () => {
       p_contract_id: "contract-1",
       p_pdf_key: "user-123/contract-1/contract.pdf",
     });
-    expect(response.headers.get("x-freesign-pdf-storage-key")).toBe(
+    expect(response.headers.get("x-maedeup-pdf-storage-key")).toBe(
       "user-123/contract-1/contract.pdf",
     );
     expect(revalidatePath).toHaveBeenCalledWith("/contracts");

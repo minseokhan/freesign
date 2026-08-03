@@ -177,9 +177,9 @@ export function DashboardPreview() {
       <div className="relative overflow-hidden rounded-lg border border-surface-border bg-white shadow-overlay">
         <div className="flex items-center justify-between border-b border-surface-border bg-surface-muted px-lg py-md">
           <span className="text-xs font-medium text-text-muted">
-            freesign.app/dashboard
+            maedeup.app/dashboard
           </span>
-          <span className="inline-flex items-center gap-xs rounded-full bg-white px-md py-0.5 text-xs font-medium text-brand-primary ring-1 ring-blue-200">
+          <span className="inline-flex items-center gap-xs rounded-full bg-white px-md py-0.5 text-xs font-medium text-brand-primary ring-1 ring-brand-primary/20">
             <span className="size-1.5 rounded-full bg-brand-primary motion-safe:animate-pulse" />
             데모
           </span>

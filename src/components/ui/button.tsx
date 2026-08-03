@@ -10,7 +10,7 @@ export const buttonBaseClass = cn(
 
 export const buttonVariants = {
   primary:
-    "bg-brand-primary text-white hover:bg-brand-hover active:bg-blue-800",
+    "bg-brand-primary text-white hover:bg-brand-hover active:bg-brand-hover",
   secondary:
     "border border-surface-border bg-white text-text-body hover:bg-surface-muted",
   text: "text-text-muted hover:text-text-primary",

@@ -75,9 +75,9 @@ const STEPS: Step[] = [
   {
     key: "sign",
     label: "서명",
-    title: "전자 서명으로 계약을 확정",
+    title: "전자 서명으로 계약을 매듭짓기",
     description:
-      "서명이 완료되면 문서 해시가 기록되어 위·변조를 방지합니다. 계약 상태와 PDF를 한 화면에서 관리하세요.",
+      "서명이 완료되면 계약이 매듭지어지고, 문서 해시가 기록되어 위·변조를 방지합니다. 계약 상태와 PDF를 한 화면에서 관리하세요.",
     preview: (
       <div className="space-y-md">
         <div className="flex items-center justify-between">
@@ -99,13 +99,13 @@ const STEPS: Step[] = [
             <path
               d={SIGNATURE_PATH}
               pathLength={1}
-              stroke="#2563eb"
+              stroke="#2b3587"
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
               className="animate-flow-draw [stroke-dasharray:1]"
             />
-            <circle r={3.5} fill="#2563eb" aria-hidden="true">
+            <circle r={3.5} fill="#2b3587" aria-hidden="true">
               <animateMotion
                 dur="2.4s"
                 repeatCount="indefinite"

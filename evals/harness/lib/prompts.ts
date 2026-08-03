@@ -10,7 +10,7 @@ import type { ParsedCase } from "./types.ts";
  * review 트랙 피험 모델(경량 리뷰어)의 시스템 프롬프트.
  * CLAUDE.md의 CRITICAL 규칙 요약 = 리뷰 루브릭. 라이브 문서가 아니라 박제된 요약이다.
  */
-export const REVIEW_SYSTEM_PROMPT = `너는 FreeSign(Next.js 15 + Supabase) 코드의 경량 아키텍처 리뷰어다.
+export const REVIEW_SYSTEM_PROMPT = `너는 매듭(Maedeup, Next.js 15 + Supabase) 코드의 경량 아키텍처 리뷰어다.
 아래 CRITICAL 경계 규칙 위반만 잡는다. 스타일·성능·취향은 지적하지 않는다.
 
 [read-boundary] 읽기는 RSC에서 Supabase 직접 조회(RLS 스코프). 읽기를 내부 /api fetch로 우회 금지.
@@ -43,7 +43,7 @@ export function buildReviewSubjectUser(code: string): string {
 
 /** qa 피험 모델의 시스템 프롬프트. 라이브 CLAUDE.md 전문을 근거로 박아 넣는다. */
 export function buildQaSubjectSystem(claudeMd: string): string {
-  return `너는 FreeSign 코드베이스 규약에 답하는 어시스턴트다.
+  return `너는 매듭 코드베이스 규약에 답하는 어시스턴트다.
 아래 CLAUDE.md(프로젝트 규약)만을 근거로 간결하게 답하라. 문서에 근거가 없으면 모른다고 답한다.
 질문의 전제가 문서와 어긋나면 전제를 먼저 바로잡아라.
 

@@ -66,7 +66,7 @@ describe("GET /api/billing/portal", () => {
       return handler;
     });
 
-    const req = new NextRequest("https://freesign.example/api/billing/portal");
+    const req = new NextRequest("https://maedeup.example/api/billing/portal");
     await GET(req);
 
     expect(handler).toHaveBeenCalled();
@@ -77,13 +77,13 @@ describe("GET /api/billing/portal", () => {
   it("구독 고객 id가 없으면 Polar를 부르지 않고 요금제 페이지로 되돌린다", async () => {
     mockSubscription(null);
 
-    const req = new NextRequest("https://freesign.example/api/billing/portal");
+    const req = new NextRequest("https://maedeup.example/api/billing/portal");
     const response = await GET(req);
 
     expect(CustomerPortal).not.toHaveBeenCalled();
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://freesign.example/billing?portal=no_customer",
+      "https://maedeup.example/billing?portal=no_customer",
     );
   });
 
@@ -94,12 +94,12 @@ describe("GET /api/billing/portal", () => {
       vi.fn().mockRejectedValue(new Error("insufficient_scope")),
     );
 
-    const req = new NextRequest("https://freesign.example/api/billing/portal");
+    const req = new NextRequest("https://maedeup.example/api/billing/portal");
     const response = await GET(req);
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://freesign.example/billing?portal=portal_failed",
+      "https://maedeup.example/billing?portal=portal_failed",
     );
   });
 
@@ -107,12 +107,12 @@ describe("GET /api/billing/portal", () => {
   it("결제가 구성되지 않았으면 500 대신 요금제 안내로 되돌린다", async () => {
     vi.mocked(isPolarConfigured).mockReturnValue(false);
 
-    const req = new NextRequest("https://freesign.example/api/billing/portal");
+    const req = new NextRequest("https://maedeup.example/api/billing/portal");
     const response = await GET(req);
 
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe(
-      "https://freesign.example/billing?portal=not_configured",
+      "https://maedeup.example/billing?portal=not_configured",
     );
     expect(CustomerPortal).not.toHaveBeenCalled();
     expect(getPolarEnv).not.toHaveBeenCalled();

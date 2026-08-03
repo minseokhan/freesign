@@ -29,7 +29,7 @@ const ROUTES = [
   { path: "/invoices", auth: true },
 ];
 
-const VERCEL_URL = "https://freesign.vercel.app";
+const VERCEL_URL = "https://maedeup.app";
 const LOCAL_PORT = 3100;
 
 // ── 인자 파싱 ────────────────────────────────────────────────

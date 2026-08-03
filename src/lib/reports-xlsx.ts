@@ -90,7 +90,7 @@ export function buildTaxLedgerSheet(
   options: { year: number; generatedAt: string },
 ): { sheetData: SheetRow[]; columns: SheetColumn[] } {
   const titleRow = spanningRow({
-    value: `FreeSign 세무 원장 · ${options.year}년`,
+    value: `매듭 세무 원장 · ${options.year}년`,
     fontSize: 18,
     align: "center",
     alignVertical: "center",

@@ -253,7 +253,7 @@ export function ContractImportForm({ clients }: ContractImportFormProps) {
                 className={cn(
                   "flex min-h-11 items-center gap-sm rounded-md border px-md py-sm text-sm font-medium",
                   isActive
-                    ? "border-blue-200 bg-brand-point text-brand-primary"
+                    ? "border-brand-primary/20 bg-brand-point text-brand-primary"
                     : "border-surface-border bg-white text-text-muted",
                   isComplete && "border-green-200 bg-green-50 text-green-700",
                 )}

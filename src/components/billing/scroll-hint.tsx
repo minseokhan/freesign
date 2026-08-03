@@ -19,8 +19,8 @@ export function ScrollHint() {
           <defs>
             {/* 바깥(위)에서 화살표 머리(아래)로 갈수록 진해진다 */}
             <linearGradient id="scroll-hint-fade" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#2563eb" stopOpacity="0.1" />
-              <stop offset="100%" stopColor="#2563eb" stopOpacity="0.75" />
+              <stop offset="0%" stopColor="#2b3587" stopOpacity="0.1" />
+              <stop offset="100%" stopColor="#2b3587" stopOpacity="0.75" />
             </linearGradient>
           </defs>
           <path

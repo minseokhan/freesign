@@ -25,7 +25,7 @@ vi.mock("@/lib/cron/recurring-sweep", () => ({
 }));
 
 function reqWith(header: string | null): Request {
-  return new Request("https://freesign.example/api/cron/daily", {
+  return new Request("https://maedeup.example/api/cron/daily", {
     headers: header === null ? {} : { authorization: header },
   });
 }

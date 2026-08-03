@@ -63,7 +63,7 @@ describe("GET /api/account/export", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("application/json");
     expect(response.headers.get("content-disposition")).toMatch(
-      /^attachment; filename="freesign-data-.*\.json"$/,
+      /^attachment; filename="maedeup-data-.*\.json"$/,
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
 

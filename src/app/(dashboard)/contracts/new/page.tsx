@@ -34,7 +34,7 @@ export default async function NewContractPage() {
             계약 목록
           </Link>
           <h2 className="mt-sm text-2xl font-semibold tracking-tight text-text-primary">
-            계약 만들기
+            계약 매듭짓기
           </h2>
           <p className="mt-xs text-sm leading-relaxed text-text-muted">
             구조화 입력을 바탕으로 draft 계약 초안을 생성합니다.

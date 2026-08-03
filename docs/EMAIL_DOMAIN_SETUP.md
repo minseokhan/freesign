@@ -4,31 +4,34 @@
 그 결과로 `invoice.sent` 이벤트("청구한 날의 증거")가 실제로 쌓이게 한다.
 
 **현재 상태(2026-08-03):** 프로덕션에 `RESEND_API_KEY`는 있으나 `EMAIL_FROM`이 미설정이라
-발신자가 `FreeSign <onboarding@resend.dev>`로 폴백된다(`src/services/email/provider.ts`).
+발신자가 `매듭 <onboarding@resend.dev>`로 폴백된다(`src/services/email/provider.ts`).
 Resend의 이 공용 테스트 도메인은 **계정 본인 주소로만** 발송이 허용되므로, 클라이언트 발송은
 403으로 실패하고 화면에는 "전달되지 않음 — 링크를 직접 전해 주세요"가 뜬다.
 링크 발급·열람 기록은 정상 동작한다. 막힌 것은 **메일 도달**뿐이다.
 
+**인증 대상 도메인:** `maedeup.app` (Cloudflare에서 구매·DNS 관리)
+**최종 목표값:** `EMAIL_FROM=매듭 <no-reply@maedeup.app>`
+
 ---
 
-## 0. 선행 조건 — 도메인이 필요하다
+## 0. 선행 조건 — 도메인 (확보 완료)
 
 Resend 도메인 인증은 해당 도메인의 **DNS 존에 DKIM/SPF 레코드를 추가**하는 방식이다.
-현재 Vercel 프로젝트에는 커스텀 도메인이 없고 `*.vercel.app`뿐인데, `vercel.app`은 Vercel 소유라
-레코드를 넣을 수 없다. **`freesign.vercel.app`으로는 인증이 불가능하다.**
+`*.vercel.app`은 Vercel 소유라 레코드를 넣을 수 없으므로 **자체 도메인이 반드시 필요**하다.
 
-→ 도메인을 하나 확보한다(예: `freesign.kr`, `freesign.app`). 등록 기관은 무관하며
-DNS 레코드를 직접 편집할 수 있으면 된다(Cloudflare·가비아·Namecheap·Vercel Domains 등).
+`maedeup.app`을 Cloudflare에서 구매했으므로 이 조건은 충족됐다. 아래 작업은 모두
+**Cloudflare 대시보드 → `maedeup.app` → DNS → Records** 에서 한다.
 
-이미 보유한 다른 도메인이 있다면 그 서브도메인(`mail.보유도메인.com`)으로도 가능하다.
-서브도메인 인증은 루트 도메인의 메일 평판과 분리된다는 장점이 있다.
+> 루트(`maedeup.app`)를 그대로 발신 도메인으로 쓴다. 서브도메인(`mail.maedeup.app`)으로
+> 분리하면 루트의 메일 평판과 격리되는 장점이 있지만, 앱 URL(`https://maedeup.app`)과
+> 발신 주소의 도메인을 일치시키는 편이 수신자 신뢰·스팸 판정에 유리하다.
 
 ---
 
 ## 1. Resend에 도메인 등록
 
 1. Resend 대시보드 → **Domains** → **Add Domain**
-2. 도메인 입력, Region 선택(기본값으로 두어도 무방 — 아래 MX 레코드 값이 리전에 따라 달라진다)
+2. 도메인에 `maedeup.app` 입력, Region 선택(기본값으로 두어도 무방 — 아래 MX 레코드 값이 리전에 따라 달라진다)
 3. 화면에 뜨는 DNS 레코드 목록을 그대로 복사한다
 
 레코드는 보통 아래 3종이다. **정확한 값은 반드시 대시보드 화면 것을 쓴다**
@@ -40,14 +43,17 @@ DNS 레코드를 직접 편집할 수 있으면 된다(Cloudflare·가비아·Na
 | TXT | `send` | `v=spf1 include:amazonses.com ~all` |
 | TXT | `resend._domainkey` | `p=MIGfMA0GCSq...` (대시보드 값) |
 
-## 2. DNS에 레코드 추가
+## 2. Cloudflare DNS에 레코드 추가
 
-등록 기관/DNS 제공자 콘솔에서 위 레코드를 추가한다.
+**Cloudflare 대시보드 → `maedeup.app` → DNS → Records → Add record** 로 위 3건을 추가한다.
 
-- **Cloudflare를 쓴다면 이 레코드들의 프록시(주황 구름)를 반드시 끈다** (DNS only).
-  프록시가 켜져 있으면 검증이 통과하지 않는다.
-- 이름 입력 시 제공자에 따라 `send` / `send.도메인.com` 중 하나를 요구한다. 콘솔의 예시를 따른다.
+- **프록시 상태(주황 구름)를 반드시 끈다 — `DNS only`(회색 구름).**
+  MX·TXT는 원래 프록시 대상이 아니지만, 실수로 켜면 검증이 통과하지 않는다.
+- Cloudflare는 Name에 `send`만 넣으면 자동으로 `send.maedeup.app`으로 확장한다.
+  Resend 화면이 FQDN(`send.maedeup.app`)을 보여줘도 Cloudflare에는 `send`만 넣는다
+  (`send.maedeup.app`을 그대로 넣으면 `send.maedeup.app.maedeup.app`이 된다).
 - 이미 다른 SPF TXT가 루트에 있어도 무방하다. Resend는 `send` 서브도메인을 Return-Path로 쓴다.
+- 나중에 Vercel 커스텀 도메인을 붙일 때 추가하는 A/CNAME 레코드와는 서로 간섭하지 않는다.
 
 ### DMARC (권장)
 
@@ -56,6 +62,8 @@ DNS 레코드를 직접 편집할 수 있으면 된다(Cloudflare·가비아·Na
 | 종류 | 이름 | 값 |
 | --- | --- | --- |
 | TXT | `_dmarc` | `v=DMARC1; p=none; rua=mailto:<본인주소>` |
+
+Cloudflare에서는 Name에 `_dmarc`만 넣는다(`_dmarc.maedeup.app`으로 확장된다).
 
 ## 3. 검증
 
@@ -67,14 +75,18 @@ Resend 대시보드에서 **Verify**. 전파에 보통 수 분~수 시간이 걸
 ## 4. `EMAIL_FROM` 설정
 
 인증된 도메인의 주소로 설정한다. 인증하지 않은 도메인을 넣으면 403으로 전량 실패한다.
+`maedeup.app`이 `Verified`가 된 뒤에 넣는다.
 
 ```
-EMAIL_FROM=FreeSign <no-reply@<인증한도메인>>
+EMAIL_FROM=매듭 <no-reply@maedeup.app>
 ```
 
 - **로컬:** `.env.local`
-- **프로덕션:** Vercel → freesign 프로젝트 → Settings → Environment Variables → Production
+- **프로덕션:** Vercel → 프로젝트(현재 이름 `freesign`, 리브랜딩 마지막 단계에서 `maedeup`으로 개명 예정)
+  → Settings → Environment Variables → Production
   → 추가 후 **재배포해야 반영된다**(빌드 타임이 아니라 런타임 값이지만 새 배포에서 주입된다).
+- `no-reply@maedeup.app` 메일함을 실제로 만들 필요는 없다. Resend는 인증된 도메인의
+  **아무 로컬파트로든 발신**할 수 있다. 다만 이 주소로 오는 회신은 아무 데도 가지 않는다(아래 "남는 이슈").
 
 ## 5. 도달 확인
 
@@ -95,10 +107,13 @@ EMAIL_FROM=FreeSign <no-reply@<인증한도메인>>
 
 ## 남는 이슈
 
-- **앱 URL과 발신 도메인 불일치.** 메일은 `no-reply@freesign.kr`에서 오는데 본문 링크는
+- **앱 URL과 발신 도메인 일치시키기.** 메일은 `no-reply@maedeup.app`에서 오는데 본문 링크가
   `freesign.vercel.app`이면 수신자에게 피싱처럼 보이고 스팸 판정에도 불리하다.
-  도메인을 샀다면 Vercel 커스텀 도메인으로도 연결하고 `NEXT_PUBLIC_SITE_URL`을 함께 옮기는 것을 권한다.
-- **회신 주소.** 실제 발신자는 프리랜서 본인인데 메일은 FreeSign 도메인에서 나간다. 클라이언트가
+  Vercel 프로젝트에 `maedeup.app`·`www.maedeup.app` **커스텀 도메인 연결은 완료**됐고,
+  남은 것은 (a) Cloudflare에 `A @ → 76.76.21.21` / `CNAME www → cname.vercel-dns.com` 추가와
+  (b) `NEXT_PUBLIC_SITE_URL`을 `https://maedeup.app`으로 교체하는 것이다.
+  순서는 `docs/REBRAND_MANUAL_TASKS.md` 참조 — **DNS가 먼저**다.
+- **회신 주소.** 실제 발신자는 프리랜서 본인인데 메일은 매듭 도메인에서 나간다. 클라이언트가
   "회신"을 누르면 아무 데도 가지 않는다. Resend `reply_to`에 사용자 이메일을 넣는 것이 자연스러운
   후속 작업이다(별도 판단 필요 — 사용자 이메일을 제3자에게 노출하는 결정이므로).
 - **발송 한도.** Resend 무료 플랜은 일/월 발송 상한이 있다. 실제 상한은 대시보드에서 확인한다.

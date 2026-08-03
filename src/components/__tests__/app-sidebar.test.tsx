@@ -62,11 +62,11 @@ describe("AppSidebar", () => {
     render(<AppSidebar plan="pro" />);
 
     expect(screen.getByRole("link", { name: "계약" })).toHaveClass(
-      "bg-blue-50",
-      "text-blue-600",
+      "bg-brand-point",
+      "text-brand-primary",
     );
     expect(screen.getByRole("link", { name: "대시보드" })).not.toHaveClass(
-      "bg-blue-50",
+      "bg-brand-point",
     );
   });
 
@@ -79,9 +79,9 @@ describe("AppSidebar", () => {
 
     expect(
       screen.getByRole("link", { name: "반복 인보이스 Pro" }),
-    ).toHaveClass("bg-blue-50", "text-blue-600");
+    ).toHaveClass("bg-brand-point", "text-brand-primary");
     expect(screen.getByRole("link", { name: "인보이스" })).not.toHaveClass(
-      "bg-blue-50",
+      "bg-brand-point",
     );
   });
 
@@ -91,12 +91,12 @@ describe("AppSidebar", () => {
     render(<AppSidebar plan="pro" />);
 
     expect(screen.getByRole("link", { name: "인보이스" })).toHaveClass(
-      "bg-blue-50",
-      "text-blue-600",
+      "bg-brand-point",
+      "text-brand-primary",
     );
     expect(
       screen.getByRole("link", { name: "반복 인보이스 Pro" }),
-    ).not.toHaveClass("bg-blue-50");
+    ).not.toHaveClass("bg-brand-point");
   });
 
   // Pro 전용 기능임을 알 수 있게, 노출될 때는 뱃지를 함께 표시한다.

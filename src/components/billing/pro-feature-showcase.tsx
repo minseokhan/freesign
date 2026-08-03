@@ -23,7 +23,7 @@ const FEATURES: ProFeature[] = [
   {
     key: "recurring",
     label: "반복 인보이스",
-    chromeLabel: "freesign.app/invoices/recurring",
+    chromeLabel: "maedeup.app/invoices/recurring",
     title: "리테이너 계약은 청구서가 알아서 준비돼요",
     description:
       "주기와 금액만 정해 두면 매 주기 청구 초안이 자동으로 만들어집니다. 언제든 일시중지할 수 있어요.",
@@ -34,7 +34,7 @@ const FEATURES: ProFeature[] = [
   {
     key: "dunning",
     label: "미수금 독촉",
-    chromeLabel: "freesign.app/invoices",
+    chromeLabel: "maedeup.app/invoices",
     title: "말 꺼내기 어려운 독촉을 대신 써 드려요",
     description:
       "지급기한이 지난 인보이스를 찾아 메일 초안까지 준비합니다. 자동 발송은 하지 않고, 확인한 뒤 직접 보냅니다.",
@@ -45,7 +45,7 @@ const FEATURES: ProFeature[] = [
   {
     key: "insight",
     label: "AI 계약 인사이트",
-    chromeLabel: "freesign.app/contracts",
+    chromeLabel: "maedeup.app/contracts",
     title: "계약서에서 빠진 조항을 짚어 드려요",
     description:
       "지연이자·검수 기한·저작권 귀속처럼 프리랜서에게 중요한 항목을 위험도와 함께 정리합니다.",
@@ -56,7 +56,7 @@ const FEATURES: ProFeature[] = [
   {
     key: "revenue",
     label: "채널·클라이언트 수익",
-    chromeLabel: "freesign.app/reports",
+    chromeLabel: "maedeup.app/reports",
     title: "어느 채널과 거래처가 실제로 돈이 되는지 보여줘요",
     description:
       "입금 완료 기준으로 채널별 수익과 클라이언트별 수익을 나란히 집계합니다. 다음에 어디에 시간을 쓸지 판단할 수 있어요.",
@@ -67,7 +67,7 @@ const FEATURES: ProFeature[] = [
   {
     key: "excel",
     label: "세금 Excel",
-    chromeLabel: "freesign-report-2026.xlsx",
+    chromeLabel: "maedeup-report-2026.xlsx",
     title: "세무 대리인에게 파일 하나로 넘겨요",
     description:
       "연도별 입금·원천징수·실지급액이 제목·머리글·합계까지 서식으로 잡힌 엑셀 파일로 내려받습니다. 아래가 실제로 받게 되는 파일이에요.",

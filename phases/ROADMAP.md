@@ -1,4 +1,4 @@
-# FreeSign 하네스 로드맵 (phase 1~8 설계도)
+# 매듭 하네스 로드맵 (phase 1~8 설계도)
 
 > **이 문서의 목적**: `phases/index.json`에 등록된 9개 phase 중 상세 step 파일이 아직 없는 phase(1~8)를,
 > **새 세션에서도 phase 0과 동일한 품질·형식으로** 작성할 수 있게 설계 의도를 못박아 둔 문서.
@@ -19,7 +19,7 @@
 6. **status 업데이트 프로토콜** — 각 step 끝에: 성공 `completed`+`summary`, 3회 실패 `error`+`error_message`, 사용자 개입 필요 `blocked`+`blocked_reason`.
 7. **`.codex` TDD 가드** — `lib/`·`services/`·`app/api` **로직 소스는 대응 테스트가 없으면 편집 차단**. 이런 step은 "테스트 먼저" 지시를 넣어라. `components/`·`types/`·설정/스타일은 예외.
 8. **하네스 실행 모델** — phase 폴더 1개 = 브랜치 `feat-{phase}` 1개, step 순차 실행(codex exec, 30분/step·재시도 3회), 완료 step `summary`가 다음 step에 누적. phase는 **순서대로** 실행하면 앞 phase 코드 위에 쌓인다.
-9. **`index.json` 스키마** — `{ "project": "FreeSign", "phase": "<dir>", "steps": [{ "step": N, "name": "<kebab>", "status": "pending" }] }`. 타임스탬프·created_at은 넣지 마라(execute.py가 기록).
+9. **`index.json` 스키마** — `{ "project": "Maedeup", "phase": "<dir>", "steps": [{ "step": N, "name": "<kebab>", "status": "pending" }] }`. 타임스탬프·created_at은 넣지 마라(execute.py가 기록).
 
 step 크기 기준: **하나의 step = 하나의 레이어/모듈**, 30분 내 완료 가능하게. 크면 쪼개라.
 

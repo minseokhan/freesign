@@ -58,7 +58,7 @@ describe("GET /api/reports", () => {
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     );
     expect(response.headers.get("content-disposition")).toBe(
-      'attachment; filename="freesign-report-2026.xlsx"',
+      'attachment; filename="maedeup-report-2026.xlsx"',
     );
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(requireUser).toHaveBeenCalled();

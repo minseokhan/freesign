@@ -90,7 +90,7 @@ export async function GET(request: Request) {
     headers: {
       "content-type":
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "content-disposition": `attachment; filename="freesign-report-${yearResult.year}.xlsx"`,
+      "content-disposition": `attachment; filename="maedeup-report-${yearResult.year}.xlsx"`,
       "cache-control": "private, no-store",
     },
   });

@@ -38,7 +38,7 @@ describe("SendInvoiceButton", () => {
     vi.mocked(sendInvoice).mockResolvedValue({
       ok: true,
       id: invoiceId,
-      shareUrl: "https://freesign.example/invoice/tok-1",
+      shareUrl: "https://maedeup.example/invoice/tok-1",
       emailed: true,
     });
 
@@ -65,7 +65,7 @@ describe("SendInvoiceButton", () => {
     vi.mocked(sendInvoice).mockResolvedValue({
       ok: true,
       id: invoiceId,
-      shareUrl: "https://freesign.example/invoice/tok-2",
+      shareUrl: "https://maedeup.example/invoice/tok-2",
       emailed: false,
     });
 
@@ -79,7 +79,7 @@ describe("SendInvoiceButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "발송" }));
 
     expect(
-      await screen.findByDisplayValue("https://freesign.example/invoice/tok-2"),
+      await screen.findByDisplayValue("https://maedeup.example/invoice/tok-2"),
     ).toBeInTheDocument();
   });
 

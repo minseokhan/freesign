@@ -44,7 +44,7 @@ function PlanCard({
     <Card
       className={cn(
         "flex flex-col gap-lg",
-        highlighted ? "border-blue-200 ring-1 ring-blue-200" : undefined,
+        highlighted ? "border-brand-primary/20 ring-1 ring-brand-primary/20" : undefined,
       )}
     >
       <div className="flex items-center gap-sm">

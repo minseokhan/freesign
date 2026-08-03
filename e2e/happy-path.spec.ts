@@ -69,7 +69,7 @@ test("runs the core settlement chain from client to paid invoice and report CSV"
   await expect(page.getByText(clientEmail)).toBeVisible();
 
   await page.goto("/contracts/new");
-  await expect(page.getByRole("heading", { name: "계약 만들기" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "계약 매듭짓기" })).toBeVisible();
   await page.getByLabel("계약 제목").fill(contractTitle);
   await page.getByLabel("클라이언트").selectOption({ label: clientName });
   await page.getByLabel("업무 범위").fill(scope);

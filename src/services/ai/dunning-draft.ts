@@ -141,7 +141,7 @@ function buildClaudeRequest(input: DunningDraftInput) {
     max_tokens: 1500,
     thinking: { type: "disabled" },
     system: [
-      "You draft polite Korean payment-reminder (dunning) emails for a freelancer on FreeSign.",
+      "You draft polite Korean payment-reminder (dunning) emails for a freelancer on Maedeup.",
       "Write subject and body in natural, courteous Korean. Never threaten or use aggressive language.",
       "Do not invent facts, statutes, or late fees that were not provided.",
       "Acknowledge the client may have already paid and ask them to ignore the notice if so.",

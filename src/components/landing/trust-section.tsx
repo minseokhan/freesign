@@ -47,8 +47,8 @@ export function TrustSection() {
           &ldquo;그때 그렇게 합의했잖아요&rdquo;를 증명할 수 있게
         </h2>
         <p className="mt-md text-sm leading-relaxed text-text-body sm:text-base">
-          말로 끝난 합의는 대금을 못 받을 때 아무것도 지켜주지 않습니다.
-          FreeSign은 계약이 성립한 사실을 나중에 뒤집을 수 없는 형태로 남깁니다.
+          말로 끝난 합의는 대금을 못 받을 때 아무것도 지켜주지 않습니다. 매듭은
+          계약이 성립한 사실을 나중에 뒤집을 수 없는 형태로 남깁니다.
         </p>
       </div>
 
@@ -76,7 +76,7 @@ export function TrustSection() {
       <p className="max-w-3xl text-xs leading-relaxed text-text-muted">
         서명 기록은 수정·삭제할 수 없고, 상대방 서명이 남은 계약은 삭제 대신
         &lsquo;무효화&rsquo;로만 처리됩니다. 타임스탬프는 RFC 3161 표준이라
-        국내 공인 인증기관으로 교체해도 그대로 검증됩니다. 다만 FreeSign은 법률
+        국내 공인 인증기관으로 교체해도 그대로 검증됩니다. 다만 매듭은 법률
         자문을 제공하지 않으며, 분쟁이 예상되는 계약은 전문가 검토를 권장합니다.
       </p>
     </section>

@@ -64,7 +64,7 @@ function mockAnonClient(options: {
 }
 
 function request() {
-  return new Request("https://freesign.example/api/invoice/token/pdf");
+  return new Request("https://maedeup.example/api/invoice/token/pdf");
 }
 
 function context(token = RAW_TOKEN) {

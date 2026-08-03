@@ -94,7 +94,7 @@ alter view public.<view> set (security_invoker = true);
 
 ### `auth_leaked_password_protection`, `auth_otp_long_expiry`, `auth_*` ⚪ manual
 **뜻:** Auth 설정 항목(유출 비번 차단, OTP 만료 등). **SQL로 못 고친다** — Supabase 대시보드 Auth 설정 또는 Management API 영역.
-**처리:** 수정하지 말고 안내만. **대상 앱 맥락을 반영**하라 — 예: freesign은 Google OAuth 전용이라 `auth_leaked_password_protection`(비밀번호 로그인용)은 **실질적으로 무관**하다. 이런 경우 "무관 — 조치 불필요"로 명시해 소음을 줄인다. 비번 로그인을 쓰는 앱이면 대시보드에서 켜라고 안내.
+**처리:** 수정하지 말고 안내만. **대상 앱 맥락을 반영**하라 — 예: 매듭은 Google OAuth 전용이라 `auth_leaked_password_protection`(비밀번호 로그인용)은 **실질적으로 무관**하다. 이런 경우 "무관 — 조치 불필요"로 명시해 소음을 줄인다. 비번 로그인을 쓰는 앱이면 대시보드에서 켜라고 안내.
 
 ---
 
@@ -122,7 +122,7 @@ select a.attname from pg_attribute a
 drop index if exists public.<index_name>;
 ```
 **왜 절대 자동이 아닌가:**
-- "미사용"은 단지 **신규 인덱스**거나 **저트래픽/최근 통계 리셋**일 수 있다. freesign처럼 초기 단계 앱은 대부분의 인덱스가 아직 "미사용"으로 뜬다.
+- "미사용"은 단지 **신규 인덱스**거나 **저트래픽/최근 통계 리셋**일 수 있다. 매듭처럼 초기 단계 앱은 대부분의 인덱스가 아직 "미사용"으로 뜬다.
 - 의도적으로 만든 인덱스(예: 레이트리밋 조회용 `rate_limit_events_lookup`)를 지우면 나중에 트래픽이 늘 때 성능이 급락한다.
 - DROP은 되돌리려면 재생성 비용이 든다.
 → **삭제하지 말고 "관찰"로 보고**. 정말 지우려면 사용자가 트래픽·통계 기간을 근거로 판단하게 한다. 통계 확인:

@@ -37,7 +37,7 @@ describe("buildTaxLedgerSheet", () => {
     const title = sheetData[0]![0]!;
 
     expect(title).toMatchObject({
-      value: "FreeSign 세무 원장 · 2026년",
+      value: "매듭 세무 원장 · 2026년",
       align: "center",
       alignVertical: "center",
       borderColor: expect.any(String),

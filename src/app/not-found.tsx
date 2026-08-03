@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <Card className="flex min-h-80 w-full max-w-md flex-col items-center justify-center gap-lg text-center">
-        <div aria-hidden="true" className="text-3xl font-semibold text-blue-600">
+        <div aria-hidden="true" className="text-3xl font-semibold text-brand-primary">
           404
         </div>
         <div>

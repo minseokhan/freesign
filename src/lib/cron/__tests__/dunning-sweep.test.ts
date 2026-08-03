@@ -9,7 +9,7 @@ import { runDunningSweep } from "../dunning-sweep";
 vi.mock("@/lib/supabase/anon", () => ({ createAnonClient: vi.fn() }));
 vi.mock("@/services/ai/dunning-draft", () => ({ generateDunningDraft: vi.fn() }));
 vi.mock("@/services/email/provider", () => ({ getEmailProvider: vi.fn() }));
-vi.mock("@/lib/seo", () => ({ getSiteUrl: () => "https://freesign.example" }));
+vi.mock("@/lib/seo", () => ({ getSiteUrl: () => "https://maedeup.example" }));
 
 const candidate = {
   reminder_id: "r-1",

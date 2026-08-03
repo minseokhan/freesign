@@ -102,7 +102,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 "inline-flex min-h-11 items-center rounded-full border px-lg py-sm text-sm font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
                 isActive
-                  ? "border-blue-200 bg-brand-point text-brand-primary"
+                  ? "border-brand-primary/30 bg-brand-point text-brand-primary"
                   : "border-surface-border bg-white text-text-body hover:bg-surface-muted"
               )}
               aria-current={isActive ? "page" : undefined}

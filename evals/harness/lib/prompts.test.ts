@@ -35,7 +35,7 @@ describe("buildReviewSubjectUser", () => {
 
 describe("buildQaSubjectSystem", () => {
   it("라이브 CLAUDE.md 전문을 컨텍스트로 넣는다", () => {
-    const md = "# FreeSign\n- 규칙 A";
+    const md = "# 매듭\n- 규칙 A";
     const sys = buildQaSubjectSystem(md);
     expect(sys).toContain("규칙 A");
   });

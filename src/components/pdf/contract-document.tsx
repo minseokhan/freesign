@@ -190,13 +190,13 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
   return (
     <Document
       title={document.title}
-      author="FreeSign"
-      subject="FreeSign contract PDF"
+      author="Maedeup"
+      subject="Maedeup contract PDF"
       language="ko-KR"
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>FREESIGN CONTRACT</Text>
+          <Text style={styles.eyebrow}>MAEDEUP CONTRACT</Text>
           <Text style={styles.title}>{document.title}</Text>
           <Text style={styles.disclaimer}>{document.disclaimer}</Text>
         </View>
@@ -311,7 +311,7 @@ export function ContractDocument({ document }: { document: ContractPdfModel }) {
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `FreeSign 계약 기록용 PDF · ${pageNumber} / ${totalPages}`
+            `매듭 계약 기록용 PDF · ${pageNumber} / ${totalPages}`
           }
           fixed
         />

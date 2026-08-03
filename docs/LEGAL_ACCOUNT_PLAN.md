@@ -103,7 +103,7 @@ Supabase 표준 경로인 `auth.admin.deleteUser()`는 `service_role` 키를 요
 
 ```ts
 export const LEGAL = {
-  serviceName: "FreeSign",
+  serviceName: "매듭",
   operatorName: "TODO_사업자_등록_후_기입",
   businessRegistrationNumber: "TODO_사업자_등록_후_기입",
   mailOrderSalesNumber: "TODO_통신판매업_신고_후_기입",
@@ -141,7 +141,7 @@ export function hasUnfilledLegalPlaceholders(): boolean { /* "TODO" 포함 여�
 1. **국외 이전 고지** — 처리위탁·국외이전 대상이 전부 해외다. 표로 명시:
    Supabase(DB·인증·스토리지), Vercel(호스팅), Anthropic(AI 계약서 초안·PDF 파싱), Resend(메일 발송), Polar(결제), PostHog(분석), freeTSA.org(RFC 3161 타임스탬프).
    각각 이전 항목·목적·보유기간·거부 방법.
-2. **역할 구분** — 클라이언트·서명자 정보에 대해서는 **이용자(프리랜서)가 개인정보처리자이고 FreeSign은 수탁자**라는 관계를 명시. 이게 없으면 제3자 정보 수집 근거가 불명확해진다.
+2. **역할 구분** — 클라이언트·서명자 정보에 대해서는 **이용자(프리랜서)가 개인정보처리자이고 매듭은 수탁자**라는 관계를 명시. 이게 없으면 제3자 정보 수집 근거가 불명확해진다.
 
 그 외: 처리 목적, 보유기간(계정 삭제 시 즉시 파기 / 결제 기록 5년), 파기 절차, 정보주체 권리와 행사 방법(→ `/settings`의 내보내기·삭제로 연결), 보호책임자, 안전성 확보 조치(RLS·private 버킷·전송 암호화).
 

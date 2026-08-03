@@ -155,7 +155,7 @@ export async function GET(_request: Request, context: RouteContext) {
       "content-type": "application/pdf",
       "content-disposition": `inline; filename="contract-${contract.id}.pdf"`,
       "cache-control": "private, no-store",
-      "x-freesign-pdf-storage-key": contractPdfKey,
+      "x-maedeup-pdf-storage-key": contractPdfKey,
     },
   });
 }

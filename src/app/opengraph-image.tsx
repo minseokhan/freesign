@@ -5,7 +5,7 @@ import { ImageResponse } from "next/og";
 
 import { SITE_NAME } from "@/lib/seo";
 
-export const alt = "FreeSign — 프리랜서 계약·정산 올인원";
+export const alt = "매듭 — 프리랜서 계약·정산 올인원";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -34,7 +34,7 @@ export default async function OpengraphImage() {
               width: "56px",
               height: "56px",
               borderRadius: "14px",
-              backgroundColor: "#2563eb",
+              backgroundColor: "#2b3587",
               color: "#ffffff",
               display: "flex",
               alignItems: "center",
@@ -42,7 +42,7 @@ export default async function OpengraphImage() {
               fontSize: "34px",
             }}
           >
-            F
+            매
           </div>
           <div style={{ fontSize: "40px", color: "#0f172a" }}>{SITE_NAME}</div>
         </div>
@@ -56,8 +56,8 @@ export default async function OpengraphImage() {
             flexDirection: "column",
           }}
         >
-          <span>계약부터 입금·세금까지,</span>
-          <span>하나의 흐름으로</span>
+          <span>일의 시작과 끝을</span>
+          <span>매듭짓다</span>
         </div>
         <div style={{ marginTop: "32px", fontSize: "32px", color: "#334155" }}>
           프리랜서를 위한 전자계약·정산 올인원

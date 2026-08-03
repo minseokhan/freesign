@@ -71,7 +71,7 @@ export function AppSidebar({ plan }: { plan: Plan }) {
                   "flex items-center justify-between gap-sm rounded-md px-md py-sm text-sm font-medium text-text-muted transition-colors",
                   "hover:bg-surface-muted hover:text-text-primary",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
-                  active && "bg-blue-50 text-blue-600",
+                  active && "bg-brand-point text-brand-primary",
                 )}
                 href={item.href}
                 key={item.href}

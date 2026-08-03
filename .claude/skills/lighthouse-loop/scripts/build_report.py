@@ -247,7 +247,7 @@ def build(data):
              "Lighthouse 성능 점수에 적용한 결과입니다."))
     body = "".join([
         f'<p class="eyebrow">Lighthouse · autoresearch loop</p>',
-        f'<h1>{e(data.get("title","FreeSign 성능 최적화 루프 리포트"))}</h1>',
+        f'<h1>{e(data.get("title","매듭 성능 최적화 루프 리포트"))}</h1>',
         f'<p class="lede">{lede}</p>',
         verdict,
         render_baseline(data.get("baseline")),
@@ -255,10 +255,10 @@ def build(data):
         render_opps(data.get("opportunities")),
         render_recs(data.get("recommendations")),
         render_deliverables(data.get("deliverables"), data.get("flow")),
-        f'<footer><span>FreeSign · Lighthouse autoresearch loop</span>'
+        f'<footer><span>매듭 · Lighthouse autoresearch loop</span>'
         f'<span>{e(meta.get("generated",""))} · 로컬 prod · 3회 중앙값</span></footer>',
     ])
-    return (f'<title>{e(data.get("title","FreeSign · Lighthouse 최적화 루프 리포트"))}</title>'
+    return (f'<title>{e(data.get("title","매듭 · Lighthouse 최적화 루프 리포트"))}</title>'
             f'<style>{CSS}</style><div class="wrap">{body}</div>')
 
 

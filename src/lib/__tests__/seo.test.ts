@@ -30,7 +30,7 @@ describe("buildSoftwareApplicationJsonLd", () => {
 
     expect(jsonLd["@context"]).toBe("https://schema.org");
     expect(jsonLd["@type"]).toBe("SoftwareApplication");
-    expect(jsonLd.name).toBe("FreeSign");
+    expect(jsonLd.name).toBe("매듭");
     expect(jsonLd.url).toMatch(/^https?:\/\//);
     expect(jsonLd.applicationCategory).toBe("BusinessApplication");
     expect(jsonLd.inLanguage).toBe("ko");
@@ -69,7 +69,7 @@ describe("buildFaqJsonLd", () => {
 
 describe("SEO 상수", () => {
   it("사이트 이름과 설명이 한국어 카테고리 키워드를 포함한다", () => {
-    expect(SITE_NAME).toBe("FreeSign");
+    expect(SITE_NAME).toBe("매듭");
     expect(SITE_DESCRIPTION).toContain("프리랜서");
     expect(SITE_DESCRIPTION).toContain("계약");
   });

@@ -10,7 +10,7 @@
 export const LEGAL_TODO = "[미기입]";
 
 export const LEGAL = {
-  serviceName: "FreeSign",
+  serviceName: "매듭",
   operatorName: `${LEGAL_TODO} 상호(사업자 등록 후 기입)`,
   representative: `${LEGAL_TODO} 대표자명`,
   businessRegistrationNumber: `${LEGAL_TODO} 사업자등록번호`,

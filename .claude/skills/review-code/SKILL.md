@@ -39,7 +39,7 @@ const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
 const DIMENSIONS = [
   {
     key: 'security', label: '보안',
-    rules: `당신은 FreeSign(한국형 프리랜서 계약/청구 SaaS)의 **보안 전문 리뷰어**다.
+    rules: `당신은 매듭(한국형 프리랜서 계약/청구 SaaS)의 **보안 전문 리뷰어**다.
 아래 CRITICAL 위반만 찾아라(성능·스타일 무시).
 - RLS: 사용자 데이터 테이블은 USING + WITH CHECK 둘 다 (user_id=(select auth.uid()))로 스코프. 하나라도 빠지면 결함.
 - user_id 출처: Server Action의 user_id는 항상 getUser()에서. getSession()을 인가에 쓰면 결함.
@@ -51,7 +51,7 @@ const DIMENSIONS = [
   },
   {
     key: 'correctness', label: '정합성',
-    rules: `당신은 FreeSign의 **정합성/상태전이 전문 리뷰어**다. 특정 입력/상태에서 잘못된 결과나 부분 실패만 찾아라.
+    rules: `당신은 매듭의 **정합성/상태전이 전문 리뷰어**다. 특정 입력/상태에서 잘못된 결과나 부분 실패만 찾아라.
 - 상태 전이(계약 status·인보이스 결제)는 도메인 UPDATE 후 이벤트 INSERT를 순차로. status 변경을 쓰기 앞쪽에 두면 부분 실패 시 미완 상태가 남아 결함.
 - 서버 소유 필드(status·paid_at·doc_hash·signature_meta·is_demo·금액 스냅샷·pdf 경로)를 client 입력으로 덮으면 결함.
 - soft delete: deleted_at IS NULL 필터는 공용 쿼리 헬퍼 경유. 직접 쿼리에서 누락은 삭제 데이터 노출.
@@ -60,7 +60,7 @@ const DIMENSIONS = [
   },
   {
     key: 'architecture', label: '아키텍처',
-    rules: `당신은 FreeSign의 **아키텍처/경계 전문 리뷰어**다. 구조 규칙 위반만 찾아라.
+    rules: `당신은 매듭의 **아키텍처/경계 전문 리뷰어**다. 구조 규칙 위반만 찾아라.
 - 읽기=RSC에서 Supabase 직접 조회(RLS). 읽기를 내부 /api fetch로 우회하면 결함.
 - 쓰기=Server Action에서만(+revalidatePath). 클라이언트 직접 mutate는 결함.
 - 시크릿·외부 API는 app/api 라우트 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지.

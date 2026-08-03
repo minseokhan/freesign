@@ -1,6 +1,6 @@
 # PostHog post-wizard report
 
-The wizard has completed a deep integration of PostHog into the FreeSign project. The following changes were made:
+The wizard has completed a deep integration of PostHog into the Maedeup project. The following changes were made:
 
 - **`instrumentation-client.ts`** (root) — 클라이언트 사이드 PostHog SDK 초기화. `/ingest` 리버스 프록시 경유, 예외 자동 캡처(`capture_exceptions: true`) 활성화.
 - **`next.config.ts`** — `/ingest/static/*`, `/ingest/array/*`, `/ingest/*` 세 가지 리버스 프록시 rewrites 추가 및 `skipTrailingSlashRedirect: true` 설정.

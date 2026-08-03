@@ -14,7 +14,7 @@ describe("renderSignatureRequestEmail", () => {
     recipientName: "김담당",
     senderName: "한프리",
     contractTitle: "브랜드 리뉴얼 용역",
-    signUrl: "https://freesign.example/sign/token-abc",
+    signUrl: "https://maedeup.example/sign/token-abc",
     expiresAt: "2026-07-31T00:00:00.000Z",
   };
 
@@ -96,7 +96,7 @@ describe("renderCompletionEmail", () => {
   });
 
   it("includes the fallback download link when attachments are missing", () => {
-    const downloadUrl = "https://freesign.example/sign/token-abc";
+    const downloadUrl = "https://maedeup.example/sign/token-abc";
     const rendered = renderCompletionEmail({
       contractTitle: "브랜드 리뉴얼 용역",
       docHash,
@@ -153,12 +153,12 @@ describe("renderDunningEmail", () => {
     const rendered = renderDunningEmail({
       subject: "s",
       body: "지급 부탁드립니다.",
-      invoiceUrl: "https://freesign.example/invoice/tok-1",
+      invoiceUrl: "https://maedeup.example/invoice/tok-1",
     });
 
     expect(rendered.html).toContain("<p>지급 부탁드립니다.</p>");
-    expect(rendered.html).toContain("https://freesign.example/invoice/tok-1");
-    expect(rendered.text).toContain("https://freesign.example/invoice/tok-1");
+    expect(rendered.html).toContain("https://maedeup.example/invoice/tok-1");
+    expect(rendered.text).toContain("https://maedeup.example/invoice/tok-1");
   });
 
   it("invoiceUrl이 없으면 링크 문단을 넣지 않는다", () => {
@@ -176,7 +176,7 @@ describe("renderInvoiceIssuedEmail", () => {
     contractTitle: "브랜드 리뉴얼 용역",
     amountNet: 967000,
     dueDate: "2026-08-31T00:00:00.000Z",
-    invoiceUrl: "https://freesign.example/invoice/token-abc",
+    invoiceUrl: "https://maedeup.example/invoice/token-abc",
     expiresAt: "2026-11-29T00:00:00.000Z",
   };
 
@@ -223,12 +223,12 @@ describe("renderOwnerDunningReviewEmail", () => {
   it("검토 건수와 링크를 포함한다", () => {
     const rendered = renderOwnerDunningReviewEmail({
       reminderCount: 3,
-      reviewUrl: "https://freesign.example/invoices",
+      reviewUrl: "https://maedeup.example/invoices",
     });
 
     expect(rendered.subject).toContain("3건");
-    expect(rendered.html).toContain("https://freesign.example/invoices");
-    expect(rendered.text).toContain("https://freesign.example/invoices");
+    expect(rendered.html).toContain("https://maedeup.example/invoices");
+    expect(rendered.text).toContain("https://maedeup.example/invoices");
   });
 });
 
@@ -236,11 +236,11 @@ describe("renderOwnerRecurringNoticeEmail", () => {
   it("초안 건수와 링크를 포함한다", () => {
     const rendered = renderOwnerRecurringNoticeEmail({
       draftCount: 2,
-      reviewUrl: "https://freesign.example/invoices/recurring",
+      reviewUrl: "https://maedeup.example/invoices/recurring",
     });
 
     expect(rendered.subject).toContain("2건");
-    expect(rendered.html).toContain("https://freesign.example/invoices/recurring");
-    expect(rendered.text).toContain("https://freesign.example/invoices/recurring");
+    expect(rendered.html).toContain("https://maedeup.example/invoices/recurring");
+    expect(rendered.text).toContain("https://maedeup.example/invoices/recurring");
   });
 });

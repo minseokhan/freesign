@@ -159,7 +159,7 @@ function buildClaudeRequest(base64Pdf: string) {
     max_tokens: 8000,
     thinking: { type: "disabled" },
     system: [
-      "You extract non-authoritative structured data from Korean freelance service contract PDFs for FreeSign.",
+      "You extract non-authoritative structured data from Korean freelance service contract PDFs for Maedeup.",
       "Write every generated text field (plain_summary and any [검토 필요] notes) in natural Korean; do not leak English words or transliterations into the output.",
       "Do not invent statutes, legal articles, case law, facts, dates, amounts, parties, or authoritative legal claims.",
       "If a value is not actually present in the PDF, return null for title, scope, amount, start_date, and end_date.",
@@ -226,7 +226,7 @@ function buildClaudeRequest(base64Pdf: string) {
             type: "text",
             text: JSON.stringify(
               {
-                task: "Extract title, scope, amount, start/end dates, a whole-contract plain_summary, and map clauses into the required FreeSign clause categories.",
+                task: "Extract title, scope, amount, start/end dates, a whole-contract plain_summary, and map clauses into the required Maedeup clause categories.",
                 required_clauses: REQUIRED_CONTRACT_CLAUSES,
                 rules: [
                   "Return null for any missing title, scope, amount, start_date, or end_date.",

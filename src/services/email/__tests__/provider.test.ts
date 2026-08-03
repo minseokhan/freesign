@@ -10,9 +10,9 @@ import {
 
 const message: EmailMessage = {
   to: "counterparty@example.com",
-  subject: "[FreeSign] 서명 요청",
-  html: "<p>서명 링크: https://freesign.example/sign/token-abc</p>",
-  text: "서명 링크: https://freesign.example/sign/token-abc",
+  subject: "[매듭] 서명 요청",
+  html: "<p>서명 링크: https://maedeup.example/sign/token-abc</p>",
+  text: "서명 링크: https://maedeup.example/sign/token-abc",
 };
 
 afterEach(() => {
@@ -24,7 +24,7 @@ afterEach(() => {
 describe("createResendEmailProvider", () => {
   it("POSTs the Resend emails endpoint with bearer auth and mapped body", async () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
-    const provider = createResendEmailProvider("re_test_key", "FreeSign <no-reply@freesign.example>", fetchFn);
+    const provider = createResendEmailProvider("re_test_key", "매듭 <no-reply@maedeup.example>", fetchFn);
 
     const result = await provider.send({
       ...message,
@@ -42,7 +42,7 @@ describe("createResendEmailProvider", () => {
       "Content-Type": "application/json",
     });
     expect(JSON.parse(init.body as string)).toEqual({
-      from: "FreeSign <no-reply@freesign.example>",
+      from: "매듭 <no-reply@maedeup.example>",
       to: message.to,
       subject: message.subject,
       html: message.html,
@@ -53,7 +53,7 @@ describe("createResendEmailProvider", () => {
 
   it("omits attachments from the body when not provided", async () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
-    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+    const provider = createResendEmailProvider("re_test_key", "no-reply@maedeup.example", fetchFn);
 
     await provider.send(message);
 
@@ -63,7 +63,7 @@ describe("createResendEmailProvider", () => {
 
   it("returns { ok: false } instead of throwing when fetch rejects", async () => {
     const fetchFn = vi.fn().mockRejectedValue(new Error("network down"));
-    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+    const provider = createResendEmailProvider("re_test_key", "no-reply@maedeup.example", fetchFn);
 
     await expect(provider.send(message)).resolves.toEqual({
       ok: false,
@@ -75,7 +75,7 @@ describe("createResendEmailProvider", () => {
     const fetchFn = vi
       .fn()
       .mockResolvedValue(new Response("validation failed", { status: 422 }));
-    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+    const provider = createResendEmailProvider("re_test_key", "no-reply@maedeup.example", fetchFn);
 
     const result = await provider.send(message);
 
@@ -90,12 +90,12 @@ describe("createResendEmailProvider", () => {
       new Response(
         JSON.stringify({
           statusCode: 403,
-          message: "The freesign.example domain is not verified.",
+          message: "The maedeup.example domain is not verified.",
         }),
         { status: 403 },
       ),
     );
-    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+    const provider = createResendEmailProvider("re_test_key", "no-reply@maedeup.example", fetchFn);
 
     const result = await provider.send(message);
 
@@ -108,7 +108,7 @@ describe("createResendEmailProvider", () => {
     const fetchFn = vi
       .fn()
       .mockResolvedValue(new Response("<html>Bad Gateway</html>", { status: 502 }));
-    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+    const provider = createResendEmailProvider("re_test_key", "no-reply@maedeup.example", fetchFn);
 
     const result = await provider.send(message);
 
@@ -118,7 +118,7 @@ describe("createResendEmailProvider", () => {
 
   it("본문이 비어 있어도 상태 코드만으로 실패를 알린다", async () => {
     const fetchFn = vi.fn().mockResolvedValue(new Response("", { status: 500 }));
-    const provider = createResendEmailProvider("re_test_key", "no-reply@freesign.example", fetchFn);
+    const provider = createResendEmailProvider("re_test_key", "no-reply@maedeup.example", fetchFn);
 
     const result = await provider.send(message);
 
@@ -137,14 +137,14 @@ describe("createConsoleEmailProvider", () => {
     const logged = infoSpy.mock.calls.flat().join("\n");
     expect(logged).toContain(message.to);
     expect(logged).toContain(message.subject);
-    expect(logged).toContain("https://freesign.example/sign/token-abc");
+    expect(logged).toContain("https://maedeup.example/sign/token-abc");
   });
 });
 
 describe("getEmailProvider", () => {
   it("uses the Resend provider when RESEND_API_KEY is set", async () => {
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
-    vi.stubEnv("EMAIL_FROM", "FreeSign <no-reply@freesign.example>");
+    vi.stubEnv("EMAIL_FROM", "매듭 <no-reply@maedeup.example>");
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 

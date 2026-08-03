@@ -369,7 +369,7 @@ async function sendInvoiceEmailBestEffort(input: {
 
     const rendered = renderInvoiceIssuedEmail({
       clientName: input.clientName,
-      senderName: profile?.display_name ?? "FreeSign 사용자",
+      senderName: profile?.display_name ?? "매듭 사용자",
       contractTitle: input.contractTitle,
       amountNet: input.amountNet,
       dueDate: input.dueDate,

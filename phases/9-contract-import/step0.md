@@ -19,7 +19,7 @@
   alter table public.contracts
     add column if not exists source_pdf_url text;
   ```
-- 컬럼 목적을 주석으로 남긴다: 발주처가 보낸 **원본** PDF의 Storage key. FreeSign이 **생성**한 서명본 PDF용 `contract_pdf_url`과 분리해 provenance를 보존한다.
+- 컬럼 목적을 주석으로 남긴다: 발주처가 보낸 **원본** PDF의 Storage key. 매듭이 **생성**한 서명본 PDF용 `contract_pdf_url`과 분리해 provenance를 보존한다.
 - **버킷/RLS/스토리지 정책을 이 파일에 넣지 마라.** 기존 `contract-artifacts` 버킷과 정책을 그대로 재사용한다.
 
 ### 2) 생성 타입 반영 — `src/types/database.ts`

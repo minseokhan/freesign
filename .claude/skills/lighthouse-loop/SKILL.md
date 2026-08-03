@@ -32,7 +32,7 @@ Karpathy autoresearch 방식을 Lighthouse 성능 점수에 적용한다: **가�
 
 ## 파라미터 (기본값)
 
-`PATIENCE=2` · `EPSILON=0.5`(perf 평균 점) · `runs=3`(라우트별 중앙값). 라우트·URL·포트는 `scripts/lighthouse-loop/measure.mjs` 상단 상수 참조(현재 5개 라우트, Vercel `https://freesign.vercel.app`, 포트 3100).
+`PATIENCE=2` · `EPSILON=0.5`(perf 평균 점) · `runs=3`(라우트별 중앙값). 라우트·URL·포트는 `scripts/lighthouse-loop/measure.mjs` 상단 상수 참조(현재 5개 라우트, Vercel `https://maedeup.app`, 포트 3100).
 
 ## 실행 절차
 
@@ -46,7 +46,7 @@ Karpathy autoresearch 방식을 Lighthouse 성능 점수에 적용한다: **가�
 - 베이스라인 perf 평균이 ~97+이면 위 "이미 고득점" 함정대로 사용자에게 먼저 알리고 계속 여부를 확인한다.
 
 ### 2. 진단으로 표적 확보
-`node scripts/lighthouse-loop/diagnose.mjs https://freesign.vercel.app/`(및 헤드룸 큰 라우트)로 **실행 가능한 최적화 기회**(렌더 차단·미사용 CSS/JS·이미지·캐시·bfcache 등)를 뽑는다. 이 목록을 제안 단계 서브에이전트에 먹인다. 후보 유형은 `references/optimization-catalog.md` 참조.
+`node scripts/lighthouse-loop/diagnose.mjs https://maedeup.app/`(및 헤드룸 큰 라우트)로 **실행 가능한 최적화 기회**(렌더 차단·미사용 CSS/JS·이미지·캐시·bfcache 등)를 뽑는다. 이 목록을 제안 단계 서브에이전트에 먹인다. 후보 유형은 `references/optimization-catalog.md` 참조.
 
 ### 3. 루프 (정체까지 반복)
 `best = baseline`, `journal = []`, `plateau = 0`. `plateau < PATIENCE` 동안 반복:
@@ -70,7 +70,7 @@ python3 scripts/build_report.py <스크래치>/lighthouse-report.json --out <스
 
 self-contained HTML(라이트/다크, 점수 임계값 색상, tabular-nums)이 나온다. 게시:
 - 게시 전 `artifact-design` 스킬 로드(디자인 기준은 스크립트에 반영돼 빠르게 통과).
-- `Artifact({ file_path: "<스크래치>/lighthouse-report.html", description: "FreeSign Lighthouse 최적화 루프 리포트", favicon: "📊", title: "FreeSign · Lighthouse 최적화 루프 리포트" })`.
+- `Artifact({ file_path: "<스크래치>/lighthouse-report.html", description: "매듭 Lighthouse 최적화 루프 리포트", favicon: "📊", title: "매듭 · Lighthouse 최적화 루프 리포트" })`.
 
 ### 5. 마무리
 사용자에게 **Artifact URL + 판정(정체/개선) + 베이스라인→best 요약 + 채택/거부 라운드 수 + 워킹트리 상태(무엇이 바뀌었나·소스 변경 여부)**를 보고한다. 채택된 변경이 있으면 커밋 여부를 묻는다(이 레포는 main 직접 커밋 선호, 단 커밋은 승인 후). 채택이 0이면 소스가 베이스라인으로 복원됐음을 명시한다.

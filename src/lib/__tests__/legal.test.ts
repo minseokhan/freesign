@@ -31,7 +31,7 @@ describe("LEGAL 상수", () => {
   });
 
   it("서비스명은 확정값이라 placeholder가 아니다", () => {
-    expect(LEGAL.serviceName).toBe("FreeSign");
+    expect(LEGAL.serviceName).toBe("매듭");
     expect(LEGAL.serviceName).not.toContain(LEGAL_TODO);
   });
 });

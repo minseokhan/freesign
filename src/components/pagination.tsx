@@ -8,7 +8,7 @@ const itemBaseClass = cn(
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
 );
 
-const activeItemClass = "border-blue-200 bg-brand-point text-brand-primary";
+const activeItemClass = "border-brand-primary/20 bg-brand-point text-brand-primary";
 const inactiveItemClass =
   "border-surface-border bg-white text-text-body hover:bg-surface-muted";
 const disabledItemClass =

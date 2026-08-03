@@ -283,7 +283,7 @@ export async function sendSignatureRequest(
   await sendSignatureRequestEmailBestEffort({
     recipientEmail: parsed.data.recipientEmail,
     recipientName: parsed.data.recipientName ?? null,
-    senderName: profile?.display_name ?? user.email ?? "FreeSign 사용자",
+    senderName: profile?.display_name ?? user.email ?? "매듭 사용자",
     contractTitle: contract.title,
     rawToken,
     expiresAt: new Date(Date.now() + SIGNING_REQUEST_TTL_MS).toISOString(),
@@ -377,7 +377,7 @@ export async function resendSignatureRequestEmail(
   const sent = await sendSignatureRequestEmailBestEffort({
     recipientEmail: request.recipient_email,
     recipientName: request.recipient_name,
-    senderName: profile?.display_name ?? user.email ?? "FreeSign 사용자",
+    senderName: profile?.display_name ?? user.email ?? "매듭 사용자",
     contractTitle: contract.title,
     rawToken,
     expiresAt,

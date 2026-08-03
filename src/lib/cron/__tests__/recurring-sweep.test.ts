@@ -7,7 +7,7 @@ import { runRecurringSweep } from "../recurring-sweep";
 
 vi.mock("@/lib/supabase/anon", () => ({ createAnonClient: vi.fn() }));
 vi.mock("@/services/email/provider", () => ({ getEmailProvider: vi.fn() }));
-vi.mock("@/lib/seo", () => ({ getSiteUrl: () => "https://freesign.example" }));
+vi.mock("@/lib/seo", () => ({ getSiteUrl: () => "https://maedeup.example" }));
 
 describe("runRecurringSweep", () => {
   const send = vi.fn();

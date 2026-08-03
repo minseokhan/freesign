@@ -189,7 +189,7 @@ export default async function PublicSignPage({ params }: PublicSignPageProps) {
     return (
       <Card>
         <h2 className="text-lg font-semibold text-text-primary">
-          서명이 완료되었습니다
+          서명이 완료되어 계약이 매듭지어졌습니다
         </h2>
         <p className="mt-sm text-sm leading-relaxed text-text-muted">
           {session.contract_title

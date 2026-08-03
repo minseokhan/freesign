@@ -35,7 +35,7 @@ export default async function DashboardLayout({
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-lg px-lg py-lg">
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-text-muted">
-                FreeSign
+                매듭
               </p>
               <h1 className="text-2xl font-semibold tracking-tight text-text-primary">
                 정산 워크스페이스

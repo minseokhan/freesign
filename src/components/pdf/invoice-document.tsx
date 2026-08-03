@@ -165,13 +165,13 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
   return (
     <Document
       title={document.title}
-      author="FreeSign"
-      subject="FreeSign invoice PDF"
+      author="Maedeup"
+      subject="Maedeup invoice PDF"
       language="ko-KR"
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>FREESIGN INVOICE</Text>
+          <Text style={styles.eyebrow}>MAEDEUP INVOICE</Text>
           <Text style={styles.title}>인보이스</Text>
           <Text style={styles.invoiceNumber}>
             인보이스 번호: {document.invoiceNumber}
@@ -246,7 +246,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `FreeSign 인보이스 기록용 PDF · ${pageNumber} / ${totalPages}`
+            `매듭 인보이스 기록용 PDF · ${pageNumber} / ${totalPages}`
           }
           fixed
         />

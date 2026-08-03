@@ -26,7 +26,8 @@ export interface EmailProvider {
 
 const RESEND_EMAILS_URL = "https://api.resend.com/emails";
 // EMAIL_FROM 미설정 시 Resend 테스트 발신 주소(자기 계정 주소로만 발송 가능).
-const DEFAULT_FROM = "FreeSign <onboarding@resend.dev>";
+// maedeup.app 도메인 인증 전까지 주소는 resend.dev를 유지하고 표시명만 브랜드로 둔다.
+const DEFAULT_FROM = "매듭 <onboarding@resend.dev>";
 
 // Resend는 실패 사유를 본문에 담아 준다(예: 발신 도메인 미인증 403). 상태 코드만 남기면
 // 로그에서 원인이 사라지므로 사유를 함께 싣는다. 본문을 못 읽어도 실패 판정은 그대로.

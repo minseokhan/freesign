@@ -219,7 +219,7 @@ TSA URL: https://freetsa.org/tsr
 
 **진행 시 주의 2가지**
 - **결제/업그레이드 경로는 건너뛰세요.** Polar가 프로덕션에 미구성이라 지금은 "결제 준비 중" 안내로 빠집니다(4절).
-- **서명 요청 메일은 본인 주소로** 보내세요. `EMAIL_FROM`이 미설정이라 발신자가 `FreeSign <onboarding@resend.dev>`인데(`src/services/email/provider.ts:29`), Resend의 이 공용 도메인은 보통 계정 본인 주소로만 발송이 허용됩니다.
+- **서명 요청 메일은 본인 주소로** 보내세요. `EMAIL_FROM`이 미설정이라 발신자가 `매듭 <onboarding@resend.dev>`인데(`src/services/email/provider.ts:29`), Resend의 이 공용 도메인은 보통 계정 본인 주소로만 발송이 허용됩니다.
 
 ### 검증 중 만든 데이터 (테스트 계정 소유)
 
@@ -274,7 +274,7 @@ TSA URL: https://freetsa.org/tsr
 webhook 라우트는 손대지 않았습니다 — 시크릿이 빈 문자열이면 SDK 서명 검증에서 먼저 막혀 `applySubscriptionEvent`까지 도달하지 않습니다(이미 fail-closed).
 
 **나중에 프로덕션 결제로 전환할 때 체크리스트**
-1. Polar 대시보드에서 프로덕션 조직·상품·액세스 토큰·웹훅 엔드포인트(`https://freesign.vercel.app/api/billing/webhook`) 생성
+1. Polar 대시보드에서 프로덕션 조직·상품·액세스 토큰·웹훅 엔드포인트(`https://maedeup.app/api/billing/webhook`) 생성
 2. Vercel에 `POLAR_ACCESS_TOKEN`·`POLAR_WEBHOOK_SECRET`·`POLAR_PRODUCT_ID` 등록 + `POLAR_SERVER=production`
 3. **DB 시크릿 교체** — `select set_billing_webhook_secret('<프로덕션 웹훅 시크릿>');`
    지금 원격 `billing_config`는 **로컬 sandbox 시크릿의 해시**를 들고 있습니다. 이 단계를 빠뜨리면 웹훅이 전부 `unauthorized billing webhook call`로 거부되고 **결제한 사용자가 Free로 남습니다.**
@@ -514,7 +514,7 @@ fail-open이 적용되는 버킷은 5개입니다(`src/lib/rate-limit.ts:12-18`)
 
 `/ingest`가 next.config 리라이트에서 라우트 핸들러로 바뀌었습니다. 정적 에셋 응답이 200인 것은 확인했지만, **이벤트가 PostHog까지 실제로 도달하는지**는 브라우저로만 알 수 있습니다.
 
-1. 크롬에서 `https://freesign.vercel.app` 을 열고 로그인합니다.
+1. 크롬에서 `https://maedeup.app` 을 열고 로그인합니다.
 2. `F12`(또는 `⌥⌘I`) → **Network** 탭 → 필터 입력창에 `ingest` 입력.
 3. 상단 메뉴로 **대시보드 → 계약 → 인보이스** 순서로 3페이지쯤 이동합니다.
 4. Network 목록에 `e/?...` 또는 `i/v0/e/...` 요청이 뜨고 **Status가 200**이면 통과입니다.
@@ -527,7 +527,7 @@ fail-open이 적용되는 버킷은 5개입니다(`src/lib/rate-limit.ts:12-18`)
 
 서명 페이지가 이제 계약 본문에서 지문을 재계산해 발송 시점 지문과 대조합니다. 불일치면 서명 UI 대신 안내 카드가 뜹니다. 기존 데이터 2건으로는 일치를 확인했지만, **새로 발송한 링크로 한 번 더** 봐 주세요.
 
-1. `https://freesign.vercel.app/contracts` → **새 계약** 으로 아무 계약이나 하나 만듭니다(클라이언트는 기존 것 아무거나).
+1. `https://maedeup.app/contracts` → **새 계약** 으로 아무 계약이나 하나 만듭니다(클라이언트는 기존 것 아무거나).
 2. 계약 상세에서 **서명 요청 보내기** → 받는 사람 이메일에 **본인 주소**를 넣습니다.
    - `EMAIL_FROM`이 미설정이라 발신자가 `onboarding@resend.dev`이고, 이 공용 도메인은 보통 계정 본인 주소로만 발송됩니다.
 3. 메일함에서 서명 링크를 엽니다.

@@ -71,7 +71,7 @@ export function PlanComparison({ plan }: { plan: Plan }) {
       <Card
         className={cn(
           "flex flex-col gap-lg",
-          isPro ? "border-dashed" : "border-blue-200 ring-1 ring-blue-200",
+          isPro ? "border-dashed" : "border-brand-primary/20 ring-1 ring-brand-primary/20",
         )}
       >
         <div className="flex items-center gap-sm">
@@ -89,7 +89,7 @@ export function PlanComparison({ plan }: { plan: Plan }) {
         className={cn(
           "flex flex-col gap-lg",
           isPro
-            ? "border-blue-200 ring-1 ring-blue-200"
+            ? "border-brand-primary/20 ring-1 ring-brand-primary/20"
             : "border-surface-border",
         )}
       >

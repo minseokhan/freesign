@@ -49,7 +49,7 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
           role={isNotice ? "status" : "alert"}
           className={
             isNotice
-              ? "border-blue-200 bg-brand-point"
+              ? "border-brand-primary/30 bg-brand-point"
               : "border-red-200 bg-status-overdue-bg"
           }
         >

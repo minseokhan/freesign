@@ -202,7 +202,7 @@ function buildClaudeRequest(input: ContractDraftInput, skeleton: ContractDraft) 
     max_tokens: 6000,
     thinking: { type: "disabled" },
     system: [
-      "You refine Korean freelance service contract drafts for FreeSign.",
+      "You refine Korean freelance service contract drafts for Maedeup.",
       "Write every output field (title, body, plain_summary) in natural, fluent Korean.",
       "Do not leak English words or transliterations into the output; express disclaimers in Korean (e.g. '법적 효력이 없는 초안').",
       "The contract skeleton and required clauses are owned by application code.",

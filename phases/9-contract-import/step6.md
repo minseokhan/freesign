@@ -23,7 +23,7 @@
   - `/contracts/import` — 기존 계약 PDF 불러오기 (업로드 → Claude 추출 → 검토 → draft 저장)
   - `/api/contracts/import/parse` — 업로드 PDF를 Claude로 파싱해 추출 결과 미리보기 반환 (저장 없음, nodejs 런타임)
   - 기존 `/contracts/new` 행 설명에 "= 시나리오 A(AI 초안 생성)" 뉘앙스가 있으면 그대로 두고, import는 "= 시나리오 B(기존 계약 검토·기록)"로 대비되게 표기.
-- **contracts 모델**에서 컬럼을 나열한 곳이 있으면 `source_pdf_url`(발주처 원본 PDF의 Storage key, FreeSign 생성 서명본 `contract_pdf_url`과 분리)을 추가한다.
+- **contracts 모델**에서 컬럼을 나열한 곳이 있으면 `source_pdf_url`(발주처 원본 PDF의 Storage key, 매듭 생성 서명본 `contract_pdf_url`과 분리)을 추가한다.
 - **시크릿·외부 API** 규칙 문단에 Claude PDF 추출(`contract-import.ts`)이 서버 전용 모듈 + `api` 라우트에서만 호출됨을 필요 시 한 줄 보강(이미 일반화돼 있으면 생략).
 
 ### 2) `docs/PRD.md`

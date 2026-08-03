@@ -44,7 +44,7 @@ describe("/ingest PostHog 프록시", () => {
 
   it("세션 쿠키를 상류로 전달하지 않는다", async () => {
     await POST(
-      requestWithCookies("https://freesign.vercel.app/ingest/e/?ip=1", {
+      requestWithCookies("https://maedeup.app/ingest/e/?ip=1", {
         method: "POST",
         body: '{"event":"$pageview"}',
       }),
@@ -55,7 +55,7 @@ describe("/ingest PostHog 프록시", () => {
 
   it("PostHog가 필요로 하는 헤더는 그대로 넘긴다", async () => {
     await POST(
-      requestWithCookies("https://freesign.vercel.app/ingest/e/", {
+      requestWithCookies("https://maedeup.app/ingest/e/", {
         method: "POST",
         body: "{}",
       }),
@@ -69,7 +69,7 @@ describe("/ingest PostHog 프록시", () => {
 
   it("이벤트 경로는 us.i.posthog.com으로, 쿼리스트링을 유지해 보낸다", async () => {
     await POST(
-      requestWithCookies("https://freesign.vercel.app/ingest/e/?ip=1&ver=1.2", {
+      requestWithCookies("https://maedeup.app/ingest/e/?ip=1&ver=1.2", {
         method: "POST",
         body: '{"event":"$pageview"}',
       }),
@@ -79,8 +79,8 @@ describe("/ingest PostHog 프록시", () => {
   });
 
   it("static·array 경로는 에셋 호스트로 보낸다", async () => {
-    await GET(requestWithCookies("https://freesign.vercel.app/ingest/static/array.js"));
-    await GET(requestWithCookies("https://freesign.vercel.app/ingest/array/abc/config.js"));
+    await GET(requestWithCookies("https://maedeup.app/ingest/static/array.js"));
+    await GET(requestWithCookies("https://maedeup.app/ingest/array/abc/config.js"));
 
     expect(forwardedCall(0).url).toBe("https://us-assets.i.posthog.com/static/array.js");
     expect(forwardedCall(1).url).toBe("https://us-assets.i.posthog.com/array/abc/config.js");
@@ -88,7 +88,7 @@ describe("/ingest PostHog 프록시", () => {
 
   it("본문을 바이트 그대로 전달한다(gzip 압축 이벤트 대비)", async () => {
     await POST(
-      requestWithCookies("https://freesign.vercel.app/ingest/i/v0/e/", {
+      requestWithCookies("https://maedeup.app/ingest/i/v0/e/", {
         method: "POST",
         body: '{"event":"contract_created"}',
       }),
@@ -103,7 +103,7 @@ describe("/ingest PostHog 프록시", () => {
 
   it("상류 응답의 set-cookie는 브라우저로 돌려주지 않는다", async () => {
     const response = await POST(
-      requestWithCookies("https://freesign.vercel.app/ingest/e/", {
+      requestWithCookies("https://maedeup.app/ingest/e/", {
         method: "POST",
         body: "{}",
       }),

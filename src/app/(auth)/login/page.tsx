@@ -68,7 +68,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <form action={signInWithGoogle} className="mt-6">
           <button
             type="submit"
-            className="min-h-11 w-full rounded-[10px] bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 active:bg-blue-800"
+            className="min-h-11 w-full rounded-[10px] bg-brand-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2 active:bg-brand-hover"
           >
             Google로 계속하기
           </button>

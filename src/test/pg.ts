@@ -35,7 +35,7 @@ async function findOpenPort() {
 }
 
 export async function startPgTestDatabase(): Promise<PgTestDatabase> {
-  const databaseDir = await fs.mkdtemp(path.join(os.tmpdir(), "freesign-pg-"));
+  const databaseDir = await fs.mkdtemp(path.join(os.tmpdir(), "maedeup-pg-"));
   const port = await findOpenPort();
   const embedded = new EmbeddedPostgres({
     databaseDir,

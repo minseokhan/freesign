@@ -62,7 +62,7 @@ export function DemoDataButton({ hasDemoData }: { hasDemoData: boolean }) {
       {message ? (
         <p
           aria-live="polite"
-          className={hasDemoData ? "text-xs text-red-600" : "text-xs text-blue-700"}
+          className={hasDemoData ? "text-xs text-red-600" : "text-xs text-brand-primary"}
         >
           {message}
         </p>

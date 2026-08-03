@@ -56,12 +56,12 @@ export default async function HomePage() {
               프리랜서를 위한 올인원 정산
             </p>
             <h1 className="mt-md text-4xl font-bold leading-tight tracking-tight text-text-primary sm:text-5xl">
-              계약부터 입금·세금까지,
+              일의 시작과 끝을
               <br />
-              하나의 흐름으로
+              매듭짓다
             </h1>
             <p className="mt-lg max-w-md text-base leading-relaxed text-text-body">
-              계약 → 서명 → 청구 → 입금 → 세금 정리. FreeSign은 흩어진 정산
+              계약 → 서명 → 청구 → 입금 → 세금 정리. 매듭은 흩어진 정산
               과정을 하나의 기록 체인으로 묶어, 내 돈이 어디까지 왔는지 3초 안에
               보여줍니다. 상대방은 가입 없이 메일 링크로 서명합니다.
             </p>
@@ -94,7 +94,7 @@ export default async function HomePage() {
                 정산의 모든 단계를 한 곳에서
               </h2>
               <p className="mt-md text-sm leading-relaxed text-text-body sm:text-base">
-                각 단계를 눌러 FreeSign이 어떻게 흐름을 이어주는지 확인해
+                각 단계를 눌러 매듭이 어떻게 흐름을 이어주는지 확인해
                 보세요.
               </p>
             </div>
@@ -156,7 +156,7 @@ export default async function HomePage() {
         <div className="mx-auto flex max-w-6xl flex-col gap-lg px-lg py-xl text-xs text-text-muted">
           <LegalLinks />
           <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
-            <span>© 2026 FreeSign</span>
+            <span>© 2026 매듭</span>
             <span>계약 초안·원천징수 계산은 참고용이며 법적 자문이 아닙니다.</span>
           </div>
         </div>

@@ -138,7 +138,7 @@ export default async function ContractsPage({
               href="/contracts/new"
               className={cn(buttonBaseClass, buttonVariants.primary)}
             >
-              새 계약 작성
+              계약 매듭짓기
             </Link>
             <Link
               href="/contracts/import"
@@ -169,7 +169,7 @@ export default async function ContractsPage({
                 "inline-flex min-h-11 items-center rounded-full border px-lg py-sm text-sm font-medium transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2",
                 isActive
-                  ? "border-blue-200 bg-brand-point text-brand-primary"
+                  ? "border-brand-primary/30 bg-brand-point text-brand-primary"
                   : "border-surface-border bg-white text-text-body hover:bg-surface-muted",
               )}
               aria-current={isActive ? "page" : undefined}
@@ -187,7 +187,7 @@ export default async function ContractsPage({
           </div>
           <div>
             <h3 className="text-lg font-semibold text-text-primary">
-              아직 계약이 없어요
+              아직 매듭지은 계약이 없어요
             </h3>
             <p className="mt-sm max-w-md text-sm leading-relaxed text-text-muted">
               계약을 만들면 클라이언트, 금액, 기간, 서명 상태를 기록 체인의
@@ -200,7 +200,7 @@ export default async function ContractsPage({
                 href="/contracts/new"
                 className={cn(buttonBaseClass, buttonVariants.primary)}
               >
-                새 계약 작성
+                계약 매듭짓기
               </Link>
               <Link
                 href="/contracts/import"

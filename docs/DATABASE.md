@@ -1,6 +1,6 @@
 # 데이터베이스 구조
 
-FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마이그레이션을 기준으로 하며, 마이그레이션이 정본(source of truth)이다.
+매듭의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마이그레이션을 기준으로 하며, 마이그레이션이 정본(source of truth)이다.
 
 **핵심 도메인 흐름:** `clients`(고객) → `contracts`(계약) → `invoices`(청구/입금) → 리포트/세금 정리. 계약·인보이스의 상태 전이는 각각 `contract_events`·`invoice_events`에 append-only로 기록된다.
 
@@ -61,7 +61,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 | `status` | contract_status, 기본 `draft` | 계약 상태(§ ENUM) |
 | `clauses` | jsonb, 기본 `[]` | 계약 조항 목록 |
 | `plain_summary` | text | 계약 레벨 평문요약(시나리오 A는 계약 1회, 0010 마이그레이션). 조항별 요약은 `clauses[].plain_summary` |
-| `contract_pdf_url` | text | FreeSign이 생성한 서명본 PDF의 Storage key |
+| `contract_pdf_url` | text | 매듭이 생성한 서명본 PDF의 Storage key |
 | `source_pdf_url` | text | 고객이 제공한 원본 PDF의 Storage key. 출처 보존을 위해 서명본과 분리 |
 | `signature_image_path` | text | 서명 이미지 Storage 경로 |
 | `doc_hash` | text | 서명 대상 문서 해시(무결성 증빙, 서버 소유 필드) |

@@ -148,13 +148,13 @@ export function CertificateDocument({
   return (
     <Document
       title={`완결증명서 - ${certificate.contractTitle}`}
-      author="FreeSign"
-      subject="FreeSign signature audit trail certificate"
+      author="Maedeup"
+      subject="Maedeup signature audit trail certificate"
       language="ko-KR"
     >
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.eyebrow}>FREESIGN CERTIFICATE OF COMPLETION</Text>
+          <Text style={styles.eyebrow}>MAEDEUP CERTIFICATE OF COMPLETION</Text>
           <Text style={styles.title}>완결증명서</Text>
           <Text style={styles.headerMeta}>
             계약 제목: {certificate.contractTitle}
@@ -212,7 +212,7 @@ export function CertificateDocument({
         <Text
           style={styles.footer}
           render={({ pageNumber, totalPages }) =>
-            `FreeSign 완결증명서 · ${pageNumber} / ${totalPages}`
+            `매듭 완결증명서 · ${pageNumber} / ${totalPages}`
           }
           fixed
         />

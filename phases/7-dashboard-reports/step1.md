@@ -28,7 +28,7 @@
 ### 2) CSV 라우트 — `src/app/api/reports/route.ts`(또는 `reports/csv/route.ts`) 신규
 
 - **서버 전용**. `requireUser()` 인가 → 연도 쿼리(`?year=`) 검증 → **동일 SQL 집계(`.rpc()`)로 채널별 수익 조회**(JS로 합산 금지) → CSV 문자열 생성 → 응답.
-- 응답 헤더: `content-type: text/csv; charset=utf-8`, `content-disposition: attachment; filename="freesign-report-{year}.csv"`, `cache-control: private, no-store`. **한글 깨짐 방지**를 위해 UTF-8 BOM(`﻿`) 프리픽스 권장(Excel 호환).
+- 응답 헤더: `content-type: text/csv; charset=utf-8`, `content-disposition: attachment; filename="maedeup-report-{year}.csv"`, `cache-control: private, no-store`. **한글 깨짐 방지**를 위해 UTF-8 BOM(`﻿`) 프리픽스 권장(Excel 호환).
 - CSV 컬럼: 채널·수익(원) 등 리포트와 동일 기준. 숫자는 로캘 포맷이 아닌 원시 정수(회계 재가공 용이)로 하되 재량.
 
 ### 3) 테스트

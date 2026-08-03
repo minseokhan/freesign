@@ -1,13 +1,13 @@
 import { PRO_PRICE_KRW } from "@/lib/plan-features";
 
-export const FALLBACK_SITE_URL = "https://freesign.vercel.app";
+export const FALLBACK_SITE_URL = "https://maedeup.app";
 
-export const SITE_NAME = "FreeSign";
+export const SITE_NAME = "매듭";
 
-export const SITE_TITLE = "FreeSign — 프리랜서 계약·정산 올인원";
+export const SITE_TITLE = "매듭 — 프리랜서 계약·정산 올인원";
 
 export const SITE_DESCRIPTION =
-  "프리랜서를 위한 전자계약·정산 서비스. 계약서 작성과 전자서명, 인보이스 청구, 입금·미수금 관리, 세금 정리까지 하나의 흐름으로 관리하세요.";
+  "일의 시작과 끝을 매듭짓는 프리랜서 전자계약·정산 서비스. 계약서 작성과 전자서명, 인보이스 청구, 입금·미수금 관리, 세금 정리까지 하나의 흐름으로 매듭지으세요.";
 
 /** 배포 도메인 교체 시 NEXT_PUBLIC_SITE_URL만 바꾸면 되도록 단일 지점에서 해석한다. */
 export function resolveSiteUrl(raw: string | undefined): string {

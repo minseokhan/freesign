@@ -73,7 +73,7 @@ type AttentionInvoice = InvoiceRow & {
 // (계약 상태 배지는 signed/active가 모두 앰버라 인접 단계가 겹쳐 별도 팔레트를 쓴다).
 const PIPELINE_STAGE_STYLES: Record<string, string> = {
   draft: "bg-slate-100 text-slate-500",
-  signed: "bg-blue-50 text-blue-500",
+  signed: "bg-brand-point text-brand-ring",
   active: "bg-amber-50 text-amber-600",
   done: "bg-green-50 text-green-600",
 };

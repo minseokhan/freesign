@@ -47,11 +47,11 @@ export async function GET() {
 
   const exportedAt = new Date().toISOString();
   const payload = {
-    service: "FreeSign",
+    service: "Maedeup",
     exportedAt,
     account: { id: user.id, email: user.email ?? null },
     notes: [
-      "이 파일은 FreeSign이 보관 중인 회원님의 데이터 전체입니다.",
+      "이 파일은 매듭이 보관 중인 회원님의 데이터 전체입니다.",
       "서명 링크 토큰과 타임스탬프 토큰 원문은 보안상 제외했습니다.",
       "서명 이미지 원본은 용량 문제로 제외했으며 저장 경로만 포함합니다.",
     ],
@@ -62,7 +62,7 @@ export async function GET() {
   posthog.capture({ distinctId: user.id, event: "account_data_exported" });
   await posthog.flush();
 
-  const filename = `freesign-data-${exportedAt.slice(0, 10)}.json`;
+  const filename = `maedeup-data-${exportedAt.slice(0, 10)}.json`;
 
   return new NextResponse(JSON.stringify(payload, null, 2), {
     headers: {

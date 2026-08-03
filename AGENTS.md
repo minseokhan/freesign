@@ -1,4 +1,4 @@
-# 프로젝트: FreeSign
+# 프로젝트: 매듭 (Maedeup)
 
 이 파일은 Codex(및 하네스 `scripts/execute.py`)가 작업 시 따르는 프로젝트 규칙이다.
 하네스는 각 step 실행 시 이 파일을 가드레일로 로드한다.

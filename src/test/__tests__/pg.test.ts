@@ -26,7 +26,7 @@ describe("Postgres test harness", () => {
   });
 
   it("treats a missing or empty migration directory as a no-op", async () => {
-    const emptyDir = await mkdtemp(path.join(os.tmpdir(), "freesign-empty-migrations-"));
+    const emptyDir = await mkdtemp(path.join(os.tmpdir(), "maedeup-empty-migrations-"));
 
     await expect(applyMigrations(pool, emptyDir)).resolves.toBeUndefined();
     await expect(applyMigrations(pool, path.join(emptyDir, "missing"))).resolves.toBeUndefined();

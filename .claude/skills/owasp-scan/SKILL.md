@@ -63,7 +63,7 @@ const FINDING_ITEM = {
     impact: { type: 'string', description: '악용 시 무슨 일이 벌어지는가(1~2문장)' },
     remediation: { type: 'string', description: '구체적 수정 방안' },
     scope_tag: { type: 'string', enum: ['generic', 'stack'], description: '범용 OWASP인지 스택 특화 규칙인지' },
-    freesign_rule: { type: 'string', description: '스택 규칙일 때 관련 아키텍처 규칙(선택)' },
+    maedeup_rule: { type: 'string', description: '스택 규칙일 때 관련 아키텍처 규칙(선택)' },
   },
   required: ['category', 'severity', 'title', 'file', 'impact', 'remediation', 'scope_tag'],
 }
@@ -100,7 +100,7 @@ ${scopeBlock}
 ## 지시
 - **실제 결함만** 보고하라(없으면 findings: []). 추측·취향·"더 나을 수도"류 제외. 근거(evidence)는 코드/설정에서 실제로 확인 가능해야 한다.
 - severity 기준(카탈로그 하단 참조): critical=즉시 악용(데이터유출·인가우회·RCE·service_role노출), high=릴리스 전 필수수정, medium=하드닝필요(방어선1개남음), low=심층방어 개선, info=관찰.
-- file은 레포 루트 기준 상대경로, line은 실제 라인. scope_tag는 generic/stack. 스택 규칙이면 freesign_rule에 관련 규칙을 적어라.
+- file은 레포 루트 기준 상대경로, line은 실제 라인. scope_tag는 generic/stack. 스택 규칙이면 maedeup_rule에 관련 규칙을 적어라.
 - impact와 remediation을 반드시 채워라. remediation은 구체적으로(무엇을 어떻게 고치는지).`
 }
 
@@ -172,7 +172,7 @@ const confirmed = results.flat().filter(Boolean)
   .map((f) => ({
     category: f.category, severity: f.severity, title: f.title,
     file: f.file, line: f.line, evidence: f.evidence, impact: f.impact,
-    remediation: f.remediation, scope_tag: f.scope_tag, freesign_rule: f.freesign_rule,
+    remediation: f.remediation, scope_tag: f.scope_tag, maedeup_rule: f.maedeup_rule,
     confidence: f.verdict.confidence,
   }))
 log(`확정 ${confirmed.length}건`)
