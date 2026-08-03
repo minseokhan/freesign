@@ -123,14 +123,21 @@
 - [ ] 의도적으로 남긴 `freesign` 문자열 정리 — E2E 테스트 계정 `e2e-test@freesign.local`,
       `docs/SECURITY_NEXT_STEPS.md`의 Vercel 슬러그, `.claude/skills/db-advisor`의 Supabase 프로젝트명
 
-### 남은 검증 1건
+### 검증
 
-- [ ] **새 도메인에서 Google 로그인** — https://maedeup.app/login 에서 실제로 로그인.
-      Supabase Redirect URL(Phase 3)과 Google OAuth 동의 화면이 제대로 걸렸는지
-      확인하는 유일한 방법이다. 코드는 `NEXT_PUBLIC_SITE_URL + /auth/callback`으로
-      돌아온다(`src/app/(auth)/login/page.tsx:30`).
-      Supabase의 허용목록 검증은 authorize가 아니라 **callback 단계**에서 일어나므로
-      외부에서 프로그램으로 확인할 수 없다.
+- [x] **새 도메인에서 Google 로그인** — 2026-08-04 실제 로그인 성공.
+      Supabase Redirect URL과 Google OAuth 동의 화면이 제대로 걸렸다는 뜻이다
+      (코드는 `NEXT_PUBLIC_SITE_URL + /auth/callback`으로 돌아온다 —
+      `src/app/(auth)/login/page.tsx:30`). Supabase의 허용목록 검증은 authorize가 아니라
+      **callback 단계**에서 일어나 외부에서 프로그램으로 확인할 수 없으므로,
+      이 실측이 유일한 검증 수단이었다.
+- [ ] **메일 실도달** — 클라이언트(본인 아닌 주소)에게 청구서를 한 번 보내
+      `invoice_events`에 `invoice.sent`가 남는지 확인. DNS·`EMAIL_FROM`은 모두 확인됐으나
+      실제 도달은 발송해 봐야 확정된다 (`docs/EMAIL_DOMAIN_SETUP.md` 5절).
+
+> **2026-08-04 — 리브랜딩 전환 완료.** `https://maedeup.app`이 라이브이고
+> 로그인·발신 도메인·결제 webhook 경로가 모두 새 도메인 기준이다.
+> 남은 것은 위 메일 실도달 확인과, 아래 Phase 4(개명, 의도적 보류)뿐이다.
 
 ### 리브랜딩 후 남는 사실
 
@@ -176,3 +183,4 @@ freesign.vercel.app → maedeup.app
 | 2026-08-03 | Phase 2 게이트 그린 — lint / vitest 912 / build:verify / playwright 2 |
 | 2026-08-03 | Vercel에 maedeup.app·www 연결 완료. 나머지 인프라는 MANUAL_TASKS로 분리 |
 | 2026-08-04 | Phase 3 수동 항목 1~6 사용자 완료. `https://maedeup.app` 라이브, 앱 URL·발신 도메인 전환 |
+| 2026-08-04 | 새 도메인 Google 로그인 검증 통과 → **리브랜딩 전환 완료**. Phase 4 개명만 보류 |
