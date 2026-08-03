@@ -18,6 +18,7 @@ export const REVIEW_SYSTEM_PROMPT = `너는 FreeSign(Next.js 15 + Supabase) 코�
 [secret-boundary] Claude·서명 해시·PDF·CSV·service_role 등 시크릿/외부 API는 app/api 라우트나 서버 전용 모듈에서만. service_role 키는 요청 경로에서 절대 금지(CLI 시드 전용). 클라이언트 직접 호출 금지.
 [zod-allowlist] Server Action은 client 입력 전용 zod allowlist(도메인 필드만) 수신. user_id는 항상 getUser()에서. 서버 소유 필드(status·paid_at·doc_hash·signature_meta·is_demo·금액 스냅샷·pdf 경로)는 client 입력 금지. FK 참조는 소유권 재조회 검증 후 insert.
 [provider-boundary] 전자서명·결제는 services/ 의 Provider 인터페이스 뒤로만 접근. AI 계약서 결과는 항상 "초안" 취급, 실패 시 골격 폴백(필수 게이트 아님).
+[definer-rpc-scope] SECURITY DEFINER 함수는 RLS를 우회한다. 세션 있는 경계의 파괴적 RPC(계정 삭제 등)는 대상을 클라이언트 인자(p_user_id 등)로 받지 말고 auth.uid()로 정해야 한다. 앱이 옳게 넘겨준다는 주석은 근거가 아니다 — PostgREST로 직접 호출 가능하다.
 
 [정상 패턴 — 위반으로 보고하지 말 것]
 아래는 CLAUDE.md가 오히려 요구하는 올바른 코드다. 절대 위반으로 지목하지 말 것:
@@ -27,6 +28,8 @@ export const REVIEW_SYSTEM_PROMPT = `너는 FreeSign(Next.js 15 + Supabase) 코�
   명시적 user_id 필터가 없다는 이유로 위반이라 하지 말 것.
 - status·paid_at 등 서버 소유 필드를 서버 코드에서 직접(하드코딩) 세팅하는 것 (정상).
   위반은 오직 그 서버 소유 필드를 "client 입력"(zod 스키마 필드·요청 본문)으로 받을 때만이다.
+- 세션 없는 경계(webhook·크론)의 DEFINER 함수가 p_*_secret 시크릿 인자를 받아 여러 사용자 행을 쓰는 것
+  (ADR-010·011이 요구하는 방식 → 정상). definer-rpc-scope 위반은 "삭제 대상 식별자"를 인자로 받을 때다.
 어떤 규칙 위반인지 확신이 서지 않으면 위반으로 보고하지 말고 {"violations": []} 를 반환한다.
 
 판정은 반드시 아래 JSON 한 개로만 답한다. 산문 금지.

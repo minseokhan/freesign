@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from "vitest";
 import { loadCases, CASES_DIR } from "../lib/cases.ts";
+import { REVIEW_SYSTEM_PROMPT } from "../lib/prompts.ts";
 
 const cases = loadCases(CASES_DIR);
 const review = cases.filter((c) => c.track === "review");
@@ -35,6 +36,25 @@ describe("review 트랙 균형", () => {
   it("모든 위반 케이스는 rule 슬러그를 가진다", () => {
     for (const c of review.filter((c) => c.expect === "violation")) {
       expect(c.rule, `${c.id} 에 rule 없음`).toBeTruthy();
+    }
+  });
+
+  // 피험 모델은 REVIEW_SYSTEM_PROMPT 의 슬러그만 출력할 수 있고, judge 는 슬러그 일치를
+  // 요구한다(lib/prompts.ts). 루브릭에 없는 슬러그를 라벨로 달면 그 케이스는 모델 성능과
+  // 무관하게 영구 fail 이 되는데, "rule 이 있는가"만 보면 이게 통과해 버린다(실제로 통과했다).
+  it("모든 위반 케이스의 rule 은 리뷰 루브릭에 실재하는 슬러그다", () => {
+    const rubricSlugs = new Set(
+      [...REVIEW_SYSTEM_PROMPT.matchAll(/^\[([a-z0-9-]+)\]/gm)].map((m) => m[1]),
+    );
+
+    // 루브릭 파싱 자체가 깨지면(형식 변경) 아래 검사가 무의미해지므로 먼저 막는다.
+    expect(rubricSlugs.size).toBeGreaterThan(0);
+
+    for (const c of review.filter((c) => c.expect === "violation")) {
+      expect(
+        rubricSlugs.has(c.rule!),
+        `${c.id} 의 rule "${c.rule}" 이 루브릭에 없음 — 루브릭에 추가하거나 라벨을 고칠 것 (현재 루브릭: ${[...rubricSlugs].join(", ")})`,
+      ).toBe(true);
     }
   });
 });
