@@ -330,6 +330,29 @@ Secret 입력란이 있으면 기존 값을 그대로 넣어 동기화를 피할
 
 따라서 URL만 바꿔도 깨질 것이 없다. 아래 시크릿 동기화는 **실제로 프로덕션 결제를 켤 때** 한다.
 
+### Polar 프로덕션 액세스 토큰 — 만들 때 두 가지를 틀리기 쉽다
+
+**1) Expiration은 `No expiration`.** 이 토큰은 Vercel env에 넣고 서버가 계속 쓰는 값인데
+코드에 자동 갱신이 없다. 기본값 `30 days`로 만들면 **정확히 30일 뒤 체크아웃·구독관리가
+전부 실패**하고, 모니터링이 없어 사용자 문의로 알게 된다. 무기한이 없으면 최장으로 잡고
+캘린더 알림을 건다.
+
+**2) 스코프 — `customer_sessions:write`를 빠뜨리기 쉽다.**
+
+| 스코프 | 쓰는 곳 |
+|---|---|
+| `checkouts:read` · `checkouts:write` | `Checkout()` — 결제 진입 |
+| `customers:read` · `customers:write` | `customerExternalId`로 소유자 매핑 |
+| **`customer_sessions:write`** | `CustomerPortal()` — 구독 관리. **없으면 포털이 실패한다** |
+| `products:read` | 체크아웃의 상품 조회 |
+| `subscriptions:read` | 구독 조회 |
+
+`products:write`·`subscriptions:write`는 코드가 쓰지 않는다(상품 생성·해지는 각각
+대시보드와 Polar 포털이 처리). 꺼도 된다.
+
+🔴 **`Select all` 금지.** `payouts:write`·`organizations:write`·`refunds:write`까지 켜져,
+토큰이 유출되면 정산 계좌 변경·임의 환불이 가능해진다.
+
 ### 프로덕션 결제를 켤 때 — 반드시 두 곳을 갱신
 
 엔드포인트를 새로 만들면 **서명 시크릿이 재발급**됩니다. 한 곳이라도 빠뜨리면
