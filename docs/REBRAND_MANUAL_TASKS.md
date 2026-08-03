@@ -278,35 +278,52 @@ Supabase가 그 주소를 허용 목록에 갖고 있어야 합니다.
 1. https://sandbox.polar.sh 접속 → 로그인
    (프로덕션이면 https://polar.sh)
 2. 왼쪽 사이드바 맨 아래 **Settings** → **Webhooks** 탭
-3. 기존 엔드포인트(`https://freesign.vercel.app/api/billing/webhook`) 행 클릭
-4. 🔴 **`Delete` 후 새로 만들지 마세요. 기존 항목을 `Edit`(수정)하세요.**
-   URL만 아래로 교체:
+3. **엔드포인트가 2개다.** 고쳐야 할 것은 아래쪽 하나뿐:
+
+   | 이름 | URL | 정체 | 할 일 |
+   |---|---|---|---|
+   | `freesign_dev` | `…ngrok-free.dev/api/billing/webhook` | 로컬 dev 터널 | **건드리지 말 것** |
+   | `freesign` | `freesign.vercel.app/api/billing/webhook` | **프로덕션** | URL 교체 |
+
+   > ngrok 무료 URL은 재시작할 때마다 바뀌므로 `freesign_dev`의 주소는 이미 죽어 있다.
+   > 로컬에서 결제를 테스트할 때 그때 새 URL로 갱신하면 된다.
+
+4. `freesign` 행의 **`Details`** 클릭
+5. 🔴 **`Delete` 후 새로 만들지 말 것. 기존 항목을 `Edit`(수정)한다.** URL만 교체:
    ```
    https://maedeup.app/api/billing/webhook
    ```
-5. **Save**
+6. **Save**
 
-### 새로 만들었다면 — 반드시 두 곳을 갱신
+### 지금은 시크릿 SQL이 필요 없다 (2026-08-04 실측)
+
+- Vercel 프로덕션에 **`POLAR_*` 환경변수가 하나도 없다** → 프로덕션 결제는 아직 미배선.
+- 원격 `billing_config.secret_sha256`는 `.env.local`의 시크릿 해시와 **일치**
+  (`c5203e52…`, updated 2026-07-24) → DB가 들고 있는 것은 **`freesign_dev`(ngrok) 쪽 시크릿**이다.
+
+따라서 URL만 바꿔도 깨질 것이 없다. 아래 시크릿 동기화는 **실제로 프로덕션 결제를 켤 때** 한다.
+
+### 프로덕션 결제를 켤 때 — 반드시 두 곳을 갱신
 
 엔드포인트를 새로 만들면 **서명 시크릿이 재발급**됩니다. 한 곳이라도 빠뜨리면
 webhook이 전량 `unauthorized`로 거부되고 **결제한 사용자가 조용히 Free에 남습니다.**
 
-**(a) Vercel**
+**(a) Vercel** — 프로덕션에 `POLAR_ACCESS_TOKEN`·`POLAR_PRODUCT_ID`·`POLAR_SERVER`도 함께 필요
 ```bash
 cd ~/freesign
-vercel env rm POLAR_WEBHOOK_SECRET production
-vercel env add POLAR_WEBHOOK_SECRET production     # 값: Polar가 준 새 whsec_...
+vercel env add POLAR_WEBHOOK_SECRET production     # 값: `freesign`(프로덕션) 엔드포인트의 whsec_...
 ```
 
 **(b) DB** — https://supabase.com/dashboard/project/jbfxkcjeoqwcdsxuemug/sql/new
 ```sql
 select set_billing_webhook_secret('<위와 동일한 whsec_... 값>');
 ```
-> 원격 `billing_config`는 아직 **로컬 sandbox 시크릿의 해시**를 들고 있습니다.
-> 이 SQL을 빼먹는 것이 가장 흔한 사고 지점입니다. (`docs/SECURITY_NEXT_STEPS.md` 4절)
+> 원격 `billing_config`는 현재 **`freesign_dev`(ngrok) 엔드포인트의 시크릿 해시**를 들고 있습니다.
+> 프로덕션으로 켜는 순간 반드시 덮어써야 합니다. 이 SQL을 빼먹는 것이 가장 흔한
+> 사고 지점입니다. (`docs/SECURITY_NEXT_STEPS.md` 4절)
 
-6. 상품·조직 표시명의 `FreeSign` → `매듭` 도 함께 수정
-7. 프로덕션 전환은 별건 — `docs/BILLING_PLAN.md` 체크리스트 참고
+7. 상품·조직 표시명의 `FreeSign` → `매듭` 도 함께 수정
+8. 프로덕션 전환은 별건 — `docs/BILLING_PLAN.md` 체크리스트 참고
 
 ---
 
