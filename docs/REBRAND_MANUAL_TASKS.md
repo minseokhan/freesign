@@ -273,6 +273,17 @@ Supabase가 그 주소를 허용 목록에 갖고 있어야 합니다.
 
 현재 **sandbox** 환경입니다.
 
+> ### ✅ 2026-08-04 완료 — 현재 상태
+> - 프로덕션 엔드포인트를 **삭제 후 재생성**했다 → `https://maedeup.app/api/billing/webhook`,
+>   구독 이벤트 4종, **새 시크릿 발급**(사용자가 별도 보관).
+> - 로컬용 `freesign_dev`(ngrok) 엔드포인트는 **그대로 남아 있다.**
+> - 따라서 **DB `billing_config`는 손대지 않는다.** 지금 들어 있는 것은 dev 시크릿이고
+>   `.env.local`과 일치하므로(해시 `c5203e52…` 대조 완료) 로컬 결제 테스트가 계속 동작한다.
+> - 새 프로덕션 시크릿은 **프로덕션 결제를 켜는 날** 아래 "세 곳 동기화"로 한 번에 반영한다.
+>
+> 삭제로 인한 피해는 없었다 — 프로덕션에 `POLAR_*` 환경변수가 없어 그 엔드포인트로
+> 유의미한 webhook이 오간 적이 없고, `subscriptions`의 pro/active 2건은 sandbox 테스트분이다.
+
 ### 클릭 경로
 
 1. https://sandbox.polar.sh 접속 → 로그인
@@ -285,15 +296,31 @@ Supabase가 그 주소를 허용 목록에 갖고 있어야 합니다.
    | `freesign_dev` | `…ngrok-free.dev/api/billing/webhook` | 로컬 dev 터널 | **건드리지 말 것** |
    | `freesign` | `freesign.vercel.app/api/billing/webhook` | **프로덕션** | URL 교체 |
 
-   > ngrok 무료 URL은 재시작할 때마다 바뀌므로 `freesign_dev`의 주소는 이미 죽어 있다.
-   > 로컬에서 결제를 테스트할 때 그때 새 URL로 갱신하면 된다.
+   > `finale-fanciness-cadmium.ngrok-free.dev`는 ngrok **무료 고정 도메인**이라
+   > 재시작해도 주소가 유지된다. 로컬 결제 테스트에 그대로 쓴다.
 
 4. `freesign` 행의 **`Details`** 클릭
-5. 🔴 **`Delete` 후 새로 만들지 말 것. 기존 항목을 `Edit`(수정)한다.** URL만 교체:
+5. 🔴 **가능하면 `Delete` 후 재생성 말고 `Edit`(수정)한다** — 재생성하면 시크릿이 새로 발급된다.
+   URL만 교체:
    ```
    https://maedeup.app/api/billing/webhook
    ```
 6. **Save**
+
+### 새로 만들 때의 입력값 (재생성이 불가피하다면)
+
+| 항목 | 값 |
+|---|---|
+| URL | `https://maedeup.app/api/billing/webhook` |
+| Format | **Raw** (Discord/Slack 아님 — 앱이 Polar 원본 페이로드를 파싱한다) |
+| Events | `subscription.active` · `subscription.updated` · `subscription.canceled` · `subscription.revoked` |
+
+이벤트 4종은 `src/app/api/billing/webhook/route.ts`가 처리하는 전부다. 다른 것을 켜도
+앱이 무시하지만, **빠뜨리면 그 상황에서 플랜이 안 바뀐다** — 특히 `subscription.revoked`가
+빠지면 해지한 사용자가 Pro로 남는다.
+
+Secret 입력란이 있으면 기존 값을 그대로 넣어 동기화를 피할 수 있다
+(`grep POLAR_WEBHOOK_SECRET ~/freesign/.env.local`).
 
 ### 지금은 시크릿 SQL이 필요 없다 (2026-08-04 실측)
 

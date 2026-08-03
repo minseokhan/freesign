@@ -80,11 +80,12 @@
 - [x] `.env.local`의 `NEXT_PUBLIC_SITE_URL`·`EMAIL_FROM` 갱신 (로컬)
 - [x] `docs/EMAIL_DOMAIN_SETUP.md` maedeup.app 기준으로 갱신
 - [x] Vercel 도메인 연결 — `maedeup.app`·`www.maedeup.app` 프로젝트에 추가 완료 (Vercel CLI)
-- [ ] Vercel 환경변수(`NEXT_PUBLIC_SITE_URL`·`EMAIL_FROM`) — DNS 인증 후 → MANUAL_TASKS §3
-- [ ] Supabase Auth Redirect URL — **MCP 미지원, 수동** → MANUAL_TASKS
-- [ ] Resend 도메인 인증 (DNS) — **수동** → MANUAL_TASKS
-- [ ] Polar webhook URL — **수동** → MANUAL_TASKS
-- [ ] Google OAuth 동의 화면 — **수동** → MANUAL_TASKS
+- [x] Vercel 환경변수 — `NEXT_PUBLIC_SITE_URL=https://maedeup.app`·`EMAIL_FROM` 반영·재배포 완료
+- [x] Supabase Auth Redirect URL
+- [x] Cloudflare DNS (A `@` / CNAME `www`, 프록시 OFF) — 전 세계 전파·Let's Encrypt 발급 확인
+- [x] Resend 도메인 인증
+- [x] Polar webhook URL — 재생성(`maedeup.app`, 이벤트 4종). DB 시크릿은 의도적으로 유지 → MANUAL_TASKS §6
+- [x] Google OAuth 동의 화면
 
 ### Phase 4 — 마무리 (기존 링크 만료 후, 사용자 승인 필요)
 - [ ] Vercel 프로젝트명 `freesign` → `maedeup`
@@ -124,3 +125,4 @@ freesign.vercel.app → maedeup.app
 | 2026-08-03 | Phase 1 A~D 병렬 완료 — 120 파일, 브랜드 문자열 전량 치환 + 매듭 용어 도입 |
 | 2026-08-03 | Phase 2 게이트 그린 — lint / vitest 912 / build:verify / playwright 2 |
 | 2026-08-03 | Vercel에 maedeup.app·www 연결 완료. 나머지 인프라는 MANUAL_TASKS로 분리 |
+| 2026-08-04 | Phase 3 수동 항목 1~6 사용자 완료. `https://maedeup.app` 라이브, 앱 URL·발신 도메인 전환 |
