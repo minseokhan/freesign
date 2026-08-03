@@ -3,11 +3,15 @@
 **목적:** 청구서·서명 요청·독촉 메일이 **제3자(클라이언트) 메일함으로 실제 도달**하게 만들고,
 그 결과로 `invoice.sent` 이벤트("청구한 날의 증거")가 실제로 쌓이게 한다.
 
-**현재 상태(2026-08-03):** 프로덕션에 `RESEND_API_KEY`는 있으나 `EMAIL_FROM`이 미설정이라
-발신자가 `매듭 <onboarding@resend.dev>`로 폴백된다(`src/services/email/provider.ts`).
-Resend의 이 공용 테스트 도메인은 **계정 본인 주소로만** 발송이 허용되므로, 클라이언트 발송은
-403으로 실패하고 화면에는 "전달되지 않음 — 링크를 직접 전해 주세요"가 뜬다.
-링크 발급·열람 기록은 정상 동작한다. 막힌 것은 **메일 도달**뿐이다.
+**현재 상태(2026-08-04):** 도메인 인증과 `EMAIL_FROM` 설정이 **완료**됐다.
+프로덕션 env에 `RESEND_API_KEY`·`EMAIL_FROM`이 모두 있고, DNS에 Resend 3종
+(`send` MX/SPF, `resend._domainkey` DKIM)이 확인된다. 아래 1~4절은 **완료된 절차의 기록**이고,
+남은 것은 5절의 **실제 도달 확인**뿐이다.
+
+`EMAIL_FROM`을 지우면 발신자가 `매듭 <onboarding@resend.dev>`로 폴백되는데, 이 공용 테스트
+도메인은 **계정 본인 주소로만** 발송이 허용되므로 클라이언트 발송이 403으로 실패한다
+(`src/services/email/provider.ts`). 그 경우에도 링크 발급·열람 기록은 정상 동작한다 —
+막히는 것은 **메일 도달**뿐이다.
 
 **인증 대상 도메인:** `maedeup.app` (Cloudflare에서 구매·DNS 관리)
 **최종 목표값:** `EMAIL_FROM=매듭 <no-reply@maedeup.app>`
@@ -109,11 +113,10 @@ EMAIL_FROM=매듭 <no-reply@maedeup.app>
 
 - **앱 URL과 발신 도메인 일치시키기.** 메일은 `no-reply@maedeup.app`에서 오는데 본문 링크가
   `freesign.vercel.app`이면 수신자에게 피싱처럼 보이고 스팸 판정에도 불리하다.
-  Vercel 프로젝트에 `maedeup.app`·`www.maedeup.app` **커스텀 도메인 연결은 완료**됐고,
-  남은 것은 (a) Cloudflare에 `A @ → 76.76.21.21` / `CNAME www → cname.vercel-dns.com` 추가와
-  (b) `NEXT_PUBLIC_SITE_URL`을 `https://maedeup.app`으로 교체하는 것이다.
-  순서는 `docs/REBRAND_MANUAL_TASKS.md` 참조 — **DNS가 먼저**다.
+  **2026-08-04 해결됨** — Cloudflare DNS·커스텀 도메인 연결·`NEXT_PUBLIC_SITE_URL` 교체가
+  모두 끝나 앱 URL과 발신 도메인이 `maedeup.app`으로 일치한다.
 - **회신 주소.** 실제 발신자는 프리랜서 본인인데 메일은 매듭 도메인에서 나간다. 클라이언트가
-  "회신"을 누르면 아무 데도 가지 않는다. Resend `reply_to`에 사용자 이메일을 넣는 것이 자연스러운
+  `no-reply@maedeup.app`으로 "회신"을 누르면 아무 데도 가지 않는다(수신은 Cloudflare Email
+  Routing이 `support@maedeup.app` 하나만 Gmail로 포워딩한다). Resend `reply_to`에 사용자 이메일을 넣는 것이 자연스러운
   후속 작업이다(별도 판단 필요 — 사용자 이메일을 제3자에게 노출하는 결정이므로).
 - **발송 한도.** Resend 무료 플랜은 일/월 발송 상한이 있다. 실제 상한은 대시보드에서 확인한다.

@@ -1,7 +1,9 @@
 # 리브랜딩 계획: FreeSign → 매듭(Maedeup)
 
 > 이 문서는 **세션이 끊겨도 이어서 진행**할 수 있도록 진행 상황을 체크박스로 기록한다.
-> 사람이 직접 해야 하는 항목은 `docs/REBRAND_MANUAL_TASKS.md`에 분리한다.
+> Phase 3(외부 콘솔 작업)은 2026-08-04 완료됐고, 그 클릭 단위 런북이던
+> `docs/REBRAND_MANUAL_TASKS.md`는 역할을 다해 삭제했다. 남은 것은 Phase 4와
+> 검증 1건이며 아래에 통합돼 있다.
 
 작성일: 2026-08-03
 
@@ -64,7 +66,7 @@
 
 ### Phase 0 — 기반 (직접 수행)
 - [x] 로고 색상 추출 (`#2b3587` / `#4e61f6`)
-- [x] 계획 문서 작성 (`docs/REBRAND_PLAN.md`, `docs/REBRAND_MANUAL_TASKS.md`)
+- [x] 계획 문서 작성 (`docs/REBRAND_PLAN.md`, 수동 작업 런북)
 - [x] 로고 에셋 `public/brand/`에 복사, 파비콘(`src/app/icon.png`·`apple-icon.png`) 교체
 - [x] `tailwind.config.ts` 브랜드 토큰 남색 전환
 - [x] `src/components/logo.tsx` 매듭 워드마크로 재작성 + 테스트 갱신
@@ -96,11 +98,50 @@
 - [x] Polar webhook URL — 재생성(`maedeup.app`, 이벤트 4종). DB 시크릿은 의도적으로 유지 → MANUAL_TASKS §6
 - [x] Google OAuth 동의 화면
 
-### Phase 4 — 마무리 (기존 링크 만료 후, 사용자 승인 필요)
-- [ ] Vercel 프로젝트명 `freesign` → `maedeup`
-- [ ] GitHub 레포명 `freesign` → `maedeup`
-- [ ] 로컬 디렉터리명 `~/freesign` → `~/maedeup`
+### Phase 4 — 개명 (기존 링크 만료 후, 지금 하면 안 됨)
+
+> 🔴 `*.vercel.app` 주소는 **Vercel 프로젝트 이름에서 자동 생성**된다.
+> 개명하는 순간 `freesign.vercel.app`이 **사라지고**, 이미 발송된 서명·청구서
+> 링크가 전부 죽는다. 서명 토큰 만료 기간이 지난 뒤(최소 수 주)에 진행한다.
+> 개명을 아예 안 해도 서비스에는 지장이 없다 — 사용자에게 보이는 것은
+> `maedeup.app`이고 `freesign.vercel.app`은 구 링크 수신용으로만 남는다.
+
 - [x] `FALLBACK_SITE_URL` `freesign.vercel.app` → `maedeup.app` (Phase 1에서 선행 처리 완료)
+- [ ] **Vercel 프로젝트명** — https://vercel.com/hanminseoks-projects/freesign/settings
+      → `Project Name`을 `maedeup`으로 → Save
+- [ ] **GitHub 레포명**
+      ```bash
+      gh repo rename maedeup --repo minseokhan/freesign
+      cd ~/freesign && git remote set-url origin https://github.com/minseokhan/maedeup.git
+      ```
+- [ ] **Supabase 프로젝트명** — Settings → General → Project name.
+      **project ref(`jbfxkcjeoqwcdsxuemug`)는 안 바뀌므로 안전**(연결 정보 그대로)
+- [ ] **로컬 디렉터리** `cd ~ && mv freesign maedeup`
+      → Claude Code 메모리 경로 `~/.claude/projects/-Users-hanms-freesign` 도 함께 이동
+- [ ] `scripts/lighthouse-loop/measure.mjs`의 `VERCEL_URL`을 `https://maedeup.app`으로
+      (DNS가 붙었으므로 지금 바꿔도 된다)
+- [ ] 의도적으로 남긴 `freesign` 문자열 정리 — E2E 테스트 계정 `e2e-test@freesign.local`,
+      `docs/SECURITY_NEXT_STEPS.md`의 Vercel 슬러그, `.claude/skills/db-advisor`의 Supabase 프로젝트명
+
+### 남은 검증 1건
+
+- [ ] **새 도메인에서 Google 로그인** — https://maedeup.app/login 에서 실제로 로그인.
+      Supabase Redirect URL(Phase 3)과 Google OAuth 동의 화면이 제대로 걸렸는지
+      확인하는 유일한 방법이다. 코드는 `NEXT_PUBLIC_SITE_URL + /auth/callback`으로
+      돌아온다(`src/app/(auth)/login/page.tsx:30`).
+      Supabase의 허용목록 검증은 authorize가 아니라 **callback 단계**에서 일어나므로
+      외부에서 프로그램으로 확인할 수 없다.
+
+### 리브랜딩 후 남는 사실
+
+| 항목 | 내용 |
+|---|---|
+| 이미 발송된 서명·청구서 링크 | `freesign.vercel.app` 기준. Phase 4 전까지 정상 동작 |
+| 이미 생성된 PDF | 안에 박힌 URL은 구 도메인. 재생성 전까지 그대로 |
+| 완결증명서 | 발행처가 "매듭"으로 바뀜. 이전 발행분은 "FreeSign" — 발행 시점 기록이라 정상 |
+| 검색엔진 | 새 도메인 인덱싱에 시간 필요. Search Console에 `maedeup.app` 등록 권장 |
+| 구 도메인 allowlist | **없음.** `csp.ts`·`safe-redirect.ts`는 상대경로 기반 |
+| 결제 | 프로덕션 전환 절차는 `docs/POLAR_PRODUCTION_CUTOVER.md` |
 
 ---
 
