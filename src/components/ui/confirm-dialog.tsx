@@ -15,6 +15,8 @@ type ConfirmDialogProps = {
   error?: string | null;
   // 실행 불가 안내 모드 — 위험 버튼·취소 버튼을 숨기고 중립 "확인" 버튼 하나만 노출한다.
   confirmOnly?: boolean;
+  // 되돌릴 수 없지만 파괴적이지는 않은 확인(예: 청구서 발송)은 빨간 버튼이 잘못된 신호를 준다.
+  confirmVariant?: "danger" | "primary";
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -29,6 +31,7 @@ export function ConfirmDialog({
   isPending = false,
   error = null,
   confirmOnly = false,
+  confirmVariant = "danger",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -108,8 +111,10 @@ export function ConfirmDialog({
               </Button>
               <Button
                 type="button"
-                variant="danger"
-                className="bg-red-50 hover:bg-red-100"
+                variant={confirmVariant}
+                className={
+                  confirmVariant === "danger" ? "bg-red-50 hover:bg-red-100" : undefined
+                }
                 disabled={isPending}
                 onClick={onConfirm}
               >

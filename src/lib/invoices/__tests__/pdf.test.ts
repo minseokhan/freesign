@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   INVOICE_PDF_DISCLAIMER,
+  mapBankAccount,
   mapInvoicePdfProps,
 } from "@/lib/invoices/pdf";
 
@@ -77,5 +78,32 @@ describe("mapInvoicePdfProps", () => {
     expect(document.paidAtLabel).toBe("2026. 07. 08. 오전 11:30");
     expect(document.showWithholdingDetails).toBe(false);
     expect(document.bankAccount).toBeNull();
+  });
+});
+
+describe("mapBankAccount", () => {
+  it("계좌 정보가 하나도 없으면 null을 반환한다", () => {
+    expect(mapBankAccount(null)).toBeNull();
+    expect(
+      mapBankAccount({
+        bank_name: null,
+        bank_account_number: null,
+        bank_account_holder: null,
+      }),
+    ).toBeNull();
+  });
+
+  it("일부만 있으면 나머지는 '등록되지 않음'으로 채운다", () => {
+    expect(
+      mapBankAccount({
+        bank_name: "국민은행",
+        bank_account_number: null,
+        bank_account_holder: "홍길동",
+      }),
+    ).toEqual({
+      bankName: "국민은행",
+      accountNumber: "등록되지 않음",
+      accountHolder: "홍길동",
+    });
   });
 });

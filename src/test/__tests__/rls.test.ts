@@ -70,6 +70,8 @@ describe("RLS policies", () => {
       { tablename: "contract_signatures", commands: ["SELECT"] },
       { tablename: "contracts", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "invoice_events", commands: ["DELETE", "SELECT"] },
+      // 0046: 공개 청구서 토큰은 소유자 읽기만 연다. 쓰기는 send_invoice_with_event DEFINER RPC 전용.
+      { tablename: "invoice_share_tokens", commands: ["SELECT"] },
       { tablename: "invoices", commands: ["DELETE", "INSERT", "SELECT", "UPDATE"] },
       { tablename: "profiles", commands: ["INSERT", "SELECT", "UPDATE"] },
       // 0038: 부모(client·contract) 소유권 WITH CHECK를 넣으며 `to authenticated`로 재작성됐다.

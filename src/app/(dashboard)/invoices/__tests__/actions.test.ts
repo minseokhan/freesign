@@ -5,10 +5,13 @@ import { requireUser } from "@/lib/auth";
 import { assertOwned } from "@/lib/db";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 
+import { checkRateLimit } from "@/lib/rate-limit";
+import { getEmailProvider } from "@/services/email/provider";
+
 import {
   createInvoice,
   deleteInvoice,
-  publishDraftInvoice,
+  sendInvoice,
   setInvoicePayment,
 } from "../actions";
 
@@ -32,6 +35,19 @@ vi.mock("@/lib/db", async (importOriginal) => {
     assertOwned: vi.fn(),
   };
 });
+
+vi.mock("@/lib/rate-limit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
+
+  return {
+    ...actual,
+    checkRateLimit: vi.fn(),
+  };
+});
+
+vi.mock("@/services/email/provider", () => ({
+  getEmailProvider: vi.fn(),
+}));
 
 const user = { id: "user-123", email: "freelancer@example.test" };
 const validInput = {
@@ -85,6 +101,10 @@ describe("invoice server actions", () => {
       user as Awaited<ReturnType<typeof requireUser>>,
     );
     vi.mocked(assertOwned).mockResolvedValue(true);
+    vi.mocked(checkRateLimit).mockResolvedValue({ allowed: true });
+    vi.mocked(getEmailProvider).mockReturnValue({
+      send: vi.fn().mockResolvedValue({ ok: true }),
+    });
   });
 
   it("creates an unpaid invoice with server-owned fields and withholding snapshot", async () => {
@@ -394,53 +414,164 @@ describe("invoice server actions", () => {
     expect(revalidatePath).not.toHaveBeenCalled();
   });
 
-  it("publishDraftInvoice: draft를 unpaid로 발행하고 invoice.issued 이벤트를 남긴다", async () => {
-    const invoiceQuery = createMaybeSingleQuery({
-      id: "invoice-1",
+  describe("sendInvoice", () => {
+    const invoiceId = "22222222-2222-4222-8222-222222222222";
+
+    function mockSupabase(
+      invoice: Record<string, unknown> | null,
+      options: { profile?: Record<string, unknown> | null } = {},
+    ) {
+      const invoiceQuery = createMaybeSingleQuery(invoice);
+      const profileQuery = createMaybeSingleQuery(
+        options.profile === undefined ? { display_name: "한프리" } : options.profile,
+      );
+      const rpc = vi.fn((name: string) => {
+        if (name === "send_invoice_with_event") {
+          return Promise.resolve({ data: { issued: true }, error: null });
+        }
+
+        if (name === "append_invoice_event") {
+          return Promise.resolve({ data: "event-1", error: null });
+        }
+
+        throw new Error(`Unexpected rpc: ${name}`);
+      });
+      const supabase = {
+        from: vi.fn((table: string) => {
+          if (table === "invoices") return invoiceQuery;
+          if (table === "profiles") return profileQuery;
+          throw new Error(`Unexpected table: ${table}`);
+        }),
+        rpc,
+      };
+
+      vi.mocked(createSupabaseClient).mockResolvedValue(
+        supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
+      );
+
+      return { rpc };
+    }
+
+    const draftInvoice = {
+      id: invoiceId,
       payment_status: "draft",
-    });
-    const rpc = createRpcMock();
-    const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === "invoices") return invoiceQuery;
-        throw new Error(`Unexpected table: ${table}`);
-      }),
-      rpc,
+      due_date: "2026-08-31",
+      net_amount: 967_000,
+      contract_snapshot: null,
+      client: { name: "Acme", contact_email: "client@example.test" },
+      contract: { title: "웹사이트 제작" },
     };
-    vi.mocked(createSupabaseClient).mockResolvedValue(
-      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
-    );
 
-    const result = await publishDraftInvoice("invoice-1");
+    it("토큰을 발급하고 메일을 보낸 뒤 invoice.sent 이벤트를 남긴다", async () => {
+      const { rpc } = mockSupabase(draftInvoice);
+      const send = vi.fn().mockResolvedValue({ ok: true });
+      vi.mocked(getEmailProvider).mockReturnValue({ send });
 
-    expect(result).toEqual({ ok: true, id: "invoice-1" });
-    expect(rpc).toHaveBeenCalledWith(
-      "set_invoice_payment_with_event",
-      expect.objectContaining({
-        p_invoice_id: "invoice-1",
-        p_to_status: "unpaid",
-        p_event_type: "invoice.issued",
-      }),
-    );
-  });
+      const result = await sendInvoice(invoiceId);
 
-  it("publishDraftInvoice: 이미 발행(unpaid)된 인보이스는 발행하지 않는다", async () => {
-    const invoiceQuery = createMaybeSingleQuery({
-      id: "invoice-1",
-      payment_status: "unpaid",
+      expect(result).toMatchObject({ ok: true, id: invoiceId, emailed: true });
+      expect(result.ok && result.shareUrl).toContain("/invoice/");
+
+      expect(rpc).toHaveBeenCalledWith(
+        "send_invoice_with_event",
+        expect.objectContaining({
+          p_invoice_id: invoiceId,
+          p_recipient_email: "client@example.test",
+        }),
+      );
+      // 원문 토큰은 저장하지 않는다 — 해시만 넘어가고 링크에만 원문이 쓰인다.
+      const sendArgs = rpc.mock.calls.find(
+        (call) => call[0] === "send_invoice_with_event",
+      )?.[1] as { p_token_hash: string };
+      expect(sendArgs.p_token_hash).toMatch(/^[0-9a-f]{64}$/);
+      expect(result.ok && result.shareUrl).not.toContain(sendArgs.p_token_hash);
+
+      expect(send).toHaveBeenCalledWith(
+        expect.objectContaining({ to: "client@example.test" }),
+      );
+      expect(rpc).toHaveBeenCalledWith(
+        "append_invoice_event",
+        expect.objectContaining({
+          p_invoice_id: invoiceId,
+          p_event_type: "invoice.sent",
+          p_from_status: "unpaid",
+          p_to_status: "unpaid",
+        }),
+      );
     });
-    const rpc = createRpcMock();
-    const supabase = {
-      from: vi.fn(() => invoiceQuery),
-      rpc,
-    };
-    vi.mocked(createSupabaseClient).mockResolvedValue(
-      supabase as unknown as Awaited<ReturnType<typeof createSupabaseClient>>,
-    );
 
-    const result = await publishDraftInvoice("invoice-1");
+    it("메일 발송이 실패하면 invoice.sent 이벤트를 남기지 않는다", async () => {
+      const { rpc } = mockSupabase(draftInvoice);
+      vi.mocked(getEmailProvider).mockReturnValue({
+        send: vi.fn().mockResolvedValue({ ok: false, error: "smtp down" }),
+      });
 
-    expect(result.ok).toBe(false);
-    expect(rpc).not.toHaveBeenCalled();
+      const result = await sendInvoice(invoiceId);
+
+      // 발행 자체는 커밋됐으므로 성공이되, 도달 증거는 남기지 않는다.
+      expect(result).toMatchObject({ ok: true, emailed: false });
+      expect(rpc).toHaveBeenCalledWith(
+        "send_invoice_with_event",
+        expect.anything(),
+      );
+      expect(rpc).not.toHaveBeenCalledWith(
+        "append_invoice_event",
+        expect.anything(),
+      );
+    });
+
+    it("클라이언트 이메일이 없으면 발행만 하고 링크를 돌려준다", async () => {
+      const { rpc } = mockSupabase({
+        ...draftInvoice,
+        client: { name: "Acme", contact_email: null },
+      });
+      const send = vi.fn();
+      vi.mocked(getEmailProvider).mockReturnValue({ send });
+
+      const result = await sendInvoice(invoiceId);
+
+      expect(result).toMatchObject({ ok: true, emailed: false });
+      expect(result.ok && result.shareUrl).toContain("/invoice/");
+      expect(send).not.toHaveBeenCalled();
+      expect(rpc).toHaveBeenCalledWith(
+        "send_invoice_with_event",
+        expect.objectContaining({ p_recipient_email: null }),
+      );
+      expect(rpc).not.toHaveBeenCalledWith(
+        "append_invoice_event",
+        expect.anything(),
+      );
+    });
+
+    it("이미 정산된 인보이스는 발송하지 않는다", async () => {
+      const { rpc } = mockSupabase({ ...draftInvoice, payment_status: "paid" });
+
+      const result = await sendInvoice(invoiceId);
+
+      expect(result.ok).toBe(false);
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it("존재하지 않는 인보이스는 발송하지 않는다", async () => {
+      const { rpc } = mockSupabase(null);
+
+      const result = await sendInvoice(invoiceId);
+
+      expect(result).toEqual({ ok: false, error: "인보이스를 찾을 수 없습니다." });
+      expect(rpc).not.toHaveBeenCalled();
+    });
+
+    it("레이트리밋에 걸리면 조회도 발송도 하지 않는다", async () => {
+      const { rpc } = mockSupabase(draftInvoice);
+      vi.mocked(checkRateLimit).mockResolvedValue({
+        allowed: false,
+        retryAfter: 42,
+      });
+
+      const result = await sendInvoice(invoiceId);
+
+      expect(result.ok).toBe(false);
+      expect(rpc).not.toHaveBeenCalled();
+    });
   });
 });

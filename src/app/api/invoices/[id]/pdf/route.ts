@@ -1,14 +1,9 @@
-import { createElement } from "react";
 import { NextResponse } from "next/server";
-import { renderToBuffer } from "@react-pdf/renderer";
 
-import { InvoiceDocument } from "@/components/pdf/invoice-document";
 import { requireUser } from "@/lib/auth";
 import { assertOwned, notDeleted } from "@/lib/db";
-import {
-  type InvoicePdfBankAccount,
-  mapInvoicePdfProps,
-} from "@/lib/invoices/pdf";
+import { mapBankAccount, mapInvoicePdfProps } from "@/lib/invoices/pdf";
+import { renderInvoicePdf } from "@/lib/invoices/render-pdf";
 import {
   captureServerException,
   getPostHogClient,
@@ -114,10 +109,7 @@ export async function GET(_request: Request, context: RouteContext) {
     contractTitle: invoice.contract?.title ?? null,
     bankAccount: mapBankAccount(profile),
   });
-  const pdfElement = createElement(InvoiceDocument, {
-    document,
-  }) as Parameters<typeof renderToBuffer>[0];
-  const pdfBuffer = await renderToBuffer(pdfElement);
+  const pdfBuffer = await renderInvoicePdf(document);
 
   const posthog = getPostHogClient();
   posthog.capture({ distinctId: user.id, event: "invoice_pdf_downloaded", properties: { invoice_id: invoice.id } });
@@ -132,18 +124,3 @@ export async function GET(_request: Request, context: RouteContext) {
   });
 }
 
-function mapBankAccount(profile: ProfileRow | null): InvoicePdfBankAccount | null {
-  if (
-    !profile?.bank_name &&
-    !profile?.bank_account_number &&
-    !profile?.bank_account_holder
-  ) {
-    return null;
-  }
-
-  return {
-    bankName: profile.bank_name ?? "등록되지 않음",
-    accountNumber: profile.bank_account_number ?? "등록되지 않음",
-    accountHolder: profile.bank_account_holder ?? "등록되지 않음",
-  };
-}

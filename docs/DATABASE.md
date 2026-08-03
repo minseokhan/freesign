@@ -22,6 +22,7 @@ FreeSign의 Postgres(Supabase) 스키마 정리. `supabase/migrations/`의 마�
 | `payment_status` | `draft`, `unpaid`, `paid` | 인보이스 결제 상태 |
 | `signature_request_status` | `pending`, `completed`, `revoked` | 서명 요청 상태(0018) |
 | `contract_signature_party` | `owner`, `counterparty` | 서명 당사자 구분(0018) |
+| `invoice_share_status` | `active`, `revoked` | 공개 청구서 링크 상태(0046) |
 
 ---
 
@@ -161,6 +162,27 @@ owner가 상대방에게 보낸 서명 요청. 원문 토큰은 발송 순간에
 | `signed_at` | timestamptz | 서명 시각 |
 
 > `signature_image_path` XOR `signature_image_data` CHECK — 정확히 하나만 존재.
+
+---
+
+## invoice_share_tokens — 공개 청구서 링크 (0046)
+
+소유자가 클라이언트에게 보낸 청구서 링크. `signature_requests`와 같은 규칙 — 원문 토큰은 발송 순간에만 존재하고 DB엔 SHA-256 해시만 저장하므로 **재발송은 항상 재발급**(이전 토큰 `revoked`)이다.
+
+| 컬럼 | 타입 | 의미 |
+|------|------|------|
+| `id` | uuid PK | 토큰 식별자 |
+| `user_id` | uuid FK→auth.users | 인보이스 소유자 |
+| `invoice_id` | uuid FK→invoices (ON DELETE CASCADE) | 대상 인보이스 |
+| `token_hash` | text NOT NULL UNIQUE | 링크 토큰의 SHA-256 해시(32~128자 CHECK) |
+| `recipient_email` | text NULL | 수신자. 클라이언트 이메일이 없으면 NULL(링크만 발급) |
+| `status` | invoice_share_status, 기본 `active` | `(invoice_id) WHERE status='active'` partial unique로 인보이스당 활성 1건 |
+| `expires_at` | timestamptz NOT NULL | 만료. 앱이 `due_date + 90일`(최소 now+30일, 상한 365일)로 계산. RPC는 400일 상한만 검증 |
+| `first_viewed_at` | timestamptz | 클라이언트 최초 열람 시각(`get_invoice_view`가 기록) |
+| `last_sent_at` | timestamptz | 마지막 발송 시각 |
+| `created_at` | timestamptz | 생성 시각 |
+
+> RLS는 소유자 SELECT 정책만 둔다. INSERT/UPDATE/DELETE 권한·정책 없음 — 쓰기는 `send_invoice_with_event()` DEFINER RPC 전용(0036 락다운 방침).
 
 ---
 
@@ -337,7 +359,7 @@ Polar 구독의 내부 투영. 사용자당 1행(`user_id`가 PK).
 
 ## RLS (Row Level Security)
 
-모든 사용자 데이터 테이블에 RLS를 활성화한다 — `clients`·`contracts`·`invoices`·`contract_events`·`invoice_events`·`profiles`·`signature_requests`·`contract_signatures`·`rate_limit_events`·`anon_rate_limit_events`·`subscriptions`·`billing_events`·`usage_counters`·`billing_config`·`cron_config`·`dunning_reminders`·`recurring_invoices`·`contract_insights`.
+모든 사용자 데이터 테이블에 RLS를 활성화한다 — `clients`·`contracts`·`invoices`·`contract_events`·`invoice_events`·`profiles`·`signature_requests`·`contract_signatures`·`rate_limit_events`·`anon_rate_limit_events`·`subscriptions`·`billing_events`·`usage_counters`·`billing_config`·`cron_config`·`dunning_reminders`·`recurring_invoices`·`contract_insights`·`invoice_share_tokens`.
 
 - **select/insert/update**: 기본은 `user_id = auth.uid()` 정책(`USING` + `WITH CHECK` 둘 다). 예외는 아래 표대로다.
 
@@ -377,6 +399,8 @@ Polar 구독의 내부 투영. 사용자당 1행(`user_id`가 PK).
 | `idx_invoices_user_client` | invoices(user_id, client_id) | 고객별 인보이스 |
 | `idx_contract_events_contract_created_at` | contract_events(contract_id, created_at) | 계약 이벤트 타임라인 |
 | `idx_invoice_events_invoice_created_at` | invoice_events(invoice_id, created_at) | 인보이스 이벤트 타임라인 |
+| `invoice_share_tokens_one_active_per_invoice` | invoice_share_tokens(invoice_id) WHERE status = 'active' (UNIQUE) | 인보이스당 활성 링크 1건 강제 |
+| `invoice_share_tokens_owner_invoice` | invoice_share_tokens(user_id, invoice_id) | 소유자 UI의 발송 이력 조회 |
 | `signature_requests_one_pending_per_contract` | signature_requests(contract_id) WHERE status = 'pending' (UNIQUE) | 계약당 대기 요청 1건 강제 |
 | `signature_requests_owner_contract_created_at` | signature_requests(user_id, contract_id, created_at) | 계약별 요청 조회 |
 | `contract_signatures_contract_signed_at` | contract_signatures(contract_id, signed_at) | 계약별 서명 열거 |
@@ -439,6 +463,20 @@ Polar 구독의 내부 투영. 사용자당 1행(`user_id`가 PK).
 - `get_signed_contract_data(p_token_hash)` → 완결 계약의 PDF 렌더 데이터(owner 서명 이미지는 미반환, 메타만).
 - `store_completion_tsa_token(p_token_hash, p_token)` → 완결 TSA 토큰 write-once 저장(커밋 후 best-effort).
 - `consume_anon_rate_limit(ip_hash, bucket, limit, window_seconds)` → IP 해시 기반 윈도우 카운트, 초과 시 false(0018).
+
+---
+
+## 청구서 전달 함수 (SQL RPC, 0046)
+
+맞서명의 공개 토큰 패턴을 청구 단계에 복제한 것. 같은 규칙(`search_path` 고정, `revoke from public`, 입력 상한, 최소 필드 반환)을 따른다.
+
+**authenticated (owner 발송 플로우)**
+- `send_invoice_with_event(p_invoice_id, p_token_hash, p_recipient_email, p_expires_at, p_actor, p_meta)` → 소유자 스코프 FOR UPDATE 잠금 → 기존 활성 토큰 revoke → 새 토큰 INSERT → **draft일 때만** unpaid 전이 + `invoice.issued` 이벤트, 원자적. 반환 `{issued: boolean}`. `paid` 인보이스는 예외. 이미 `unpaid`면 재발송으로 보고 토큰만 교체(전이·이벤트 없음).
+  - 실제 도달 증거인 `invoice.sent`는 **이 트랜잭션에 넣지 않는다**. 메일 발송이 성공한 뒤 앱이 `append_invoice_event`(0036)로 따로 남긴다 — 커밋 시점에 미리 남기면 "보냈다고 기록됐는데 안 간" 상태가 증거로 굳는다.
+
+**anon (비로그인 클라이언트, DEFINER)**
+- `get_invoice_view(p_token_hash)` → 상태별 최소 필드 jsonb(무효 null / `expired` / `revoked` / `active` 시 금액·원천징수·기한·계약 제목·클라이언트명·발신자명·계좌·`invoice_id`). 최초 열람 시 `first_viewed_at` 1회 기록.
+  - `user_id`는 반환하지 않는다. `invoice_id`는 반환한다 — PDF 문서번호가 인보이스 id라 클라이언트 사본과 소유자 사본의 번호가 같아야 대조가 되고, 소유자 라우트는 세션+RLS로 막히므로 id를 알아도 열람 권한이 생기지 않는다.
 
 ---
 

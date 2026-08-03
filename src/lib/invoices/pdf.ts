@@ -40,6 +40,12 @@ type InvoicePdfRow = Pick<
   | "paid_at"
 >;
 
+type BankAccountFields = {
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_holder: string | null;
+};
+
 type MapInvoicePdfPropsInput = {
   invoice: InvoicePdfRow;
   clientName: string | null;
@@ -64,6 +70,28 @@ const paymentStatusLabels: Record<
   unpaid: "미수",
   paid: "입금완료",
 };
+
+/**
+ * 계좌 정보(snake_case 원본 필드)를 PDF 모델로 변환한다.
+ * 소유자 라우트(profiles 조회)와 공개 토큰 라우트(get_invoice_view 반환값)가 공유한다.
+ */
+export function mapBankAccount(
+  profile: BankAccountFields | null,
+): InvoicePdfBankAccount | null {
+  if (
+    !profile?.bank_name &&
+    !profile?.bank_account_number &&
+    !profile?.bank_account_holder
+  ) {
+    return null;
+  }
+
+  return {
+    bankName: profile.bank_name ?? "등록되지 않음",
+    accountNumber: profile.bank_account_number ?? "등록되지 않음",
+    accountHolder: profile.bank_account_holder ?? "등록되지 않음",
+  };
+}
 
 export function mapInvoicePdfProps({
   invoice,

@@ -5,7 +5,8 @@ import { UpgradeCard } from "@/components/billing/upgrade-cta";
 import { DunningReviewPanel } from "@/components/dunning-review-panel";
 import { InvoiceDeleteButton } from "@/components/invoice-delete-button";
 import { InvoicePaymentToggle } from "@/components/invoice-payment-toggle";
-import { PublishDraftButton } from "@/components/publish-draft-button";
+import { SendInvoiceButton } from "@/components/send-invoice-button";
+import { deriveInvoiceShareStatus } from "@/lib/invoices/share-status";
 import {
   getPaymentStatusMeta,
   PaymentStatusBadge,
@@ -40,6 +41,7 @@ type InvoiceRow = Pick<
 > & {
   client: {
     name: string;
+    contact_email: string | null;
   } | null;
   contract: {
     title: string;
@@ -145,7 +147,7 @@ export default async function InvoiceDetailPage({
     supabase
       .from("invoices")
       .select(
-        "id,amount,issue_date,due_date,withholding_type,withholding_amount,net_amount,payment_status,paid_at,payment_method,created_at,contract_snapshot,client:clients(name),contract:contracts(title)",
+        "id,amount,issue_date,due_date,withholding_type,withholding_amount,net_amount,payment_status,paid_at,payment_method,created_at,contract_snapshot,client:clients(name,contact_email),contract:contracts(title)",
       )
       .eq("id", id),
   ).maybeSingle();
@@ -179,9 +181,26 @@ export default async function InvoiceDetailPage({
     throw profileError;
   }
 
+  // 발송 여부는 결제 상태가 아니라 "링크를 발급한 적이 있는가"로 정한다 —
+  // 인보이스는 생성 즉시 unpaid이므로(0035 issue_invoice_with_event), 결제 상태로 판단하면
+  // 한 번도 안 보낸 인보이스가 "재발송"으로 뜨고 있지도 않은 이전 링크의 무효화를 경고하게 된다.
+  // 활성 토큰은 인보이스당 1건(0046 부분 유니크)이고, 회수는 새 토큰 발급과 함께만 일어난다.
+  const { data: shareTokenData, error: shareTokenError } = await supabase
+    .from("invoice_share_tokens")
+    .select("recipient_email,last_sent_at,first_viewed_at,expires_at")
+    .eq("invoice_id", invoice.id)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (shareTokenError) {
+    throw shareTokenError;
+  }
+
   const events = (eventData ?? []) as InvoiceEventRow[];
   const profile = profileData as ProfileRow | null;
   const overdue = isOverdue(invoice);
+  const shareStatus = deriveInvoiceShareStatus(shareTokenData, events);
+  const hasBeenSent = shareStatus !== null;
 
   // 연체 인보이스에 한해 미검토 독촉 초안을 노출한다(크론이 생성, 소유자 검토 대기).
   let pendingDunning: {
@@ -377,6 +396,61 @@ export default async function InvoiceDetailPage({
               </p>
             )}
           </Card>
+
+          {/* 청구서 발송 현황 — 계약의 "상대방 서명 요청 현황"과 같은 자리·같은 역할.
+              링크 원문은 저장하지 않아 다시 보여줄 수 없으므로, 대신 도달·열람 사실을 보여준다. */}
+          {shareStatus ? (
+            <Card>
+              <div className="border-b border-surface-border pb-lg">
+                <h3 className="text-lg font-semibold text-text-primary">
+                  청구서 발송 현황
+                </h3>
+                <p className="mt-xs text-sm leading-relaxed text-text-muted">
+                  보안을 위해 발급된 링크 주소는 저장하지 않습니다. 링크를 다시
+                  보내려면 재발송해야 하며, 그때 이전 링크는 무효화됩니다.
+                </p>
+              </div>
+              <dl className="mt-xl grid gap-lg sm:grid-cols-2">
+                <DetailItem
+                  label="보낸 곳"
+                  value={shareStatus.recipientEmail ?? "링크만 발급(이메일 없음)"}
+                />
+                <DetailItem
+                  label="보낸 때"
+                  value={formatDateTime(shareStatus.sentAt)}
+                />
+                <DetailItem
+                  label="메일 전달"
+                  value={
+                    shareStatus.delivered
+                      ? "전달됨"
+                      : "전달되지 않음 — 링크를 직접 전해 주세요"
+                  }
+                />
+                <DetailItem
+                  label="상대 열람"
+                  value={
+                    shareStatus.firstViewedAt
+                      ? formatDateTime(shareStatus.firstViewedAt)
+                      : "아직 열어보지 않음"
+                  }
+                />
+                <DetailItem
+                  label="링크 만료"
+                  value={formatDate(shareStatus.expiresAt)}
+                />
+              </dl>
+              {invoice.payment_status !== "paid" ? (
+                <div className="mt-xl">
+                  <SendInvoiceButton
+                    invoiceId={invoice.id}
+                    recipientEmail={invoice.client?.contact_email ?? null}
+                    mode="resend"
+                  />
+                </div>
+              ) : null}
+            </Card>
+          ) : null}
         </div>
 
         {/* 오른쪽(1fr): 상태·액션 레일 — 다음 단계·인보이스 타임라인 */}
@@ -390,14 +464,31 @@ export default async function InvoiceDetailPage({
                 현재 인보이스 상태에서 가능한 다음 작업만 표시됩니다.
               </p>
             </div>
-            <div className="mt-xl">
+            <div className="mt-xl grid gap-lg">
               {invoice.payment_status === "draft" ? (
-                <PublishDraftButton invoiceId={invoice.id} />
+                !hasBeenSent ? (
+                  <SendInvoiceButton
+                    invoiceId={invoice.id}
+                    recipientEmail={invoice.client?.contact_email ?? null}
+                    mode="send"
+                  />
+                ) : null
               ) : (
-                <InvoicePaymentToggle
-                  invoiceId={invoice.id}
-                  status={invoice.payment_status}
-                />
+                <>
+                  <InvoicePaymentToggle
+                    invoiceId={invoice.id}
+                    status={invoice.payment_status}
+                  />
+                  {/* 첫 발송만 여기 둔다. 이미 보낸 뒤의 재발송은 "청구서 발송 현황" 카드에서 —
+                      현재 링크 상태를 보면서 눌러야 이전 링크가 죽는다는 경고가 의미를 갖는다. */}
+                  {invoice.payment_status === "unpaid" && !hasBeenSent ? (
+                    <SendInvoiceButton
+                      invoiceId={invoice.id}
+                      recipientEmail={invoice.client?.contact_email ?? null}
+                      mode="send"
+                    />
+                  ) : null}
+                </>
               )}
             </div>
           </Card>

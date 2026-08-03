@@ -156,6 +156,67 @@ test("runs the core settlement chain from client to paid invoice and report CSV"
   await page.getByText("원천징수 내역 보기").click();
   await expect(page.getByText("저장 원천징수액")).toBeVisible();
 
+  // 청구 전달(ADR-013) — 클라이언트에게 나가는 공개 청구서 링크가 실제로 열리는지 확인한다.
+  // 방금 만든 인보이스는 아직 한 번도 안 보냈으므로 "발송"이어야 한다
+  // (인보이스는 생성 즉시 unpaid라, 결제 상태로 라벨을 정하면 여기서 "재발송"이 뜬다).
+  await page.getByRole("button", { name: "청구서 발송" }).click();
+  const sendDialog = page.getByRole("alertdialog");
+  await expect(sendDialog.getByText(clientEmail)).toBeVisible();
+  await expect(sendDialog.getByText(/이전 링크는 무효화됩니다/)).toHaveCount(0);
+  await page.getByRole("button", { name: "발송", exact: true }).click();
+
+  const shareLink = page.getByLabel("청구서 링크");
+  await expect(shareLink).toBeVisible({ timeout: 30_000 });
+  const shareUrl = await shareLink.inputValue();
+  expect(shareUrl).toContain("/invoice/");
+
+  // 한 번 보낸 뒤에는 "재발송"으로 바뀌고, 이전 링크 무효화를 경고해야 한다.
+  await expect(
+    page.getByRole("button", { name: "청구서 재발송" }),
+  ).toBeVisible({ timeout: 30_000 });
+
+  // 비로그인 컨텍스트에서 열린다 — 로그인 쿠키 없이 금액·계좌를 볼 수 있어야 한다.
+  const publicPage = await page.context().browser()!.newContext();
+  const invoicePage = await publicPage.newPage();
+  await invoicePage.goto(shareUrl);
+
+  await expect(invoicePage.getByText(contractTitle)).toBeVisible();
+  await expect(invoicePage.getByText("₩2,901,000").first()).toBeVisible();
+  await expect(invoicePage.getByText("지급기한").first()).toBeVisible();
+
+  const pdfResponse = await invoicePage.request.get(
+    new URL(shareUrl).pathname.replace("/invoice/", "/api/invoice/") + "/pdf",
+  );
+  expect(pdfResponse.status()).toBe(200);
+  expect(pdfResponse.headers()["content-type"]).toContain("application/pdf");
+
+  // 소유자 화면에 발송 현황이 남는다 — 링크 원문은 못 보여주지만 도달·열람 사실은 보여준다.
+  // 상대가 열어본 것이 여기 반영돼야, "링크를 다시 보려고" 재발송을 눌러 링크를 죽이는 일이 없다.
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "청구서 발송 현황" }),
+  ).toBeVisible();
+  await expect(page.getByText(clientEmail)).toBeVisible();
+  await expect(page.getByText("아직 열어보지 않음")).toHaveCount(0);
+
+  // 재발송은 새 토큰을 발급하므로 방금 연 링크는 회수돼야 한다(원문 토큰 미저장의 귀결).
+  await page.getByRole("button", { name: "청구서 재발송" }).click();
+  await expect(
+    page.getByRole("alertdialog").getByText(/이전 링크는 무효화됩니다/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "발송", exact: true }).click();
+  await expect(page.getByLabel("청구서 링크")).toHaveValue(
+    /\/invoice\//,
+    { timeout: 30_000 },
+  );
+
+  await invoicePage.reload();
+  await expect(
+    invoicePage.getByText("이 청구서 링크는 더 이상 사용할 수 없습니다"),
+  ).toBeVisible();
+
+  await publicPage.close();
+
   await page.getByRole("button", { name: "입금완료" }).click();
   await expect(page.getByText("입금완료").first()).toBeVisible({
     timeout: 30_000,
@@ -179,5 +240,8 @@ test("runs the core settlement chain from client to paid invoice and report CSV"
   );
 
   expect(csvResponse.status()).toBe(200);
-  expect(csvResponse.headers()["content-type"]).toContain("text/csv");
+  // 2a0e4a0에서 세무 리포트가 CSV → 서식 있는 xlsx로 바뀌었다.
+  expect(csvResponse.headers()["content-type"]).toContain(
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  );
 });

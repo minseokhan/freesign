@@ -14,6 +14,8 @@ describe("invoiceEventLabel", () => {
     expect(invoiceEventLabel("invoice.draft_generated")).toBe(
       "반복 인보이스 초안 생성",
     );
+    expect(invoiceEventLabel("invoice.sent")).toBe("청구서 발송");
+    expect(invoiceEventLabel("invoice.dunning_sent")).toBe("미수금 독촉 발송");
   });
 
   it("falls back to the raw type for unknown events", () => {

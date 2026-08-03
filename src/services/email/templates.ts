@@ -1,5 +1,6 @@
 // 순수 함수 이메일 템플릿: 사용자 입력(수신자명·계약 제목 등)이 html에 삽입되므로
 // 모든 삽입값은 escapeHtml을 거친다(이메일 HTML 인젝션 방지).
+import { formatKRW } from "@/lib/metrics";
 
 export interface SignatureRequestEmailInput {
   recipientName: string | null;
@@ -20,6 +21,18 @@ export interface DunningEmailInput {
   // 소유자가 승인·수정한 초안 본문을 그대로 발송한다(제목·본문은 이미 확정된 텍스트).
   subject: string;
   body: string;
+  // 인보이스 공개 링크(0046). 토큰이 없는 과거 인보이스는 생략된다.
+  invoiceUrl?: string;
+}
+
+export interface InvoiceIssuedEmailInput {
+  clientName: string | null;
+  senderName: string;
+  contractTitle: string;
+  amountNet: number; // 실수령 기준(원천징수 반영)
+  dueDate: string; // ISO
+  invoiceUrl: string;
+  expiresAt: string; // ISO — 링크 만료
 }
 
 export interface OwnerDunningReviewEmailInput {
@@ -88,13 +101,62 @@ export function renderSignatureRequestEmail(
 
 // 클라이언트 발송용 독촉 메일. subject/body는 소유자가 앱에서 검토·승인·수정한 확정 텍스트를
 // 받아 escape 후 문단 단위로 감싼다(줄바꿈 보존).
+// 인보이스 링크는 승인된 본문을 건드리지 않고 뒤에 별도 문단으로 덧붙인다.
 export function renderDunningEmail(input: DunningEmailInput): RenderedEmail {
-  const html = input.body
+  const bodyHtml = input.body
     .split("\n\n")
     .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br />")}</p>`)
     .join("\n");
 
-  return { subject: input.subject, html, text: input.body };
+  if (!input.invoiceUrl) {
+    return { subject: input.subject, html: bodyHtml, text: input.body };
+  }
+
+  const html = [
+    bodyHtml,
+    `<p>청구 내역과 입금 계좌는 아래에서 확인하실 수 있습니다.<br /><a href="${escapeHtml(input.invoiceUrl)}">청구서 확인하기</a></p>`,
+    `<p>링크가 열리지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.<br />${escapeHtml(input.invoiceUrl)}</p>`,
+  ].join("\n");
+
+  const text = [
+    input.body,
+    `청구 내역·입금 계좌 확인: ${input.invoiceUrl}`,
+  ].join("\n\n");
+
+  return { subject: input.subject, html, text };
+}
+
+// 인보이스 발행 시 클라이언트에게 나가는 청구 안내. 금액·지급기한은 본문에 싣고,
+// 계좌·PDF는 공개 링크(0046) 뒤에 둔다 — 메일 본문에 계좌를 반복하지 않는다.
+export function renderInvoiceIssuedEmail(
+  input: InvoiceIssuedEmailInput,
+): RenderedEmail {
+  const recipientLabel = input.clientName ? `${input.clientName}님` : "안녕하세요";
+  const dueOn = formatKstDate(input.dueDate);
+  const expiresOn = formatKstDate(input.expiresAt);
+  const amount = formatKRW(input.amountNet);
+  const subject = `[FreeSign] ${input.senderName}님이 "${input.contractTitle}" 대금을 청구했습니다`;
+
+  const html = [
+    `<p>${escapeHtml(recipientLabel)}, ${escapeHtml(input.senderName)}님이 청구서를 보냈습니다.</p>`,
+    `<p>건명: <strong>${escapeHtml(input.contractTitle)}</strong><br />청구 금액(실수령 기준): <strong>${escapeHtml(amount)}</strong><br />지급기한: <strong>${escapeHtml(dueOn)}</strong></p>`,
+    `<p><a href="${escapeHtml(input.invoiceUrl)}">청구서 확인하고 입금 계좌 보기</a></p>`,
+    `<p>링크가 열리지 않으면 아래 주소를 브라우저에 붙여넣어 주세요.<br />${escapeHtml(input.invoiceUrl)}</p>`,
+    `<p>이 청구서 링크는 <strong>${escapeHtml(expiresOn)}</strong>까지 유효합니다.</p>`,
+    `<p style="color:#64748b;font-size:12px;">본 메일은 FreeSign 청구 안내입니다.</p>`,
+  ].join("\n");
+
+  const text = [
+    `${recipientLabel}, ${input.senderName}님이 청구서를 보냈습니다.`,
+    `건명: ${input.contractTitle}`,
+    `청구 금액(실수령 기준): ${amount}`,
+    `지급기한: ${dueOn}`,
+    `청구서 확인·입금 계좌: ${input.invoiceUrl}`,
+    `이 청구서 링크는 ${expiresOn}까지 유효합니다.`,
+    "본 메일은 FreeSign 청구 안내입니다.",
+  ].join("\n\n");
+
+  return { subject, html, text };
 }
 
 // 소유자(프리랜서)에게 "검토 대기 독촉 N건" 알림. 클라이언트가 아닌 본인에게만 발송.

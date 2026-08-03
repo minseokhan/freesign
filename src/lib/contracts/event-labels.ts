@@ -8,6 +8,7 @@ export const CONTRACT_EVENT_LABELS: Record<string, string> = {
   signed: "서명 완료",
   "contract.status_changed": "계약 상태 변경",
   "contract.imported": "기존 계약 불러오기(성사)",
+  "contract.demo_seeded": "데모 데이터 생성",
 };
 
 export function contractEventLabel(eventType: string): string {

@@ -110,6 +110,74 @@ describe("approveAndSendDunning", () => {
     );
   });
 
+  it("청구서 링크를 재발급해 독촉 본문에 함께 싣는다", async () => {
+    const supabase = makeSupabase({
+      reminder: {
+        id: reminderId,
+        status: "pending_review",
+        draft_subject: "제목",
+        draft_body: "본문",
+        invoice_id: "inv-1",
+        ai_source: "ai",
+      },
+      invoice: {
+        id: "inv-1",
+        payment_status: "unpaid",
+        client_id: "cli-1",
+        due_date: "2026-07-15",
+      },
+      client: { contact_email: "client@acme.test" },
+    });
+    vi.mocked(createSupabaseClient).mockResolvedValue(supabase as never);
+
+    const res = await approveAndSendDunning(reminderId);
+
+    expect(res.ok).toBe(true);
+    // 원문 토큰은 저장하지 않으므로 기존 링크를 되살릴 수 없다 → 새 토큰 발급.
+    expect(supabase._rpc).toHaveBeenCalledWith(
+      "send_invoice_with_event",
+      expect.objectContaining({
+        p_invoice_id: "inv-1",
+        p_recipient_email: "client@acme.test",
+      }),
+    );
+    const message = send.mock.calls[0][0] as { html: string; text: string };
+    expect(message.html).toContain("/invoice/");
+    expect(message.text).toContain("/invoice/");
+  });
+
+  it("링크 발급이 실패해도 독촉 본문만으로 발송한다", async () => {
+    const supabase = makeSupabase({
+      reminder: {
+        id: reminderId,
+        status: "pending_review",
+        draft_subject: "제목",
+        draft_body: "본문",
+        invoice_id: "inv-1",
+        ai_source: "ai",
+      },
+      invoice: {
+        id: "inv-1",
+        payment_status: "unpaid",
+        client_id: "cli-1",
+        due_date: "2026-07-15",
+      },
+      client: { contact_email: "client@acme.test" },
+    });
+    supabase.rpc.mockImplementation((name: string) =>
+      name === "send_invoice_with_event"
+        ? Promise.resolve({ data: null, error: { message: "boom" } })
+        : Promise.resolve({ data: "event-1", error: null }),
+    );
+    vi.mocked(createSupabaseClient).mockResolvedValue(supabase as never);
+
+    const res = await approveAndSendDunning(reminderId);
+
+    expect(res.ok).toBe(true);
+    const message = send.mock.calls[0][0] as { html: string };
+    expect(message.html).not.toContain("/invoice/");
+  });
+
   it("클라이언트 이메일이 없으면 발송하지 않고 실패", async () => {
     const supabase = makeSupabase({
       reminder: { id: reminderId, status: "pending_review", draft_subject: "s", draft_body: "b", invoice_id: "inv-1", ai_source: "ai" },

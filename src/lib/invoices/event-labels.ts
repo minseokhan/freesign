@@ -5,6 +5,9 @@ export const INVOICE_EVENT_LABELS: Record<string, string> = {
   "invoice.status_changed": "정산 상태 변경",
   "invoice.payment_marked": "입금 처리",
   "invoice.draft_generated": "반복 인보이스 초안 생성",
+  "invoice.sent": "청구서 발송",
+  "invoice.dunning_sent": "미수금 독촉 발송",
+  "invoice.demo_seeded": "데모 데이터 생성",
 };
 
 export function invoiceEventLabel(eventType: string): string {

@@ -9,9 +9,12 @@ import { z } from "zod";
 import { dbError } from "@/lib/action-error";
 import { requireUser } from "@/lib/auth";
 import { notDeleted } from "@/lib/db";
+import { computeInvoiceShareExpiry } from "@/lib/invoices/share-expiry";
 import { assertProFeature } from "@/lib/plan";
 import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
 import { getPostHogClient } from "@/lib/posthog-server";
+import { getSiteUrl } from "@/lib/seo";
+import { generateSigningToken, hashSigningToken } from "@/lib/signing-token";
 import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { getEmailProvider } from "@/services/email/provider";
 import { renderDunningEmail } from "@/services/email/templates";
@@ -65,7 +68,7 @@ export async function approveAndSendDunning(
   const { data: invoice, error: invoiceError } = await notDeleted(
     supabase
       .from("invoices")
-      .select("id,payment_status,client_id")
+      .select("id,payment_status,client_id,due_date")
       .eq("id", reminder.invoice_id),
   ).maybeSingle();
 
@@ -94,8 +97,20 @@ export async function approveAndSendDunning(
     return { ok: false, error: "발송할 초안 내용이 없습니다." };
   }
 
-  // 4. 클라이언트에 발송. 실패하면 sent 전이 없이 종료(초안 유지 → 재시도 가능).
-  const rendered = renderDunningEmail({ subject, body });
+  // 4. 청구서 링크 재발급(0046). 원문 토큰은 저장하지 않으므로 기존 링크를 되살릴 수 없다 —
+  //    서명 요청 재발송과 같은 방식으로 새 토큰을 발급하고 이전 토큰은 회수된다.
+  //    이 인보이스는 이미 unpaid이므로 상태 전이·invoice.issued 이벤트는 일어나지 않는다.
+  //    실패해도 독촉 자체는 막지 않는다(링크 없이 본문만 발송 — 기존 동작으로 폴백).
+  const invoiceUrl = await issueInvoiceLinkBestEffort({
+    supabase,
+    invoiceId: invoice.id,
+    recipientEmail: clientEmail,
+    dueDate: invoice.due_date,
+    actor: user.id,
+  });
+
+  // 5. 클라이언트에 발송. 실패하면 sent 전이 없이 종료(초안 유지 → 재시도 가능).
+  const rendered = renderDunningEmail({ subject, body, invoiceUrl });
   const sent = await getEmailProvider().send({
     to: clientEmail,
     subject: rendered.subject,
@@ -107,7 +122,7 @@ export async function approveAndSendDunning(
     return { ok: false, error: "이메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요." };
   }
 
-  // 5. 발송 성공 → status='sent' 전이(RLS update_own). 미검토 조건으로 중복 발송 방어.
+  // 6. 발송 성공 → status='sent' 전이(RLS update_own). 미검토 조건으로 중복 발송 방어.
   const { error: updateError } = await supabase
     .from("dunning_reminders")
     .update({ status: "sent", sent_at: new Date().toISOString() })
@@ -116,7 +131,7 @@ export async function approveAndSendDunning(
 
   if (updateError) return dbError(updateError);
 
-  // 6. append-only 이벤트(발송 이력). 상태 전이는 아니므로 from=to=현재 결제상태.
+  // 7. append-only 이벤트(발송 이력). 상태 전이는 아니므로 from=to=현재 결제상태.
   //    직접 INSERT 표면은 0036에서 닫혔고, 소유권을 재확인하는 DEFINER RPC로 기록한다.
   //    이미 메일이 나갔으므로 실패해도 되돌리지 않되, 조용히 삼키지 않고 로그를 남긴다.
   const { error: eventError } = await supabase.rpc("append_invoice_event", {
@@ -144,6 +159,43 @@ export async function approveAndSendDunning(
   await posthog.flush();
 
   return { ok: true };
+}
+
+/**
+ * 독촉 메일에 실을 청구서 링크를 발급한다(0046).
+ * 실패는 독촉 발송을 막지 않는다 — 링크 없는 본문(0046 이전 동작)으로 폴백한다.
+ */
+async function issueInvoiceLinkBestEffort(input: {
+  supabase: Awaited<ReturnType<typeof createSupabaseClient>>;
+  invoiceId: string;
+  recipientEmail: string;
+  dueDate: string;
+  actor: string;
+}): Promise<string | undefined> {
+  try {
+    const rawToken = generateSigningToken();
+    const { error } = await input.supabase.rpc("send_invoice_with_event", {
+      p_invoice_id: input.invoiceId,
+      p_token_hash: hashSigningToken(rawToken),
+      p_recipient_email: input.recipientEmail,
+      p_expires_at: computeInvoiceShareExpiry(input.dueDate),
+      p_actor: input.actor,
+      p_meta: { source: "dunning" },
+    });
+
+    if (error) {
+      console.error("[dunning] 청구서 링크 발급 실패:", error.message);
+      return undefined;
+    }
+
+    return `${getSiteUrl()}/invoice/${rawToken}`;
+  } catch (error) {
+    console.error(
+      "[dunning] 청구서 링크 발급 실패:",
+      error instanceof Error ? error.message : error,
+    );
+    return undefined;
+  }
 }
 
 export async function dismissDunning(reminderId: string): Promise<DunningActionResult> {

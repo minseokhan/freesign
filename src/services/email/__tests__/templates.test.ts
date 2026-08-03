@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   renderCompletionEmail,
   renderDunningEmail,
+  renderInvoiceIssuedEmail,
   renderOwnerDunningReviewEmail,
   renderOwnerRecurringNoticeEmail,
   renderSignatureRequestEmail,
@@ -146,6 +147,75 @@ describe("renderDunningEmail", () => {
   it("단일 줄바꿈은 <br />로 보존한다", () => {
     const rendered = renderDunningEmail({ subject: "s", body: "1줄\n2줄" });
     expect(rendered.html).toContain("1줄<br />2줄");
+  });
+
+  it("invoiceUrl이 있으면 본문을 건드리지 않고 링크 문단을 덧붙인다", () => {
+    const rendered = renderDunningEmail({
+      subject: "s",
+      body: "지급 부탁드립니다.",
+      invoiceUrl: "https://freesign.example/invoice/tok-1",
+    });
+
+    expect(rendered.html).toContain("<p>지급 부탁드립니다.</p>");
+    expect(rendered.html).toContain("https://freesign.example/invoice/tok-1");
+    expect(rendered.text).toContain("https://freesign.example/invoice/tok-1");
+  });
+
+  it("invoiceUrl이 없으면 링크 문단을 넣지 않는다", () => {
+    const rendered = renderDunningEmail({ subject: "s", body: "지급 부탁드립니다." });
+
+    expect(rendered.html).not.toContain("<a href");
+    expect(rendered.text.trim()).toBe("지급 부탁드립니다.");
+  });
+});
+
+describe("renderInvoiceIssuedEmail", () => {
+  const baseInput = {
+    clientName: "Acme 스튜디오",
+    senderName: "한프리",
+    contractTitle: "브랜드 리뉴얼 용역",
+    amountNet: 967000,
+    dueDate: "2026-08-31T00:00:00.000Z",
+    invoiceUrl: "https://freesign.example/invoice/token-abc",
+    expiresAt: "2026-11-29T00:00:00.000Z",
+  };
+
+  it("금액·지급기한·링크를 html과 text 모두에 싣는다", () => {
+    const rendered = renderInvoiceIssuedEmail(baseInput);
+
+    expect(rendered.subject).toContain(baseInput.contractTitle);
+    expect(rendered.html).toContain("₩967,000");
+    expect(rendered.html).toContain("2026.08.31");
+    expect(rendered.html).toContain(baseInput.invoiceUrl);
+    expect(rendered.text).toContain("₩967,000");
+    expect(rendered.text).toContain("2026.08.31");
+    expect(rendered.text).toContain(baseInput.invoiceUrl);
+  });
+
+  it("링크 만료일을 안내한다", () => {
+    const rendered = renderInvoiceIssuedEmail(baseInput);
+
+    expect(rendered.html).toContain("2026.11.29");
+    expect(rendered.text).toContain("2026.11.29");
+  });
+
+  it("clientName이 null이어도 'null'을 노출하지 않는다", () => {
+    const rendered = renderInvoiceIssuedEmail({ ...baseInput, clientName: null });
+
+    expect(rendered.html).not.toContain("null");
+    expect(rendered.html).toContain(baseInput.invoiceUrl);
+  });
+
+  it("사용자 입력값의 html을 escape한다", () => {
+    const rendered = renderInvoiceIssuedEmail({
+      ...baseInput,
+      clientName: '<script>alert("xss")</script>',
+      contractTitle: "<b>제목</b>",
+    });
+
+    expect(rendered.html).not.toContain("<script>");
+    expect(rendered.html).toContain("&lt;script&gt;");
+    expect(rendered.html).not.toContain("<b>제목</b>");
   });
 });
 
