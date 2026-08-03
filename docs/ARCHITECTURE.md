@@ -165,6 +165,7 @@ contract_insights    -- AI 계약 인사이트. 온디맨드(세션 있는 Pro A
 - **DB CHECK 제약**: `amount > 0`, `0 <= withholding_amount <= amount`, `net_amount >= 0`, `due_date >= issue_date`.
 - **`deleted_at IS NULL` 필터는 RLS가 아니라 공용 쿼리 헬퍼에서** — RLS에 넣으면 soft-delete 행이 복원·감사·세금 CSV에서 사라짐(soft-delete 목적과 충돌). FK는 `ON DELETE RESTRICT` + 앱 레이어에서 "비삭제 하위가 있으면 부모 삭제 차단".
 - **하드삭제**: 실데이터 `paid` 인보이스는 하드삭제 금지. `is_demo=true`만 예외("데모 지우기"). 데모 삭제 Server Action은 **demo 이벤트를 먼저 삭제한 뒤 demo 도메인 행 삭제**(FK RESTRICT 충돌 방지). 실데이터 이벤트는 여전히 append-only. **예외: 계약(contracts)은 상태 무관 물리 삭제**(ADR-008 갱신) — `deleteContract` Server Action이 ① 딸린 인보이스에 계약 스냅샷(`contract_snapshot`) 기록(계약 살아있는 동안) → ② 계약 행 DELETE(DB가 `invoices.contract_id` SET NULL + `contract_events` CASCADE 동시 처리) → ③ Storage 아티팩트 best-effort 제거 순으로 수행. 스냅샷을 삭제 앞에, 파일 정리를 DB 삭제 뒤에 둬 부분 실패 시 데이터 유실을 막는다.
+- **계정 삭제(회원 탈퇴)**: soft-delete 대상이 아니라 **즉시 물리 삭제**(ADR-012). `deleteAccount` Server Action이 ① Storage `{user_id}/` 객체 제거(실패 시 여기서 중단 — DB는 건드리지 않는다) → ② `delete_own_account()` DEFINER RPC → ③ `signOut()` 순으로 수행. RPC 내부는 활성 구독 검사 → 결제 기록을 `billing_records_retained`로 익명 이관 → `invoice_events → invoices → contracts → clients` 명시 삭제 → `delete from auth.users` 순이다. **`auth.users` FK를 새로 만들 때는 반드시 `on delete cascade`를 붙일 것** — 빠뜨리면 계정 삭제가 런타임에 실패하고, `src/lib/db/__tests__/account-delete.test.ts`가 이를 잡는다.
 - **원천징수 계산**(`lib/tax.ts`): 소득세(원 미만 절사) + 지방소득세(10원 미만 절사) 분리. 발행 시점 스냅샷 저장(drift 방지), draft 동안만 재계산.
 - **인덱스**: 부분 인덱스 `(user_id) WHERE deleted_at IS NULL`, `(user_id, due_date) WHERE payment_status='unpaid'`, `(user_id, client_id)`, 이벤트 테이블 `(contract_id/invoice_id, created_at)`.
 - **집계**: 대시보드·리포트 지표는 **SQL 집계**(`SUM`/`GROUP BY`) + `lib/metrics.ts` 순수 변환/포맷. 별도 집계 테이블 없음. "이달 수익"은 입금일 기준 — SQL `date_trunc('month', paid_at AT TIME ZONE 'Asia/Seoul')`(UTC 저장을 JS로 집계하면 KST 9시간 밀림).
@@ -215,6 +216,22 @@ contract_insights    -- AI 계약 인사이트. 온디맨드(세션 있는 Pro A
   ※ `/api/contracts/[id]/sign`은 v1 단독 서명 잔재로, 현재 앱에서 호출하는 곳이 없다.
 ```
 
+**청구 전달(ADR-013 · 서명 패턴의 청구 단계 복제)**
+```
+발송  소유자 → Server Action(sendInvoice) → 레이트리밋(invoiceSend) → 소유·정산상태 재검증
+      → 토큰 생성(DB엔 SHA-256 해시만) + 만료 계산(due_date+90일, 최소 30일)
+      → send_invoice_with_event RPC: 기존 토큰 revoke + 새 토큰 INSERT + draft→unpaid + invoice.issued (원자적)
+      → 커밋 후 best-effort: 청구 안내 메일(금액·기한·링크)
+      → 메일 성공 시에만 append_invoice_event('invoice.sent')   ※ 도달 증거는 발송 성공에만 붙는다
+
+열람  /invoice/[token](비로그인) → anon DEFINER RPC(get_invoice_view)로 금액·계좌·기한 열람 + first_viewed_at 기록
+      → /api/invoice/[token]/pdf: 같은 RPC + 소유자 라우트와 동일한 renderInvoicePdf(두 사본의 문서번호가 같다)
+  ※ 토큰이 DB에 있어야 링크가 유효하므로 "메일 먼저"는 불가능하다(서명 요청과 동일 제약).
+    그래서 발행(invoice.issued)과 도달(invoice.sent)을 두 이벤트로 나눈다.
+  ※ 클라이언트 이메일이 없으면 메일 없이 링크만 발급하고 소유자가 직접 전달한다.
+  ※ 재발송은 항상 재발급 — 원문 토큰을 저장하지 않으므로 이전 링크는 회수된다(독촉 발송도 이 경로를 탄다).
+```
+
 **일일 크론(ADR-011 · 반자동)**
 ```
 Vercel Cron(06:00 KST) → /api/cron/daily → Bearer CRON_SECRET 검증(불일치 401, fail-closed)
@@ -225,8 +242,9 @@ Vercel Cron(06:00 KST) → /api/cron/daily → Bearer CRON_SECRET 검증(불일�
                        → 도래한 pro 스케줄마다 draft 인보이스 생성 + next_run_at 전진 → 소유자 알림
   두 스윕은 각각 try/catch로 격리(하나가 실패해도 나머지 진행), 집계 JSON 반환.
 
-승인  소유자 → Server Action(approveAndSendDunning / 인보이스 발행) → assertProFeature
-      → 클라이언트 발송·발행 + 이벤트 로그 append
+승인  소유자 → Server Action(approveAndSendDunning) → assertProFeature
+      → 청구서 링크 재발급 → 클라이언트 발송 + 이벤트 로그 append
+      ※ 반복 인보이스 draft는 sendInvoice로 발행·발송한다(무료, 위 청구 전달 흐름).
 ```
 
 **AI 초안**

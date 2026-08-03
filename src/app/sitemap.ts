@@ -16,5 +16,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.5,
     },
+    // 고지 문서는 로그인 전에도 읽을 수 있어야 하고, 색인 대상이다.
+    {
+      url: `${siteUrl}/legal/privacy`,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${siteUrl}/legal/terms`,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
+    {
+      url: `${siteUrl}/legal/refund`,
+      changeFrequency: "yearly",
+      priority: 0.3,
+    },
   ];
 }

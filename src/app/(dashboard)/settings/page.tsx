@@ -1,3 +1,5 @@
+import { AccountDangerZone } from "@/components/account-danger-zone";
+import { LegalLinks } from "@/components/legal/legal-links";
 import { ProfileForm } from "@/components/profile-form";
 import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -30,6 +32,16 @@ export default async function SettingsPage() {
 
   const profile = data as ProfileRow | null;
 
+  // 계정 삭제 RPC(0048)가 막는 상태와 같은 집합을 본다 — Polar가 계속 청구하는 구간.
+  const { data: subscription } = await supabase
+    .from("subscriptions")
+    .select("status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
+    (subscription as { status: string } | null)?.status ?? "",
+  );
+
   return (
     <div className="mx-auto max-w-3xl space-y-xl">
       <div>
@@ -51,6 +63,10 @@ export default async function SettingsPage() {
           bank_account_holder: profile?.bank_account_holder ?? "",
         }}
       />
+
+      <AccountDangerZone hasActiveSubscription={hasActiveSubscription} />
+
+      <LegalLinks />
     </div>
   );
 }

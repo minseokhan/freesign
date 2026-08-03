@@ -6,6 +6,7 @@ import { FAQ_ITEMS, FaqSection } from "@/components/landing/faq-section";
 import { FeatureSection } from "@/components/landing/feature-section";
 import { FlowWalkthrough } from "@/components/landing/flow-walkthrough";
 import { LandingHeader } from "@/components/landing/landing-header";
+import { LegalLinks } from "@/components/legal/legal-links";
 import { PricingSection } from "@/components/landing/pricing-section";
 import { TrustSection } from "@/components/landing/trust-section";
 import { buttonBaseClass, buttonVariants } from "@/components/ui/button";
@@ -152,9 +153,12 @@ export default async function HomePage() {
       </main>
 
       <footer className="border-t border-surface-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-sm px-lg py-xl text-xs text-text-muted sm:flex-row sm:items-center sm:justify-between">
-          <span>© 2026 FreeSign</span>
-          <span>계약 초안·원천징수 계산은 참고용이며 법적 자문이 아닙니다.</span>
+        <div className="mx-auto flex max-w-6xl flex-col gap-lg px-lg py-xl text-xs text-text-muted">
+          <LegalLinks />
+          <div className="flex flex-col gap-sm sm:flex-row sm:items-center sm:justify-between">
+            <span>© 2026 FreeSign</span>
+            <span>계약 초안·원천징수 계산은 참고용이며 법적 자문이 아닙니다.</span>
+          </div>
         </div>
       </footer>
     </div>

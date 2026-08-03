@@ -25,6 +25,10 @@ OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐
 
 1. **8/1 06:00(KST) 이후 Vercel 함수 로그에서 일일 크론 실제 실행 1회 확인** — 유일하게 남은 실행 항목입니다. 확인 절차는 2절 말미에 적어뒀습니다.
 2. **Polar 프로덕션 전환** — [보류 결정 2026-07-31] 사업 판단이 설 때까지 미룹니다. 체크리스트는 4절에 그대로 둡니다.
+3. **[추가 2026-08-03] 결제를 켜기 전 사업자 정보 기입** — `src/lib/legal.ts`의 `LEGAL` 상수가 전부 `[미기입]` placeholder입니다(상호·대표자·사업자등록번호·통신판매업 신고번호·주소·문의 이메일·개인정보 보호책임자·시행일 3종). 유료 구독을 열면 전자상거래법 제10조 표시의무 대상이 되므로 그 전에 반드시 채워야 합니다. `listUnfilledLegalFields()`가 미기입 필드를 돌려주고, `src/lib/__tests__/legal.test.ts`의 "[의도된 실패 예정]" 테스트가 채우는 순간 깨져 고지 문서 문구를 재확인하라고 알려줍니다. 관련: `docs/LEGAL_ACCOUNT_PLAN.md` 7절.
+4. **[완료 2026-08-03] 원격에 마이그레이션 `0047`·`0048` 적용 + 타입 반영** — 계정 삭제 경계(ADR-012). 순서상 **DB를 먼저** 적용했습니다(코드가 먼저 배포되면 아직 없는 `delete_own_account()`를 호출하게 됨). 적용 후 검증 4종 통과: `auth.users` 참조 FK가 CASCADE 16 / NO ACTION 0, 함수는 `SECURITY DEFINER`·무인자·`authenticated` 전용, `billing_records_retained`는 RLS 켜짐·정책 0건·`user_id` 컬럼 없음, 세션 없이 호출하면 fail-closed.
+
+5. **[알려진 함정 2026-08-03] `npm run db:gen-types`는 컨테이너 런타임이 필요하다** — `supabase gen types`가 Docker/Podman을 요구하도록 바뀌어(`LegacyContainerRuntimeNotFoundError`) 이 머신에서는 실행되지 않습니다. 스크립트가 embedded-postgres에 로컬 마이그레이션을 적용한 뒤 CLI를 호출하는 구조라 원격 접속과는 무관하며, **Docker를 깔기 전까지는 `src/types/database.ts`를 손으로 갱신**해야 합니다. 값은 Supabase MCP `generate_typescript_types`(원격 스키마 기준)로 받아 대조하면 추측 없이 정확합니다. 단 MCP 출력은 신버전 생성기 형식(`Args: never`, `__InternalSupabase.PostgrestVersion`)이라 **통째로 덮어쓰면 안 됩니다** — 현재 파일은 구버전 형식(`Args: Record<PropertyKey, never>`)이고, 섞으면 무인자 RPC 호출 타입이 전부 바뀝니다. 필요한 항목만 기존 형식에 맞춰 추가할 것.
 
 > 재스캔 high 4건(6-1절)·6절 (1)~(4) 판단·`TSA_URL` 프로덕션 확정(4절)·배포 후 브라우저 확인(8절)은 전부 끝났습니다.
 >

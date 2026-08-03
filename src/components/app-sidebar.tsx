@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { LegalLinks } from "@/components/legal/legal-links";
 import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import type { Plan } from "@/lib/plan";
@@ -88,6 +89,9 @@ export function AppSidebar({ plan }: { plan: Plan }) {
             );
           })}
         </nav>
+        {/* gap은 덮어쓰지 않는다 — cn(twMerge)이 커스텀 여백 토큰을 병합하지 못해
+            gap-sm을 넘겨도 base의 gap-lg가 이긴다. 세로 배치만 바꾼다. */}
+        <LegalLinks className="mt-auto flex-col" />
       </div>
     </aside>
   );

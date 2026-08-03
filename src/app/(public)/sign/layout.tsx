@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { LegalLinks } from "@/components/legal/legal-links";
 import { Logo } from "@/components/logo";
 
 // 공개 서명 페이지 전용 레이아웃 — 대시보드 셸(사이드바·인증 가드) 없이
@@ -25,6 +26,12 @@ export default function PublicSignLayout({
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl px-lg py-2xl">{children}</main>
+      {/* 비로그인 서명자의 이메일·접속 기록을 수집하므로 처리방침 고지 경로가 필요하다. */}
+      <footer className="border-t border-surface-border">
+        <div className="mx-auto w-full max-w-3xl px-lg py-xl">
+          <LegalLinks />
+        </div>
+      </footer>
     </div>
   );
 }

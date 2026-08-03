@@ -259,6 +259,36 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_records_retained: {
+        Row: {
+          event_type: string
+          id: number
+          occurred_at: string
+          polar_customer_id: string | null
+          polar_subscription_id: string | null
+          retained_at: string
+          status: string | null
+        }
+        Insert: {
+          event_type: string
+          id?: never
+          occurred_at: string
+          polar_customer_id?: string | null
+          polar_subscription_id?: string | null
+          retained_at?: string
+          status?: string | null
+        }
+        Update: {
+          event_type?: string
+          id?: never
+          occurred_at?: string
+          polar_customer_id?: string | null
+          polar_subscription_id?: string | null
+          retained_at?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       clients: {
         Row: {
           channel: string
@@ -522,6 +552,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "invoice_events_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_share_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          first_viewed_at: string | null
+          id: string
+          invoice_id: string
+          last_sent_at: string | null
+          recipient_email: string | null
+          status: Database["public"]["Enums"]["invoice_share_status"]
+          token_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          first_viewed_at?: string | null
+          id?: string
+          invoice_id: string
+          last_sent_at?: string | null
+          recipient_email?: string | null
+          status?: Database["public"]["Enums"]["invoice_share_status"]
+          token_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          first_viewed_at?: string | null
+          id?: string
+          invoice_id?: string
+          last_sent_at?: string | null
+          recipient_email?: string | null
+          status?: Database["public"]["Enums"]["invoice_share_status"]
+          token_hash?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_share_tokens_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
@@ -821,6 +898,10 @@ export type Database = {
           owner_email: string
         }[]
       }
+      delete_own_account: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       generate_due_recurring_invoices: {
         Args: { p_cron_secret: string }
         Returns: {
@@ -871,6 +952,10 @@ export type Database = {
         Args: { p_token_hash: string }
         Returns: Json
       }
+      get_invoice_view: {
+        Args: { p_token_hash: string }
+        Returns: Json
+      }
       get_signed_contract_data: {
         Args: { p_token_hash: string }
         Returns: Json
@@ -917,6 +1002,17 @@ export type Database = {
       revoke_signature_request_with_event: {
         Args: { p_actor: string; p_meta?: Json; p_request_id: string }
         Returns: string
+      }
+      send_invoice_with_event: {
+        Args: {
+          p_actor: string
+          p_expires_at: string
+          p_invoice_id: string
+          p_meta?: Json
+          p_recipient_email: string | null
+          p_token_hash: string
+        }
+        Returns: Json
       }
       send_signature_request_with_event: {
         Args: {
@@ -994,6 +1090,7 @@ export type Database = {
     Enums: {
       contract_signature_party: "owner" | "counterparty"
       contract_status: "draft" | "sent" | "signed" | "active" | "done" | "canceled"
+      invoice_share_status: "active" | "revoked"
       payment_status: "draft" | "unpaid" | "paid"
       signature_request_status: "pending" | "completed" | "revoked"
       withholding_type: "wt_3_3" | "wt_8_8" | "none"
@@ -1123,6 +1220,7 @@ export const Constants = {
     Enums: {
       contract_signature_party: ["owner", "counterparty"],
       contract_status: ["draft", "sent", "signed", "active", "done", "canceled"],
+      invoice_share_status: ["active", "revoked"],
       payment_status: ["draft", "unpaid", "paid"],
       signature_request_status: ["pending", "completed", "revoked"],
       withholding_type: ["wt_3_3", "wt_8_8", "none"],

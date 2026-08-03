@@ -16,6 +16,11 @@ export const RATE_LIMITS = {
   signatureSend: { bucket: "signature_send", max: 5, windowSeconds: 60 },
   // 독촉 승인·발송도 제3자(클라이언트) 메일함으로 나가는 경로다(대시보드 #26).
   dunningSend: { bucket: "dunning_send", max: 5, windowSeconds: 60 },
+  // 인보이스 발행·재발송(청구 안내 메일 동반, 0046).
+  invoiceSend: { bucket: "invoice_send", max: 5, windowSeconds: 60 },
+  // 계정 데이터 전체 덤프는 테이블 전수 조회라 비싸다. 열람권 행사에는 넉넉하되
+  // 반복 호출로 DB를 긁는 것은 막는 값.
+  accountExport: { bucket: "account_export", max: 3, windowSeconds: 3600 },
 } as const satisfies Record<string, RateLimitConfig>;
 
 export type RateLimitResult =
