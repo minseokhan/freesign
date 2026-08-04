@@ -43,8 +43,12 @@ git log --oneline -15 && git status --short
 증거는 **세 갈래**로 모은다. 어느 갈래도 뒷받침하지 않는 제안은 추측이다.
 - **현재 대화**: 사용자가 정정한 지점, 내가 헛다리 짚은 지점, 규칙이 없어 망설인 지점.
 - **전사**(컨텍스트가 압축돼 초반이 사라졌을 때 필수):
-  `bash .claude/skills/harness-tune/scripts/session_signals.sh` — 인자 없이 실행하면 최근 전사를 쓴다.
-  현재 세션 id를 알면(스크래치패드 경로에 들어 있다) 해당 `~/.claude/projects/<slug>/<id>.jsonl`을 인자로 넘긴다.
+  `bash .claude/skills/harness-tune/scripts/session_signals.sh <transcript.jsonl>`
+  — **현재 세션 id를 인자로 넘기는 것이 기본이다.** id는 스크래치패드 경로에 들어 있고,
+  전사는 `~/.claude/projects/<slug>/<id>.jsonl`이다.
+  인자를 생략하면 `ls -t`(최근 **수정**순)로 고르는데, 세션을 여러 개 병행하면
+  **다른 세션의 전사를 집는다.** 부득이 생략했다면 출력 첫 줄의 `# transcript: <경로>`가
+  현재 세션 id와 같은지 반드시 대조하고, 다르면 id를 넘겨 다시 돌린다.
 - **코드 현실**: 이번 세션의 diff와 커밋. 규칙이 참조하는 대상이 아직 존재하는지 `grep`으로 확인한다.
 
 신호가 거의 없으면(문서 편집도, 마찰도, 정정도 없음) **"이번 세션은 튠 대상 없음"으로 보고하고 끝낸다.**

@@ -42,3 +42,5 @@ npm run build:verify  # 검증용 빌드. `.next-verify`에 출력하므로 dev 
 npm run lint     # ESLint
 npm run test     # 테스트 (Vitest)
 npx playwright test   # E2E
+# 병렬 편집·대량 변경 뒤 E2E·브라우저 검증 전에는 dev 서버를 재기동할 것.
+# 스테일 `.next`가 클라이언트 청크를 404로 내보내 에러 바운더리가 뜨고, 제품 버그로 오진된다.
