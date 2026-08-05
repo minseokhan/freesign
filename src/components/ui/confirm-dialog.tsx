@@ -17,6 +17,8 @@ type ConfirmDialogProps = {
   confirmOnly?: boolean;
   // 되돌릴 수 없지만 파괴적이지는 않은 확인(예: 청구서 발송)은 빨간 버튼이 잘못된 신호를 준다.
   confirmVariant?: "danger" | "primary";
+  // 안내문만으로 부족한 확인(예: 발급된 링크 복사)에 쓰는 본문 슬롯.
+  children?: React.ReactNode;
   onConfirm: () => void;
   onCancel: () => void;
 };
@@ -32,6 +34,7 @@ export function ConfirmDialog({
   error = null,
   confirmOnly = false,
   confirmVariant = "danger",
+  children,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -93,6 +96,7 @@ export function ConfirmDialog({
               ))}
           </div>
         ) : null}
+        {children ? <div className="mt-lg">{children}</div> : null}
         {error ? <p className="mt-sm text-sm text-red-600">{error}</p> : null}
         <div className="mt-xl flex justify-end gap-sm">
           {confirmOnly ? (

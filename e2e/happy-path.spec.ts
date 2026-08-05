@@ -165,10 +165,13 @@ test("runs the core settlement chain from client to paid invoice and report expo
   await expect(sendDialog.getByText(/이전 링크는 무효화됩니다/)).toHaveCount(0);
   await page.getByRole("button", { name: "발송", exact: true }).click();
 
+  // 발급된 링크는 서버에 저장되지 않는다 — 확인 창에서 복사할 수 있어야 하고,
+  // 확인을 누르기 전에 화면 갱신으로 사라지면 안 된다(BUG-2 회귀 가드).
   const shareLink = page.getByLabel("청구서 링크");
   await expect(shareLink).toBeVisible({ timeout: 30_000 });
   const shareUrl = await shareLink.inputValue();
   expect(shareUrl).toContain("/invoice/");
+  await page.getByRole("button", { name: "확인", exact: true }).click();
 
   // 한 번 보낸 뒤에는 "재발송"으로 바뀌고, 이전 링크 무효화를 경고해야 한다.
   await expect(
@@ -209,6 +212,7 @@ test("runs the core settlement chain from client to paid invoice and report expo
     /\/invoice\//,
     { timeout: 30_000 },
   );
+  await page.getByRole("button", { name: "확인", exact: true }).click();
 
   await invoicePage.reload();
   await expect(

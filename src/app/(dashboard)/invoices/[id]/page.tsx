@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { UpgradeCard } from "@/components/billing/upgrade-cta";
 import { DunningReviewPanel } from "@/components/dunning-review-panel";
 import { InvoiceDeleteButton } from "@/components/invoice-delete-button";
+import { InvoiceIssuedLinkProvider } from "@/components/invoice-issued-link";
 import { InvoicePaymentToggle } from "@/components/invoice-payment-toggle";
 import { SendInvoiceButton } from "@/components/send-invoice-button";
 import { deriveInvoiceShareStatus } from "@/lib/invoices/share-status";
@@ -231,6 +232,9 @@ export default async function InvoiceDetailPage({
     Boolean(profile?.bank_account_holder);
 
   return (
+    // 발송 버튼은 발송 전후로 서로 다른 카드에 놓여 재마운트된다. 발급된 링크는 다시 볼 수
+    // 없으므로 재마운트되지 않는 이 provider가 들고 안내 창을 띄운다.
+    <InvoiceIssuedLinkProvider>
     <div className="mx-auto max-w-6xl space-y-xl">
       <div>
         <Link
@@ -541,5 +545,6 @@ export default async function InvoiceDetailPage({
         </div>
       </div>
     </div>
+    </InvoiceIssuedLinkProvider>
   );
 }

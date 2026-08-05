@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import { sendInvoice } from "@/app/(dashboard)/invoices/actions";
+import { useAnnounceIssuedLink } from "@/components/invoice-issued-link";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
@@ -23,11 +23,11 @@ export function SendInvoiceButton({
   recipientEmail,
   mode,
 }: SendInvoiceButtonProps) {
-  const router = useRouter();
+  // 발급된 링크는 이 버튼 밖(provider)에서 보여준다 — 발송 직후 revalidatePath가
+  // 이 버튼을 다른 카드로 옮겨 재마운트시키기 때문이다.
+  const announceIssuedLink = useAnnounceIssuedLink();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sentLink, setSentLink] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const label = mode === "send" ? "청구서 발송" : "청구서 재발송";
@@ -54,13 +54,11 @@ export function SendInvoiceButton({
       }
 
       setConfirmOpen(false);
-      setSentLink(result.shareUrl);
-      setMessage(
-        result.emailed
-          ? `${recipientEmail} 으로 청구서를 보냈습니다.`
-          : "청구서 링크를 발급했습니다. 아래 링크를 클라이언트에게 전달해 주세요.",
-      );
-      router.refresh();
+      announceIssuedLink({
+        url: result.shareUrl,
+        emailed: result.emailed,
+        recipientEmail,
+      });
     });
   }
 
@@ -71,30 +69,12 @@ export function SendInvoiceButton({
         variant={mode === "send" ? "primary" : "secondary"}
         disabled={isPending}
         onClick={() => {
-          setMessage(null);
-          setSentLink(null);
           setError(null);
           setConfirmOpen(true);
         }}
       >
         {label}
       </Button>
-
-      {message ? (
-        <p className="text-xs text-green-700" role="status">
-          {message}
-        </p>
-      ) : null}
-
-      {sentLink ? (
-        <input
-          readOnly
-          value={sentLink}
-          aria-label="청구서 링크"
-          onFocus={(event) => event.currentTarget.select()}
-          className="w-full rounded-md border border-surface-border bg-surface-muted px-sm py-xs font-mono text-xs text-text-body"
-        />
-      ) : null}
 
       <ConfirmDialog
         open={confirmOpen}

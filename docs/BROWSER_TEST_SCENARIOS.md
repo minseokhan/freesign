@@ -252,6 +252,7 @@ agent-browser state save auth.json                              # 세션 저장(
 | ENV-1 | dev 서버 스테일 시 CSS 404 → 재기동 필요 | 낮음 | 워크어라운드 |
 | TEST-1 | native date 입력은 `fill`/타이핑 불가 → eval setter 필요 | - | 도구 한계(주의사항 #3) |
 | TEST-2 | `agent-browser click`이 form 밖 `type=button onClick` 버튼을 못 누름 → native click 우회 | - | 도구 한계(주의사항 #7) |
+| ~~BUG-2~~ | ~~청구서 첫 발송 직후 발급된 링크가 곧바로 사라진다~~ → **수정 완료(2026-08-06)**. 원인은 발송 Server Action의 `revalidatePath`가 페이지를 다시 그리면서 버튼이 "다음 단계"→"청구서 발송 현황" 카드로 옮겨 붙어 재마운트된 것(버튼 안에 든 링크 상태가 함께 소멸). 링크를 재마운트되지 않는 `InvoiceIssuedLinkProvider`로 올리고, 발급 결과를 "확인"을 누를 때까지 유지되는 안내 창으로 보여준다. `e2e/happy-path.spec.ts`가 회귀 가드 | 중간 | 해소 |
 
 ---
 
