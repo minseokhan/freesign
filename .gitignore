@@ -23,6 +23,8 @@ phases/**/step*-output.json
 playwright-report/
 test-results/
 e2e/.auth/
+# dev 이메일 아웃박스 — 원문 서명 토큰이 담긴다
+.e2e-outbox.jsonl
 
 # Vercel
 .vercel

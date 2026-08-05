@@ -19,6 +19,8 @@ export const anthropicEnvSchema = z.object({
 export const emailEnvSchema = z.object({
   RESEND_API_KEY: z.string().min(1).optional(),
   EMAIL_FROM: z.string().min(1).optional(),
+  // dev/E2E 전용 아웃박스 파일 경로. 설정 시 실발송 대신 이 파일에 적재한다.
+  EMAIL_OUTBOX_FILE: z.string().min(1).optional(),
 });
 
 export const timestampEnvSchema = z.object({
@@ -167,6 +169,7 @@ export function getEmailEnv() {
   return parseEmailEnv({
     RESEND_API_KEY: process.env.RESEND_API_KEY || undefined,
     EMAIL_FROM: process.env.EMAIL_FROM || undefined,
+    EMAIL_OUTBOX_FILE: process.env.EMAIL_OUTBOX_FILE || undefined,
   });
 }
 

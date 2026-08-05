@@ -5,7 +5,7 @@
 > 도구: 수동 검증은 `dev-browser` CLI(권장) 또는 `agent-browser`(openclaw-agent-browser 스킬) + 로컬 dev 서버.
 > 최초 실측: 2026-07-09 (아래 "검증 상태"는 그 시점 기록 — 회귀 여부는 매회 갱신).
 >
-> **자동화**: S2~S9의 핵심 정산 체인(로그인→클라이언트→계약+AI초안→서명→인보이스+원천징수→입금→대시보드→리포트 Excel)은 `e2e/happy-path.spec.ts`(Playwright, `npm run test:e2e`)가 자동 커버한다. 이 스펙은 계약 제목 필수 입력, 저장 완료를 UUID URL로 대기(`/contracts/[0-9a-f-]{36}$`), 서명 캔버스 `scrollIntoViewIfNeeded`, 리포트 다운로드는 브라우저 인증 쿠키 공유(`page.request`)로 검증하며, 실제 Claude API 지연(~25초, 저장 시 재생성)을 감안해 `test.setTimeout(180s)`를 쓴다. 수동 플레이북은 이 자동 커버 밖의 시각·엣지 확인용으로 보완 사용.
+> **자동화**: S2~S9의 핵심 정산 체인(로그인→클라이언트→계약+AI초안→**쌍방 서명(요청 발송 + 상대방 완결)**→인보이스+원천징수→청구서 발송→입금→대시보드→리포트 Excel)은 `e2e/happy-path.spec.ts`(Playwright, `npm run test:e2e`)가 자동 커버한다. 이 스펙은 계약 제목 필수 입력, 저장 완료를 UUID URL로 대기(`/contracts/[0-9a-f-]{36}$`), 서명 캔버스 `scrollIntoViewIfNeeded`, 리포트 다운로드는 브라우저 인증 쿠키 공유(`page.request`)로 검증하며, 실제 Claude API 지연(~25초, 저장 시 재생성)을 감안해 `test.setTimeout(180s)`를 쓴다. 메일로만 전달되는 상대방 서명 링크는 dev 아웃박스(`EMAIL_OUTBOX_FILE`)에서 읽는다 — `src/test/e2e-outbox.ts`. 청구서 발송 뒤 뜨는 링크 안내 창은 "확인"을 눌러 닫아야 다음 액션이 가능하다. 수동 플레이북은 이 자동 커버 밖의 시각·엣지 확인용으로 보완 사용.
 
 ---
 
@@ -109,19 +109,22 @@ agent-browser state save auth.json                              # 세션 저장(
   - 폼(2026-07-12 변경, **미검증**): 계약 제목 **필수**(빈 값 저장 불가). 금액 입력은 **천 단위 콤마 자동 표시**(예: `3,000,000` — `type=text`·`fill` 정상, 저장 시 콤마 제거된 숫자). "초안 생성" 후 **구조화 입력 박스가 숨겨지고** 생성된 초안이 상단에 바로 노출(스크롤 불필요). 저장 제목 = 입력한 제목(자동 "…초안" 접미어 없음).
 - `[검증]` 초안 생성 ✅ (골격 폴백·면책·평문요약·[검토필요] 정상). 초안 저장 ✅ (native click 시 `POST /contracts/new 200` → `createContractDraft` ok → `/contracts/{id}` 이동, DB에 draft 생성 확인). **주의: `agent-browser click`으로는 저장 버튼이 무반응** → 위 자동화 주의사항 #7의 native click 우회 사용. (이 무반응을 초기엔 제품 버그로 오진했으나, 계측 로그로 native click 시 정상 저장됨을 확정 — 도구 아티팩트였음)
 
-### S5. 서명 + 계약 PDF (인증)
-- **경로**: `/contracts/{id}`
-- **절차**: (서명 가능 상태 계약에서) 캔버스 서명 → 저장 → PDF
-- **기대**: 서명 시 서명자·시각·문서 해시 기록. 상태 전이 append-only 이벤트. 계약 PDF 다운로드(한글 임베드).
+### S5. 쌍방 서명(요청 발송 → 상대방 완결) + 계약 PDF (인증 + 비로그인)
+- **경로**: `/contracts/{id}` (소유자) → `/sign/{token}` (상대방, 비로그인)
+- **절차**: draft 계약에서 캔버스 서명 + 수신자 이메일·이름·동의 2개 → "서명하고 요청 보내기"(draft→sent) → 메일의 서명 링크로 상대방이 이름·서명·동의 2개 입력 → "동의하고 서명 완료"(sent→signed) → 완결증명서·서명 완료 계약서 PDF
+- **기대**: 발송 시 서명자·시각·문서 해시 기록, 상태 전이 append-only 이벤트. 상대방 완결 시 계약 `서명완료` + 서명 구분이 "양 당사자 동의 서명 · 이메일 소유확인 수준"으로 바뀌고 완결증명서 PDF 링크 노출, 타임라인에 `상대방 서명(완결)`. 계약 PDF 다운로드(한글 임베드).
+- **서명 링크 확보**: 원문 토큰은 **메일 본문에만** 있고 DB엔 sha256 해시만 남는다. `EMAIL_OUTBOX_FILE=.e2e-outbox.jsonl`(`.env.local`)을 켜면 실발송 대신 JSONL 아웃박스에 적재되므로 거기서 `/sign/{token}`을 집어온다. dev 서버를 이 env 없이 띄웠으면 아웃박스가 비어 있다 — 재기동할 것.
+- **이름 검증**: 완결 RPC가 수신자 이름과 서명자 이름 일치를 검증한다(공백·대소문자 정규화). 다른 이름으로 서명하면 400.
 - **캔버스 서명 자동화**: `agent-browser mouse move/down/up`으로 실제 획을 그린다(합성 PointerEvent는 `setPointerCapture`에서 throw). 캔버스 rect를 eval로 구해 중심 좌표에 드래그 → 그린 뒤 `canvas.getContext('2d').getImageData`로 non-blank 픽셀 확인. "서명 완료" 버튼은 form 밖 `type=button`이므로 **native click** 필요(#7).
   ```bash
   RECT=$(agent-browser eval "(()=>{const r=document.getElementById('signature-canvas').getBoundingClientRect();return Math.round(r.x)+' '+Math.round(r.y)+' '+Math.round(r.width)+' '+Math.round(r.height)})()" | tr -d '"'); read RX RY RW RH <<< "$RECT"; CY=$((RY+RH/2))
   agent-browser mouse move $((RX+80)) $CY; agent-browser mouse down
   for dx in 200 320 440 560; do agent-browser mouse move $((RX+dx)) $((CY-30)); done
   agent-browser mouse up
-  agent-browser eval "[...document.querySelectorAll('button')].find(b=>b.innerText.trim()==='서명 완료')?.click()"
+  agent-browser eval "[...document.querySelectorAll('button')].find(b=>b.innerText.trim()==='서명하고 요청 보내기')?.click()"
   ```
-- `[검증]` ✅ **라이브 캔버스 서명 완료**: 새 draft 계약에 마우스 드래그로 서명 → `POST /api/contracts/{id}/sign 200` → 상태 draft→signed. DB 확인: `doc_hash`(SHA-256 64자), `signature_meta`={signer, ip, ua, signed_at} 기록(서버소유 필드). **draft→signed** append-only 이벤트. 서명 이미지가 화면에 렌더. **서명 PDF** ✅ (4p·43KB — 미서명 2p보다 서명 포함으로 증가). 서명완료 상세: 문서해시·서명자·서명시각·면책 표시.
+- `[검증]` ✅ **2026-08-04 쌍방 서명 전 구간 자동화 그린**(`e2e/happy-path.spec.ts`): 요청 발송(서명 대기·요청 현황 카드) → 아웃박스에서 토큰 획득 → **로그인 쿠키 없는 별도 컨텍스트**로 `/sign/{token}` 진입(계약 조항·문서 지문 노출) → 캔버스 서명·이름·동의 → 완결 화면 "서명이 완료되어 계약이 매듭지어졌습니다" → `GET /api/sign/{token}/certificate` 200·application/pdf → 소유자 화면 `서명완료`·"양 당사자 동의 서명 · 이메일 소유확인 수준"·완결증명서 링크·타임라인 `상대방 서명(완결)`.
+- `[검증]` ✅ (2026-07 v1 실측, 참고) 캔버스 서명 시 `doc_hash`(SHA-256 64자)·`signature_meta`={signer, ip, ua, signed_at} 서버소유 필드 기록, append-only 이벤트. **서명 PDF** 4p·43KB(미서명 2p 대비 증가), 문서해시·서명자·서명시각·면책 표시.
 
 ### S6. 인보이스 발행 + 원천징수 3.3% (인증)
 - **경로**: `/invoices/new` (생성) / `/invoices/{id}` (확인)

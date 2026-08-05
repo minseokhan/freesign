@@ -91,7 +91,9 @@ npm run build        # 프로덕션 빌드
    ALLOW_TEST_LOGIN=true
    E2E_TEST_EMAIL=<테스트 유저 이메일>
    E2E_TEST_PASSWORD=<테스트 유저 비번>
+   EMAIL_OUTBOX_FILE=.e2e-outbox.jsonl
    ```
+   `EMAIL_OUTBOX_FILE`을 켜면 메일이 실제로 나가지 않고 이 JSONL 파일에 쌓입니다. 상대방 서명 링크·공개 청구서 링크는 메일 본문에만 존재하므로(DB엔 해시만) E2E가 여기서 읽습니다. **이미 떠 있는 dev 서버에는 적용되지 않으니 재기동**하세요.
 3. 실행:
    ```bash
    npx playwright install chromium   # 브라우저 바이너리

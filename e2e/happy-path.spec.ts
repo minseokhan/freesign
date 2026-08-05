@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 import { loginWithTestUser } from "../src/test/e2e-auth";
+import { waitForSigningToken } from "../src/test/e2e-outbox";
 
 function dateInput(offsetDays: number) {
   const date = new Date();
@@ -33,12 +34,18 @@ async function expectAnyKrwAtLeast(pageText: Promise<string>, minimum: number) {
 
 test("runs the core settlement chain from client to paid invoice and report export", async ({
   page,
+  browser,
+  baseURL,
 }) => {
   // 실제 Claude API 초안 생성이 ~25초 걸려 기본 30초 테스트 예산을 초과한다.
   test.setTimeout(180_000);
 
   const runId = Date.now();
   const clientName = `E2E 무디 ${runId}`;
+  // 아웃박스에서 이번 실행의 서명 요청 메일만 골라내기 위한 고유 수신자.
+  const counterpartyEmail = `counterparty-${runId}@example.test`;
+  // 완결 RPC가 수신자 이름과 서명자 이름 일치를 검증한다 — 같은 값을 써야 한다.
+  const counterpartyName = "김상대";
   const clientEmail = `moody-${runId}@example.com`;
   const contractTitle = `무디 브랜드 리뉴얼 ${runId}`;
   const scope = `브랜드 로고 리뉴얼과 인스타 템플릿 5종 제작 ${runId}`;
@@ -119,8 +126,8 @@ test("runs the core settlement chain from client to paid invoice and report expo
 
   // 쌍방 서명 요청 발송(단독 서명 플로우 제거됨) — 이메일은 best-effort라
   // dev 환경에서 실패해도 요청 자체는 커밋된다.
-  await page.getByLabel("수신자 이메일").fill("counterparty@example.test");
-  await page.getByLabel("수신자 이름 (선택)").fill("김상대");
+  await page.getByLabel("수신자 이메일").fill(counterpartyEmail);
+  await page.getByLabel("수신자 이름 (선택)").fill(counterpartyName);
   await page.getByLabel(/전자서명 사용 동의/).check();
   await page.getByLabel(/개인정보 수집·이용 동의/).check();
   await page.getByRole("button", { name: "서명하고 요청 보내기" }).click();
@@ -131,8 +138,88 @@ test("runs the core settlement chain from client to paid invoice and report expo
   await expect(
     page.getByRole("heading", { name: "상대방 서명 요청 현황" }),
   ).toBeVisible();
-  await expect(page.getByText("counterparty@example.test")).toBeVisible();
+  await expect(page.getByText(counterpartyEmail)).toBeVisible();
   await expect(page.getByText("서명 요청 발송")).toBeVisible();
+
+  // ── 상대방(비로그인) 서명 완결 ──
+  // 원문 토큰은 메일 본문에만 존재한다(DB엔 sha256 해시만). 아웃박스에서 집어온다.
+  const signingToken = await waitForSigningToken(counterpartyEmail);
+  // 로그인 쿠키가 없는 별도 컨텍스트 — 공개 서명 페이지는 인증 없이 열려야 한다.
+  const counterpartyContext = await browser.newContext({ baseURL });
+  const signPage = await counterpartyContext.newPage();
+
+  try {
+    await signPage.goto(`/sign/${signingToken}`);
+    await expect(
+      signPage.getByRole("heading", { name: contractTitle }),
+    ).toBeVisible();
+    await expect(signPage.getByText("문서 지문 (SHA-256)")).toBeVisible();
+    await expect(
+      signPage.getByRole("heading", { name: "계약 조항" }),
+    ).toBeVisible();
+
+    await signPage.getByLabel("서명자 이름").fill(counterpartyName);
+
+    const counterpartyCanvas = signPage.getByRole("img", {
+      name: "서명 입력 캔버스",
+    });
+    await counterpartyCanvas.scrollIntoViewIfNeeded();
+    const counterpartyCanvasBox = await counterpartyCanvas.boundingBox();
+
+    if (!counterpartyCanvasBox) {
+      throw new Error("Counterparty signature canvas was not measurable");
+    }
+
+    await signPage.mouse.move(
+      counterpartyCanvasBox.x + 70,
+      counterpartyCanvasBox.y + 70,
+    );
+    await signPage.mouse.down();
+    await signPage.mouse.move(
+      counterpartyCanvasBox.x + 170,
+      counterpartyCanvasBox.y + 130,
+    );
+    await signPage.mouse.move(
+      counterpartyCanvasBox.x + 260,
+      counterpartyCanvasBox.y + 80,
+    );
+    await signPage.mouse.up();
+
+    await signPage.getByLabel(/전자서명 사용 동의/).check();
+    await signPage.getByLabel(/개인정보 수집·이용 동의/).check();
+    await signPage.getByRole("button", { name: "동의하고 서명 완료" }).click();
+
+    // 완결 응답 전에 TSA 스탬프·PDF 2종 렌더가 best-effort로 돌아 수 초 걸린다.
+    await expect(
+      signPage.getByRole("heading", {
+        name: "서명이 완료되어 계약이 매듭지어졌습니다",
+      }),
+    ).toBeVisible({ timeout: 60_000 });
+
+    const certificateResponse = await signPage.request.get(
+      `/api/sign/${signingToken}/certificate`,
+    );
+    expect(certificateResponse.status()).toBe(200);
+    expect(certificateResponse.headers()["content-type"]).toContain(
+      "application/pdf",
+    );
+  } finally {
+    await counterpartyContext.close();
+  }
+
+  // owner 화면은 맞서명 완료로 전환된다 — 상태·법적 효력 표기·완결증명서 링크.
+  await page.reload();
+  await expect(page.getByText("서명완료").first()).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    page.getByText("양 당사자 동의 서명 · 이메일 소유확인 수준"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "완결증명서 PDF" }),
+  ).toBeVisible();
+  // append-only 이벤트 로그에 완결이 남는다(타임라인 라벨은 event-labels.ts 정본).
+  await expect(page.getByText("상대방 서명(완결)").first()).toBeVisible();
 
   await page.getByRole("link", { name: "인보이스 발행" }).click();
   await page.waitForURL(new RegExp(`/invoices/new\\?contract=${contractId}$`));

@@ -1,5 +1,7 @@
 // server-only: this module reads server env (RESEND_API_KEY) and must not be imported by client components.
 // 이메일 실패는 서명 트랜잭션과 분리(best-effort + 재발송 버튼) — send는 어떤 실패에서도 throw하지 않는다.
+import { appendFile } from "node:fs/promises";
+
 import { getEmailEnv } from "@/lib/env";
 
 export interface EmailAttachment {
@@ -124,6 +126,36 @@ export function createConsoleEmailProvider(): EmailProvider {
   };
 }
 
+// dev/E2E 전용 아웃박스. 원문 서명 토큰이 든 본문을 JSONL로 남겨 자동화가 서명 링크를
+// 집어갈 수 있게 한다(콘솔 폴백은 서버 stdout이라 테스트가 읽을 수 없다).
+export function createOutboxEmailProvider(filePath: string): EmailProvider {
+  return {
+    async send(message) {
+      try {
+        const record = {
+          sent_at: new Date().toISOString(),
+          to: message.to,
+          subject: message.subject,
+          text: message.text,
+          // 첨부 본문(PDF base64)은 수십 KB라 파일명만 남긴다.
+          attachments: (message.attachments ?? []).map(
+            (attachment) => attachment.filename,
+          ),
+        };
+
+        await appendFile(filePath, `${JSON.stringify(record)}\n`, "utf8");
+
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    },
+  };
+}
+
 // 미설정 프로바이더. 콘솔 폴백은 본문 전문(원문 서명 토큰이 든 /sign/ URL)을 로그에 남기므로
 // 프로덕션에서는 폴백하지 않고 실패를 그대로 알린다. 발송은 best-effort라 호출자는 이 실패로
 // 트랜잭션을 되돌리지 않고 재발송 버튼으로 복구한다.
@@ -137,6 +169,11 @@ export function createUnconfiguredEmailProvider(): EmailProvider {
 
 export function getEmailProvider(): EmailProvider {
   const env = getEmailEnv();
+
+  // 아웃박스는 미사용 서명 토큰을 평문 파일로 남기므로 프로덕션에서는 켜지지 않는다.
+  if (env.EMAIL_OUTBOX_FILE && process.env.NODE_ENV !== "production") {
+    return createOutboxEmailProvider(env.EMAIL_OUTBOX_FILE);
+  }
 
   if (env.RESEND_API_KEY) {
     return createResendEmailProvider(env.RESEND_API_KEY, env.EMAIL_FROM ?? DEFAULT_FROM);

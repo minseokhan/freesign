@@ -1,8 +1,13 @@
 // @vitest-environment node
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   createConsoleEmailProvider,
+  createOutboxEmailProvider,
   createResendEmailProvider,
   getEmailProvider,
   type EmailMessage,
@@ -141,7 +146,95 @@ describe("createConsoleEmailProvider", () => {
   });
 });
 
+describe("createOutboxEmailProvider", () => {
+  it("메시지를 JSONL 한 줄로 덧붙이고 첨부는 파일명만 남긴다", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "maedeup-outbox-"));
+    const filePath = path.join(dir, "outbox.jsonl");
+
+    try {
+      const provider = createOutboxEmailProvider(filePath);
+
+      await provider.send(message);
+      await provider.send({
+        ...message,
+        to: "owner@example.com",
+        attachments: [{ filename: "certificate.pdf", content: "aGVsbG8=" }],
+      });
+
+      const lines = (await readFile(filePath, "utf8")).trim().split("\n");
+      expect(lines).toHaveLength(2);
+
+      const first = JSON.parse(lines[0]) as Record<string, unknown>;
+      expect(first.to).toBe(message.to);
+      expect(first.subject).toBe(message.subject);
+      expect(first.text).toContain("https://maedeup.example/sign/token-abc");
+
+      const second = JSON.parse(lines[1]) as Record<string, unknown>;
+      expect(second.to).toBe("owner@example.com");
+      // 첨부 본문(PDF base64)은 수십 KB라 파일명만 남긴다.
+      expect(second.attachments).toEqual(["certificate.pdf"]);
+      expect(JSON.stringify(second)).not.toContain("aGVsbG8=");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("파일을 쓸 수 없어도 throw하지 않고 실패를 반환한다", async () => {
+    const provider = createOutboxEmailProvider(
+      path.join(tmpdir(), "maedeup-outbox-missing-dir", "outbox.jsonl"),
+    );
+
+    const result = await provider.send(message);
+
+    expect(result.ok).toBe(false);
+  });
+});
+
 describe("getEmailProvider", () => {
+  // E2E는 원문 서명 토큰이 든 메일 본문을 파일로 받아야 상대방 서명까지 이어갈 수 있다.
+  it("EMAIL_OUTBOX_FILE이 설정되면 개발 환경에서 Resend 대신 아웃박스로 보낸다", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "maedeup-outbox-"));
+    const filePath = path.join(dir, "outbox.jsonl");
+
+    try {
+      vi.stubEnv("RESEND_API_KEY", "re_test_key");
+      vi.stubEnv("EMAIL_OUTBOX_FILE", filePath);
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+
+      const result = await getEmailProvider().send(message);
+
+      expect(result).toEqual({ ok: true });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(await readFile(filePath, "utf8")).toContain("token-abc");
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  // 아웃박스 파일은 미사용 서명 토큰을 평문으로 남긴다 — 프로덕션에서는 절대 켜지지 않는다.
+  it("프로덕션에서는 EMAIL_OUTBOX_FILE을 무시한다", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "maedeup-outbox-"));
+    const filePath = path.join(dir, "outbox.jsonl");
+
+    try {
+      vi.stubEnv("NODE_ENV", "production");
+      vi.stubEnv("RESEND_API_KEY", "re_test_key");
+      vi.stubEnv("EMAIL_OUTBOX_FILE", filePath);
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response("{}", { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+
+      await getEmailProvider().send(message);
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      await expect(readFile(filePath, "utf8")).rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("uses the Resend provider when RESEND_API_KEY is set", async () => {
     vi.stubEnv("RESEND_API_KEY", "re_test_key");
     vi.stubEnv("EMAIL_FROM", "매듭 <no-reply@maedeup.example>");
