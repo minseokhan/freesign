@@ -5,9 +5,9 @@ import { Pool } from "pg";
 // 0041 회귀 테스트. 크론·웹훅 시크릿을 평문으로 보관하면 DB 덤프 한 번으로
 // 세션 없는 특권 경계(크론 스윕·구독 upsert)를 그대로 통과할 수 있다.
 //
-// cron_config는 단일 행 전역 상태라 다른 테스트 파일도 같은 값을 쓴다.
-// 여기서는 같은 값으로만 다시 세팅하고(멱등), 값을 바꾸는 회전 테스트는
-// 이 파일만 쓰는 billing_config에서 한다.
+// cron_config·billing_config는 단일 행 전역 상태라 다른 테스트 파일도 같은 값을 쓴다
+// (billing_config는 billing-webhook-rpc.test.ts와 공유). 어느 쪽도 값을 바꾸지 않고
+// 같은 값으로만 다시 세팅한다(멱등) — 값을 바꾸면 병렬로 도는 다른 파일이 깨진다.
 describe("시크릿 해시 저장 (0041)", () => {
   let pool: Pool;
 
