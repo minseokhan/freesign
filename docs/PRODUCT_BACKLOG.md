@@ -13,13 +13,13 @@
 
 | #   | 항목                    | 상태 | 정본 문서                    | ADR     |
 | --- | ----------------------- | ---- | ---------------------------- | ------- |
-| 1   | 인보이스 발송 경로      | ✅   | `docs/INVOICE_DELIVERY_PLAN.md` | ADR-013 |
-| 2   | 법적 페이지 + 계정 삭제 | ✅   | `docs/LEGAL_ACCOUNT_PLAN.md`    | ADR-012 |
+| 1   | 인보이스 발송 경로      | ✅   | `docs/archive/INVOICE_DELIVERY_PLAN.md` | ADR-013 |
+| 2   | 법적 페이지 + 계정 삭제 | ✅   | `docs/archive/LEGAL_ACCOUNT_PLAN.md`    | ADR-012 |
 | 3   | 입금 확인 보조          | ❌   | 없음                         | 없음    |
 | 4   | 모바일 리스트 레이아웃  | ❌   | 없음                         | 없음    |
 | 5   | 테스트 커버리지 비대칭  | ✅   | 이 문서 §2.1                 | 없음    |
 | 6   | 세금 도메인 확장 결정   | ❌   | 없음                         | 없음    |
-| 7   | 문서 부채(완료 PLAN)    | ❌   | 이 문서 §2.5                 | 없음    |
+| 7   | 문서 부채(완료 PLAN)    | ✅   | 이 문서 §2.5                 | 없음    |
 
 ### 1-1. 완료 항목 (재작업 금지 — 근거)
 
@@ -37,6 +37,21 @@
   (`LEGAL_ACCOUNT_PLAN.md`에는 "원격 적용만 잔여"로 적혀 있으나 문서가 뒤처진 것이다)
 - ⚠️ **남은 것 하나**: `src/lib/legal.ts`의 사업자 정보·지원 이메일·서비스 시행일이 아직 placeholder다.
   결제를 켜기 전 반드시 채워야 하고, 채워지지 않은 상태는 `legal.test.ts`가 감지한다.
+
+### 1-2. 미결 제품 정책 (2026-08-06 아카이브에서 건져낸 것)
+
+`PRO_FEATURES_PLAN`을 `docs/archive/`로 옮기며(§2.5) 그 "열린 항목" 중 **아직 결정되지 않은 2건**을
+여기로 옮겼다. 코드가 아니라 판단이고, 둘 다 "출시 후 사용자 반응을 보고" 결정하기로 미뤄둔 것이다.
+
+- **AI 계약 인사이트 무료 체험** — 현재 Pro 전용(402). 전환 유도용 무료 1~2회를 줄지.
+  주기로 하면 `consume_lifetime_quota`에 버킷 하나 추가면 된다(`lib/plan.ts`의 불러오기 쿼터와 같은 패턴).
+- **연 구독 도입 / 월가 재조정** — Pro 경계가 "계약 생성"에서 "청구·수금 자동화"로 재배치된(ADR-011) 뒤
+  가격을 다시 보기로 했으나 논의하지 않았다.
+
+> 나머지 열린 항목은 아카이브 전 확인 결과 전부 해소돼 있었다: past_due 유예(`lib/plan.ts:85`),
+> 다운그레이드 시 계약 카운트(`canCreateContract` — 불러온 계약 제외라 자동 일치), 누적 카운터 저장소,
+> Vercel Cron 티어, Polar 한국 결제 현실(ADR-010 트레이드오프 절), `EMAIL_FROM` 도메인
+> (`SECURITY_NEXT_STEPS.md` 4절).
 
 ---
 
@@ -150,31 +165,43 @@ MVP 제외 항목으로 명시된 **의도적 선택**이다.
 
 ---
 
-### 2.5 [7번] 문서 부채 — ❌ 미착수
+### 2.5 [7번] 문서 부채 — ✅ 완료 (2026-08-06)
 
-`docs/` 아래 완료된 작업의 계획서가 **8편** 남아 있고 `docs/archive/`는 없다.
+완료된 계획서 **8편을 `docs/archive/`로 옮겼다**. `docs/` 최상위는 이제 살아 있는 문서만 남는다
+(PRD·ARCHITECTURE·ADR·DATABASE·UI_GUIDE·UX_PRINCIPLES·LEGAL_SIGNATURE·이 문서 + 진행 중인
+REBRAND_PLAN·POLAR_PRODUCTION_CUTOVER·SECURITY_NEXT_STEPS·BROWSER_TEST_SCENARIOS·EMAIL_DOMAIN_SETUP).
 
-```
-BILLING_PLAN.md            PRO_FEATURES_PLAN.md
-SIGNATURE_V2_PLAN.md       SIGNATURE_V2_FIXES_PLAN.md
-LIGHTHOUSE_LOOP_PLAN.md    SECURITY_REMEDIATION_PLAN.md
-INVOICE_DELIVERY_PLAN.md   LEGAL_ACCOUNT_PLAN.md
-```
+**옮기기 전에 확인한 것 — 살아 있는 잔여가 묻히지 않도록**
 
-하네스가 매 세션 읽는 컨텍스트 비용이고, 새로 오는 사람(또는 에이전트)이
-"이게 아직 할 일인가?"를 매번 판단해야 한다.
+각 PLAN의 "열린 항목"·"남은 판단" 절을 전부 훑어 현재 코드와 대조했다.
 
-**할 일**: `docs/archive/`로 옮기고 결론은 ADR에만 남긴다.
-⚠️ 옮기기 전 확인: 각 PLAN을 참조하는 링크가 `ADR.md`·`CLAUDE.md`·`SECURITY_NEXT_STEPS.md`에 있다.
-경로를 같이 고치지 않으면 깨진 참조가 된다.
+- `SECURITY_REMEDIATION_PLAN`의 남은 판단 4건(CSP nonce·레이트리밋 fail-open·독촉 claim 재정렬·
+  TSA 다이제스트)은 **`SECURITY_NEXT_STEPS.md` §6에서 이미 전부 판단이 끝나 있었다** — 그 문서가 정본이고
+  아카이브 쪽이 뒤처진 상태였다.
+- `BILLING_PLAN`의 열린 항목 6건은 전부 구현·결정으로 해소됨(근거는 §1-2 각주).
+- `INVOICE_DELIVERY_PLAN` §8의 잔여 4건, `LEGAL_ACCOUNT_PLAN` §7의 3건은
+  `SECURITY_NEXT_STEPS.md` 0절과 §1-1에 이미 박제돼 있다.
+- **진짜로 아직 미결인 2건**(AI 인사이트 무료 체험·연 구독)만 §1-2로 옮겼다.
+
+**참조 경로 처리**
+
+- 고침: `ADR.md`(5곳) · `SECURITY_NEXT_STEPS.md`(2) · `POLAR_PRODUCTION_CUTOVER.md`(2) ·
+  이 문서 · 아카이브 문서 간 상호참조 · `src/lib/legal.ts` · `src/lib/__tests__/legal.test.ts`
+- **일부러 안 고침**: 이미 원격 적용된 마이그레이션 SQL 주석(`0019`·`0022`·`0024`)과
+  `phases/10-signature-v2/` 실행 기록. 그 시점의 스냅샷이라 손대지 않고,
+  대신 `docs/archive/README.md`에 옛 경로 매핑을 적어 해소했다.
+- 상태가 틀려 있던 배너 2개도 같이 고쳤다 — `LEGAL_ACCOUNT_PLAN`("원격 적용만 잔여" → 적용 완료),
+  `LIGHTHOUSE_LOOP_PLAN`(완료 표기가 아예 없었다).
+
+`docs/archive/README.md`가 목록·결론 정본 매핑·"여기는 할 일이 아니다"를 한 화면에 담는다.
 
 ---
 
 ## 3. 권장 순서 (남은 것)
 
-1. **2.5 문서 정리** — 가장 싸고, 이후 세션의 컨텍스트 비용을 즉시 줄인다
-2. **2.4 ADR-014** — 코드가 아니라 결정. 스키마가 작을 때가 싸다
-3. **2.2 입금 알림** → **2.3 모바일** — 둘 다 제품 가치, 순서는 취향
+1. **2.4 ADR-014** — 코드가 아니라 결정. 스키마가 작을 때가 싸다
+2. **2.2 입금 알림** → **2.3 모바일** — 둘 다 제품 가치, 순서는 취향
+3. **§1-2 미결 2건** — 출시 후 반응을 보고 결정하기로 한 것이라 지금 서두를 이유는 없다
 
 그리고 **결제를 켜기 전** `src/lib/legal.ts` placeholder(사업자 정보·지원 이메일·시행일)를 채운다(§1-1).
 
@@ -182,3 +209,4 @@ INVOICE_DELIVERY_PLAN.md   LEGAL_ACCOUNT_PLAN.md
 
 - 2026-08-06 — 문서 생성. 1·2번 완료 확인(원격 마이그레이션 0046~0048 적용 검증)
 - 2026-08-06 — **5번 완료**: 대시보드·리포트 RSC 페이지 테스트 + 결제 웹훅 E2E 2층 (테스트 +22)
+- 2026-08-06 — **7번 완료**: 완료 PLAN 8편 `docs/archive/` 이동 + 참조 경로 정리, 미결 2건은 §1-2로 이관

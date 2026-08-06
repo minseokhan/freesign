@@ -47,7 +47,7 @@
 **갱신(2026-07-14)**: 계약(contracts)만 이 결정을 뒤집어 **물리(hard) 삭제**로 전환한다(인보이스·클라이언트는 soft-delete 유지). 계약은 소유자가 상태와 무관하게 삭제할 수 있고, 삭제 시 (1) 딸린 인보이스는 보존하되 `contract_id`를 `ON DELETE SET NULL`로 끊고 삭제 시점의 계약 핵심 정보(제목·금액·기간)를 `invoices.contract_snapshot(jsonb)`에 스냅샷으로 남겨 맥락 없는 고아를 방지, (2) 계약 감사 이벤트(`contract_events`)는 `ON DELETE CASCADE`로 함께 제거(append-only delete 정책 부재를 cascade가 우회), (3) Storage 아티팩트는 best-effort로 제거한다. **이유**: 계약은 인보이스와 달리 그 자체가 세금 신고 대상이 아니고, 미성사·오입력 계약을 완전히 지우려는 실제 요구가 있어 soft-delete 잔존이 오히려 노이즈. 증빙 체인의 핵심인 "왜 받았는지"는 인보이스 스냅샷이 대신 보존한다. 관련 정책: `contracts_delete_own`(소유자 delete), `contract_artifacts_delete_own`(Storage delete). 마이그레이션 `0013_contract_hard_delete.sql`.
 
 ### ADR-009: 쌍방 전자서명 v2 — sent 상태·anon DEFINER RPC 경계·증거 보존
-**결정**: 상대방(비로그인) 맞서명을 자체 구현하며(마이그레이션 `0017`~`0020`, `docs/SIGNATURE_V2_PLAN.md`) 다음 다섯 가지를 확정한다.
+**결정**: 상대방(비로그인) 맞서명을 자체 구현하며(마이그레이션 `0017`~`0020`, `docs/archive/SIGNATURE_V2_PLAN.md`) 다음 다섯 가지를 확정한다.
 1. **`sent` 상태 도입** — 상태 머신을 draft → sent → signed로 확장(`contract_status`에 `sent` 추가). 발송 즉시 조항 편집이 잠기고(`updateContractClauses`는 draft만 허용), 조인 없이 목록·전이 가드를 처리한다. sent/signed 진입은 일반 상태 전이 UI가 아닌 전용 절차(발송/서명 RPC)에서만 허용.
 2. **anon 접근은 SECURITY DEFINER RPC 경계** — 비로그인 서명자는 테이블에 직접 접근할 수 없고(anon RLS 정책 없음), `search_path = public, pg_temp` 고정 + anon grant된 DEFINER 함수(`get_signing_session`·`complete_counterparty_signature_with_event`·`get_certificate_data`·`store_completion_tsa_token`·`get_signed_contract_data`·`consume_anon_rate_limit`)로만 통과한다. CLAUDE.md의 "요청 경로 service_role 금지"를 지키면서 RLS 우회 표면을 함수 몇 개로 국한.
 3. **상대 서명 이미지는 DB 저장(base64 text, ≤256KB CHECK)** — "Storage엔 파일, DB엔 key만" 규칙의 **명시적 예외**. anon은 Storage RLS를 통과할 수 없고(토큰 검증을 storage 정책으로 표현 불가), 캔버스 PNG는 ~30KB라 실용적이며 서명 행과 증거가 결합된다.
@@ -58,14 +58,14 @@
 **트레이드오프**: anon DEFINER RPC는 신규 공격 표면(반환 필드 최소화·입력 상한·search_path 고정·레이트리밋으로 완화, advisor 재점검 필요). 이메일 소유확인 수준이라 토큰 URL 소지자가 서명 가능(본인인증 승급은 확장 지점만 확보). 서명 이미지 DB 저장으로 행 크기 증가. 무료 공용 TSA는 국내 공인 TSA 대비 법원 관행 신뢰도가 낮음(엔드포인트 교체로 승급 가능).
 
 ### ADR-010: 유료화 — Polar 결제 + Free/Pro 경계 + SECURITY DEFINER webhook
-**결정**: 구독 결제를 Polar(`@polar-sh/nextjs`)로 붙이고(마이그레이션 `0024`, `docs/BILLING_PLAN.md`) 다음을 확정한다.
+**결정**: 구독 결제를 Polar(`@polar-sh/nextjs`)로 붙이고(마이그레이션 `0024`, `docs/archive/BILLING_PLAN.md`) 다음을 확정한다.
 1. **Free/Pro 경계 = "불러오기 Free / 새 계약 생성·서명 Pro"** — 이미 서명된 외부 계약 **불러오기**(AI 파싱, 누적 5회)와 인보이스·클라이언트·입금추적은 무료(기록 체인 락인). 앱에서 **새 계약 생성 → 쌍방 서명 → TSA → 완결증명서**로 도는 풀 워크플로우는 Pro. 단 activation을 위해 무료도 **새 계약 생성·서명을 1건 체험**(2건째부터 Pro). 세금 리포트 export·고급 대시보드(채널·클라이언트 랭킹)도 Pro. 서명·TSA·증명서는 "새 계약 생성"에만 존재하므로 별도 게이트 없이 자동 Pro.
 2. **게이팅 방식 — 상한별 이원화**: 불러오기 파싱은 저장 없는 호출도 토큰 비용이 나가므로 `usage_counters` 누적 카운터(`consume_lifetime_quota`)로 "호출 자체"를 카운트. 새 계약 생성·서명은 별도 카운터 없이 **`contracts` 실시간 count**(`source_pdf_url IS NULL` = 생성 계약)로 판정 — 실데이터 기반이라 **다운그레이드(pro때 만든 계약이 그대로 카운트) 시 "기존 읽기전용 유지, 신규만 재적용" 정책과 자동 일치**. 모든 게이트는 **free일 때만** 검사하므로 업그레이드는 즉시 무제한.
 3. **플랜 판정은 순수 함수 `derivePlan`**(`lib/plan.ts`) — 행 없음/plan=free/revoked→free, 기간 만료→free, 취소예정이나 기간 잔여→pro 유지(유예). `mapPolarStatusToPlan`이 Polar status→내부 상태 매핑(active/trialing/past_due→pro, 그 외→free).
 4. **Webhook은 SECURITY DEFINER RPC 경계** — Polar webhook은 로그인 세션이 없어 남의 구독 행을 써야 한다. `service_role`(마스터키)을 요청 경로에 두는 대신, 서명 검증 후 **anon 클라이언트**(`createAnonClient`)로 `upsert_subscription_from_polar`(DEFINER) 하나만 호출해 구독 행 upsert + `billing_events` 기록. anon 직접 호출로 남을 pro로 올리는 권한상승을 막기 위해 **webhook 시크릿을 파라미터로 받아 `billing_config`(RLS·grant로 anon/authenticated 조회 차단, DEFINER만 읽음)의 저장값과 대조**(미설정 시 fail-closed). ADR-009의 anon DEFINER 경계 컨벤션 재사용. (Supabase `postgres` 롤은 커스텀 GUC ALTER 권한이 없어 GUC 대신 테이블에 시크릿을 둔다 — 0026.)
 
 **이유**: 무료의 방어 가능한 코어(기록 체인)는 온전히 열어 락인하고, 히어로 기능(생성→서명→TSA→증명서)의 무제한만 과금한다. webhook의 DEFINER+GUC 게이트로 "요청 경로 service_role 금지"(CLAUDE.md CRITICAL)를 지키면서 권한상승 구멍도 없앤다.
-**트레이드오프**: Polar(MoR·미국법인)는 한국 발급 카드 결제만 가능하고 카카오페이·네이버페이·계좌이체 등 국내 간편결제·한국 세금계산서(홈택스) 발급 미지원 — 사업자·카드 기피층 전환 손실을 감수하며, 마찰이 크면 향후 국내 PG(토스페이먼츠·페이플) 이전 재평가(`docs/BILLING_PLAN.md` 열린 항목). 불러오기 카운터는 성공/실패 무관 "파싱 호출"을 세므로 preview 남용도 상한에 포함(비용 기준으로 의도된 것).
+**트레이드오프**: Polar(MoR·미국법인)는 한국 발급 카드 결제만 가능하고 카카오페이·네이버페이·계좌이체 등 국내 간편결제·한국 세금계산서(홈택스) 발급 미지원 — 사업자·카드 기피층 전환 손실을 감수하며, 마찰이 크면 향후 국내 PG(토스페이먼츠·페이플) 이전 재평가(`docs/archive/BILLING_PLAN.md` 열린 항목). 불러오기 카운터는 성공/실패 무관 "파싱 호출"을 세므로 preview 남용도 상한에 포함(비용 기준으로 의도된 것).
 
 **갱신(2026-07-25)**: 상한 구조(2·3·4항)는 유지하되 **Pro의 정체성을 "무제한 계약 생성" → "청구·수금 자동화 + 인사이트"로 재배치**한다(ADR-011). 이유는 위 1항의 결함이다 — 매달 쓰는 가치(인보이스·입금추적)는 전부 Free인데 Pro의 대표 가치(새 계약 생성·서명)는 몰아서 쓰는(bursty) 기능이라, "계약 1건 → 몇 달 작업"인 프리랜서에게 월 구독의 정당성이 매달 서지 않는다. 그래서 매달 가치가 발생하는 3기능(미수금 자동 독촉·반복 인보이스·AI 계약 인사이트)을 Pro로 신설했다. 현재 경계는 `src/components/billing/plan-comparison.tsx`가 사용자에게 보여주는 목록이 정본이다:
 - **Free** — 클라이언트·인보이스 무제한, 새 계약 1건·서명 발송 1건, 불러오기 파싱 누적 5회, 미수금·이달 수익 대시보드, 계약서·인보이스 PDF.
@@ -73,7 +73,7 @@
 - **다운그레이드해도 데이터는 지우지 않는다** — 자동화와 뷰만 잠근다(반복 스케줄은 행을 남긴 채 생성만 중단). 요금제 화면은 `/settings`의 카드에서 전용 페이지 `/billing`으로 분리했고, Pro 전용 메뉴(반복 인보이스)는 free에게 사이드바에서 아예 숨긴다.
 
 ### ADR-011: Pro 자동화 3기능 — 단일 일일 크론 + "초안까지만" 반자동
-**결정**: 월 구독을 정당화하는 Pro 자동화 3기능(미수금 독촉·반복 인보이스·AI 계약 인사이트)을 붙이며(마이그레이션 `0027`~`0031`, `docs/PRO_FEATURES_PLAN.md`) 다음을 확정한다.
+**결정**: 월 구독을 정당화하는 Pro 자동화 3기능(미수금 독촉·반복 인보이스·AI 계약 인사이트)을 붙이며(마이그레이션 `0027`~`0031`, `docs/archive/PRO_FEATURES_PLAN.md`) 다음을 확정한다.
 1. **스케줄러는 Vercel Cron 단일 일일 잡** — Hobby 플랜이 "1일 1회 + 잡 수 제한"이라 기능별 크론 대신 `/api/cron/daily`(21:00 UTC = 06:00 KST) 하나가 dunning·recurring 스윕을 순차 호출한다. 각 스윕은 try/catch로 격리해 하나가 죽어도 나머지가 돈다. pg_cron·Supabase Functions를 새로 들이지 않고 기존 API Route 패턴에 최소 표면으로 얹는다.
 2. **크론의 멀티유저 쓰기는 시크릿 게이트 DEFINER RPC로만** — 세션 없는 크론은 남의 행을 써야 한다. ADR-010의 billing 패턴을 그대로 재사용: anon 클라이언트 → `p_cron_secret` 인자를 받는 `SECURITY DEFINER` RPC → 첫 줄에서 `assert_cron_secret`이 `cron_config`(RLS enabled + 정책 없음 + anon/authenticated grant 회수) 저장값과 대조해 fail-closed. 라우트 진입은 `Authorization: Bearer ${CRON_SECRET}`로 한 번 더 막는다. `service_role`은 여기서도 금지.
 3. **크론은 초안까지만 만든다(반자동)** — 크론 산출물은 항상 소유자 검토 대기 상태다(`dunning_reminders.status='pending_review'`, 반복 인보이스는 `draft`). 클라이언트에게 나가는 메일·인보이스 발행은 세션 있는 Server Action에서 `assertProFeature()` 통과 후에만. 크론이 소유자에게 보내는 "검토 대기" 알림만 자동 발송이다.
@@ -85,7 +85,7 @@
 **트레이드오프**: 일 1회 크론이라 지연이 최대 24시간(연체 독촉·주기 인보이스에는 충분하지만 실시간 감각은 없음). 승인 단계 때문에 "완전 자동"을 기대한 사용자에겐 손이 한 번 더 간다. 크론 시크릿은 env와 DB(`cron_config`)에 이중 주입해야 하며 불일치 시 조용히 전부 실패한다(운영 함정 — 마이그레이션 후 수동 update 필요). 크론 스윕은 유저 수에 선형이라 대량 사용자에서는 배치·큐 재설계가 필요하다.
 
 ### ADR-012: 계정 삭제 — auth.uid() DEFINER RPC + 결제 기록만 익명 보존
-**결정**: 회원 탈퇴를 즉시 완전 삭제로 구현하며(마이그레이션 `0047`~`0048`, `docs/LEGAL_ACCOUNT_PLAN.md`) 다음을 확정한다.
+**결정**: 회원 탈퇴를 즉시 완전 삭제로 구현하며(마이그레이션 `0047`~`0048`, `docs/archive/LEGAL_ACCOUNT_PLAN.md`) 다음을 확정한다.
 1. **`service_role` 대신 `auth.uid()` 기반 `SECURITY DEFINER` RPC** — Supabase 표준 경로인 `auth.admin.deleteUser()`는 `service_role`을 요구하는데 요청 경로에서 이는 금지다. 대신 인자를 하나도 받지 않는 `delete_own_account()`가 `auth.uid()`로 대상을 정한다. 세션 있는 경계라 ADR-010·011의 시크릿 게이트(`p_*_secret`)는 필요 없다 — 세션 자체가 인가다. **인자가 없다는 점이 핵심**으로, 삭제 대상을 클라이언트가 지정할 수 없다.
 2. **cascade 정비를 선행(0047)** — `0001`·`0018`이 만든 8개 테이블은 `references auth.users(id)`에 삭제 동작을 지정하지 않아 NO ACTION이었다. 이름을 나열하는 대신 "auth.users를 참조하는 NO ACTION FK"를 훑어 cascade로 바꾸고, 이후 추가분은 테스트가 잡는다(`src/lib/db/__tests__/account-delete.test.ts`가 NO ACTION 0건을 단언).
 3. **cascade만으로는 안 되므로 RPC 안에서 순서대로 지운다** — `contracts.client_id`·`invoices.client_id`는 `ON DELETE RESTRICT`다. RESTRICT는 같은 문장에서 자식이 함께 지워져도 즉시 위반으로 판정하므로 `auth.users` 하나만 지우면 실패한다. `invoice_events → invoices → contracts → clients` 순으로 명시 삭제한 뒤 계정을 지운다. RESTRICT 자체는 "계약이 붙은 클라이언트는 못 지운다"는 제품 규칙이라 유지한다.
@@ -97,7 +97,7 @@
 **트레이드오프**: 6항의 순서에는 원자성이 없다. 뒤집으면 계정이 사라진 뒤 세션이 죽어 서명 이미지·계약 PDF를 지울 수단이 없어져 **개인정보가 영구히 남는다**. 지금 순서의 최악은 "파일은 지웠는데 계정이 남음"인데 재시도로 해소되므로 덜 나쁜 실패를 골랐다(실패 시 `captureServerException`으로 관측). 즉시 삭제라 오조작 복구가 불가능해 확인 문구 입력을 요구한다. 2항의 훑기는 마이그레이션 시점의 상태만 바꾸므로, 이후 새 테이블에 cascade를 빠뜨리면 테스트가 잡을 때까지 드러나지 않는다.
 
 ### ADR-013: 청구 전달 — 공개 청구서 토큰 + 발행/도달 이벤트 분리
-**결정**: 인보이스를 클라이언트에게 실제로 전달하는 경로를 만들며(마이그레이션 `0046`, `docs/INVOICE_DELIVERY_PLAN.md`) 다음을 확정한다.
+**결정**: 인보이스를 클라이언트에게 실제로 전달하는 경로를 만들며(마이그레이션 `0046`, `docs/archive/INVOICE_DELIVERY_PLAN.md`) 다음을 확정한다.
 1. **서명의 공개 토큰 패턴을 청구 단계에 복제** — 새 경계를 발명하지 않는다. `invoice_share_tokens`는 `signature_requests`(0018)와 동형이고(원문 미저장·sha256 해시만·인보이스당 활성 1건 partial unique·만료), 공개 열람은 `get_invoice_view`(anon DEFINER, ADR-009 컨벤션)로만 연다. 테이블 쓰기 권한·정책은 두지 않고 `send_invoice_with_event`(DEFINER, 소유자 스코프)만 쓴다(0036 락다운 방침).
 2. **발행(`invoice.issued`)과 도달(`invoice.sent`)을 두 이벤트로 나눈다** — 토큰이 DB에 있어야 링크가 유효하므로 "메일 먼저"가 불가능하다(서명 요청과 같은 제약). 그래서 토큰·발행은 RPC 한 트랜잭션에서 커밋하고, 메일은 커밋 뒤 best-effort로 보내며 **성공했을 때만** `append_invoice_event('invoice.sent')`를 남긴다. 커밋 시점에 미리 남기면 "보냈다고 기록됐는데 안 간" 상태가 증거로 굳는다.
 3. **발행만 하는 경로를 남기지 않는다** — `publishDraftInvoice`를 유지하지 않고 `sendInvoice`로 대체했다. 발행과 발송이 분리돼 있으면 "앱에서 발행하고 청구는 카톡으로"라는 원래의 구멍이 그대로 남는다. 클라이언트 이메일이 없으면 메일 없이 링크만 발급하고 소유자가 직접 전달한다.

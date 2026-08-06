@@ -1,5 +1,9 @@
 # Lighthouse 성능 최적화 루프 (autoresearch 스타일)
 
+> ✅ **실행 완료(2026-07-31, 커밋 `361a820`)** — `scripts/lighthouse-loop/`와 `lighthouse`·`chrome-launcher`
+> 의존성으로 구현됐고 루프를 돌려 성능 86.6 → 98.6을 얻었다. 이후 재사용은 `/lighthouse-loop` 스킬로 한다.
+> 아래는 설계 원본이므로 §5 선행 준비 체크박스·§6 미해결 항목은 실행 시점에 이미 해소됐다.
+
 > Karpathy `autoresearch`의 "가설 → 실험 → 지표 평가 → 개선 유지 → 정체까지 반복" 루프를
 > Lighthouse 성능 점수에 적용한다. 지표가 더 오르지 않을 때까지 자동으로 최적화를 반복한다.
 

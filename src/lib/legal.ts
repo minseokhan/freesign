@@ -28,7 +28,7 @@ export const LEGAL = {
 
 /**
  * placeholder가 남아 있는 필드 경로 목록.
- * 비어 있어야 결제(통신판매)를 켤 수 있다 — docs/LEGAL_ACCOUNT_PLAN.md 7절.
+ * 비어 있어야 결제(통신판매)를 켤 수 있다 — docs/archive/LEGAL_ACCOUNT_PLAN.md 7절.
  */
 export function listUnfilledLegalFields(): string[] {
   const unfilled: string[] = [];

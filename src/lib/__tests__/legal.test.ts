@@ -48,7 +48,7 @@ describe("listUnfilledLegalFields", () => {
 
   // 이 테스트는 "아직 채우지 않았다"를 박제한다. 사업자 등록·도메인 확정 후 값을 채우면
   // 여기가 깨지고, 그때 3개 고지 페이지의 문구·시행일도 함께 재확인하라는 신호가 된다.
-  // (결제를 켜기 전 반드시 통과해야 하는 관문 — docs/LEGAL_ACCOUNT_PLAN.md 7절)
+  // (결제를 켜기 전 반드시 통과해야 하는 관문 — docs/archive/LEGAL_ACCOUNT_PLAN.md 7절)
   it("[의도된 실패 예정] 현재는 사업자 정보가 아직 미기입 상태다", () => {
     expect(listUnfilledLegalFields().length).toBeGreaterThan(0);
   });

@@ -1,7 +1,7 @@
 # Polar 프로덕션 결제 전환 (로컬 테스트 → 프로덕션)
 
 > **다른 세션에서 이 문서만 읽고 진행할 수 있게 쓴 실행 문서.**
-> 배경·정책은 `docs/BILLING_PLAN.md`, 보안 경계는 `docs/ADR.md` ADR-010,
+> 배경·정책은 `docs/archive/BILLING_PLAN.md`, 보안 경계는 `docs/ADR.md` ADR-010,
 > 미해결 항목은 `docs/SECURITY_NEXT_STEPS.md` 4절.
 
 작성일: 2026-08-04
@@ -194,7 +194,7 @@ Pro에서 만든 새 계약 N건이 Free로 강등되면? 기존 계약은 읽�
 
 ---
 
-## 4. 사업 측면 마찰 (이미 조사됨, `docs/BILLING_PLAN.md`)
+## 4. 사업 측면 마찰 (이미 조사됨, `docs/archive/BILLING_PLAN.md`)
 
 - ⚠️ **결제수단**: 한국 발급 Visa/Master **카드만**. 카카오페이·네이버페이·계좌이체 미지원
 - ⚠️ **세금계산서**: Polar가 미국 법인 MoR이라 **홈택스 세금계산서 발급 불가**.
