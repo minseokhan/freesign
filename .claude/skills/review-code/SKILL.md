@@ -19,7 +19,28 @@ description: 변경 diff를 security·correctness·architecture 3축 서브에�
 - **PR이 없으면 (폴백)**: `git diff HEAD` 로 로컬 diff, `git diff --name-only HEAD` 로 파일 목록. 게시하지 않고 **터미널에 4줄 인라인 포맷 + 요약**을 출력하고 그 사실을 사용자에게 알린다. (원하면 임시 PR 생성 옵션 제안)
 - diff가 비어 있으면 리뷰할 것이 없다고 알리고 종료.
 
-### 2. Workflow 병렬 리뷰 실행
+### 2. 병렬 리뷰 실행
+
+**인자에 `--ci`가 있거나 `$GITHUB_ACTIONS`가 설정돼 있으면 Workflow 툴을 쓰지 말 것.**
+Workflow는 백그라운드로 돌면서 완료 시 에이전트를 다시 깨우는데, 헤드리스(GitHub Actions
+SDK) 실행에서는 메인 에이전트가 더 호출할 툴이 없어지는 순간 프로세스가 끝난다. 팬아웃은
+시작되지만 집계·게시까지 가지 못하고 런이 `success`로 종료된다(실측: PR #16, 런 31255890684 —
+"Two finders are underway. Waiting for completion."에서 그대로 끝남).
+
+CI에서는 대신 **`Task` 서브에이전트를 한 메시지에서 병렬로** 띄운다. Task는 결과를 반환할
+때까지 블로킹하므로 런이 먼저 끝나지 않는다.
+
+1. finder 3개(`security`·`correctness`·`architecture`)를 **한 메시지에 Task 3개**로 동시 실행.
+   각 프롬프트는 아래 `DIMENSIONS[].rules` + `finderPrompt(d)`와 동일하게 구성하고,
+   결과를 `{ findings: [...] }` JSON으로만 반환하도록 지시한다(스키마 강제가 없으므로
+   "JSON 외 텍스트 금지"를 명시).
+2. 돌아온 findings를 모아, 각 건을 **한 메시지에 Task N개**로 동시 verify(`verifyPrompt(f)`).
+   `{ confirmed, reason }` JSON만 반환하게 한다.
+3. `confirmed === true`인 것만 남겨 3단계로 넘긴다.
+
+대화형(로컬) 실행에서는 아래 Workflow 경로를 그대로 쓴다.
+
+#### 대화형: Workflow 병렬 리뷰
 아래 스크립트를 **Workflow 툴에 inline `script`로 전달**한다. (이 스킬 호출 자체가 Workflow opt-in 성립.)
 `args`에 `{ pr, paths, diff }`를 넘긴다. `diff`가 매우 크면(수천 줄) 스크래치 파일에 저장 후 경로만 넘기고 finder가 Read 하도록 프롬프트를 조정한다.
 
