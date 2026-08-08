@@ -72,6 +72,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # 생략하면 액션이 Claude GitHub App으로 인증하려 하고, 앱이 설치돼 있지 않으면
+          # "Claude Code is not installed on this repository"로 실패한다. 워크플로 토큰을
+          # 직접 넘겨 앱 설치 없이 돌린다.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: "/review-code ${{ github.event.pull_request.number }}"
           # 스킬에 allowed-tools frontmatter가 없으므로 필요한 툴을 여기서 명시한다.
           claude_args: |
