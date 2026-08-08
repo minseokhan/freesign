@@ -77,6 +77,9 @@ jobs:
           # 직접 넘겨 앱 설치 없이 돌린다.
           github_token: ${{ secrets.GITHUB_TOKEN }}
           prompt: "/review-code ${{ github.event.pull_request.number }}"
+          # 기본은 출력을 가린다. 리뷰가 게시되지 않을 때 원인을 볼 수 없어 켜 둔다.
+          # (private 레포 · 게시물은 소유자만 봄)
+          show_full_output: "true"
           # 스킬에 allowed-tools frontmatter가 없으므로 필요한 툴을 여기서 명시한다.
           claude_args: |
             --max-turns 40
