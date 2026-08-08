@@ -367,6 +367,17 @@ describe("SR-05 server-owned field in client zod schema", () => {
     ).not.toContain("SR-05");
   });
 
+  it("접두사가 붙은 액션 파일도 대상이다 (dunning-actions.ts 등)", () => {
+    expect(
+      ids([
+        {
+          path: "src/app/(dashboard)/invoices/partial-payment-actions.ts",
+          content: `const S = z.object({\n  amount: z.number(),\n  status: z.string().optional(),\n});`,
+        },
+      ]),
+    ).toContain("SR-05");
+  });
+
   it("actions.ts가 아니면 대상이 아니다", () => {
     expect(
       ids([

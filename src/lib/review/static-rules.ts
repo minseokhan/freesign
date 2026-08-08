@@ -386,7 +386,8 @@ function zodObjectRanges(code: string): { start: number; end: number }[] {
 
 function ruleServerOwnedInZod(file: ScanFile): RuleViolation[] {
   if (!isSrcCode(file.path)) return [];
-  if (baseName(file.path) !== "actions.ts") return [];
+  // actions.ts 뿐 아니라 dunning-actions.ts·partial-payment-actions.ts 같은 접두사 형태도 대상.
+  if (!/(^|-)actions\.ts$/.test(baseName(file.path))) return [];
 
   const code = stripTsComments(file.content);
   const out: RuleViolation[] = [];
