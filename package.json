@@ -10,6 +10,8 @@
     "db:gen-types": "node scripts/gen-types.mjs",
     "db:seed": "node --experimental-strip-types scripts/seed.mjs",
     "lint": "eslint",
+    "review:static": "node --disable-warning=ExperimentalWarning --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/precommit-review.mjs --all",
+    "prepare": "git config core.hooksPath .githooks || true",
     "test": "vitest run",
     "eval": "node --experimental-strip-types evals/harness/run.ts",
     "test:e2e": "playwright test"

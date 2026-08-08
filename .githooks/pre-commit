@@ -1,0 +1,10 @@
+#!/bin/sh
+# staged 변경에 대한 정적 리뷰 (LLM 없음, 1초 미만).
+# 판단이 필요한 리뷰는 CI의 /review-code가 PR에서 담당한다.
+# 우회: git commit --no-verify
+
+exec node \
+  --disable-warning=ExperimentalWarning \
+  --disable-warning=MODULE_TYPELESS_PACKAGE_JSON \
+  --experimental-strip-types \
+  scripts/precommit-review.mjs
