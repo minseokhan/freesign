@@ -52,6 +52,9 @@ const styles = StyleSheet.create({
   title: {
     marginTop: 8,
     fontSize: 24,
+    // lineHeight는 page에서 상속되지 않는다. 명시하지 않으면 24pt 글자의 줄 상자가
+    // 글리프보다 작게 잡혀 바로 아래 문서번호와 겹친다.
+    lineHeight: 1.3,
     fontWeight: 700,
     color: "#0f172a",
   },
@@ -179,7 +182,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
           <Text style={styles.disclaimer}>{document.disclaimer}</Text>
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} wrap={false}>
           <Text style={styles.sectionTitle}>기본 정보</Text>
           <View style={styles.metaGrid}>
             <MetaItem label="클라이언트" value={document.clientName} />
@@ -191,7 +194,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
           </View>
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} wrap={false}>
           <Text style={styles.sectionTitle}>품목</Text>
           <View style={styles.metaGrid}>
             <MetaItem label="품목명" value={document.contractTitle} />
@@ -199,7 +202,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
           </View>
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} wrap={false}>
           <Text style={styles.sectionTitle}>금액 및 원천징수</Text>
           <View style={styles.totalBox}>
             <AmountRow label="청구 금액" value={document.amountLabel} />
@@ -207,7 +210,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
               <>
                 <AmountRow
                   label={`원천징수 (${document.withholdingTypeLabel})`}
-                  value={`-${document.withholdingAmountLabel}`}
+                  value={`- ${document.withholdingAmountLabel}`}
                 />
               </>
             ) : (
@@ -224,7 +227,7 @@ export function InvoiceDocument({ document }: { document: InvoicePdfDocument }) 
           </Text>
         </View>
 
-        <View style={styles.section}>
+        <View style={styles.section} wrap={false}>
           <Text style={styles.sectionTitle}>입금 계좌</Text>
           {document.bankAccount ? (
             <View style={styles.metaGrid}>

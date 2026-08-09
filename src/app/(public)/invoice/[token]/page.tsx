@@ -36,7 +36,7 @@ function NoticeCard({
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-lg py-sm">
+    <div className="flex items-baseline justify-between gap-lg">
       <dt className="text-sm text-text-muted">{label}</dt>
       <dd className="text-sm font-medium text-text-body">{value}</dd>
     </div>
@@ -139,34 +139,39 @@ export default async function PublicInvoicePage({
       </div>
 
       <Card>
-        <div className="border-b border-surface-border pb-lg">
-          <h3 className="text-lg font-semibold text-text-primary">청구 내역</h3>
-          <p className="mt-xs text-sm leading-relaxed text-text-muted">
-            문서번호 {document.invoiceNumber}
-          </p>
-        </div>
-        <dl className="mt-lg divide-y divide-surface-border">
+        <h3 className="text-lg font-semibold text-text-primary">청구 내역</h3>
+        <p className="mt-xs text-sm leading-relaxed text-text-muted">
+          문서번호 {document.invoiceNumber}
+        </p>
+        <dl className="mt-lg space-y-md">
           <DetailRow label="청구처" value={document.clientName} />
           <DetailRow label="발행일" value={document.issueDateLabel} />
           <DetailRow label="지급기한" value={document.dueDateLabel} />
-          <DetailRow label="공급가액" value={document.amountLabel} />
-          {document.showWithholdingDetails ? (
-            <DetailRow
-              label={`원천징수 (${document.withholdingTypeLabel})`}
-              value={`- ${document.withholdingAmountLabel}`}
-            />
-          ) : null}
-          <DetailRow label="입금 예정 금액" value={document.netAmountLabel} />
           <DetailRow label="상태" value={document.paymentStatusLabel} />
+          <div className="space-y-md border-t border-surface-border pt-lg">
+            <DetailRow label="공급가액" value={document.amountLabel} />
+            {document.showWithholdingDetails ? (
+              <DetailRow
+                label={`원천징수 (${document.withholdingTypeLabel})`}
+                value={`- ${document.withholdingAmountLabel}`}
+              />
+            ) : null}
+            <div className="flex items-baseline justify-between gap-lg">
+              <dt className="text-sm font-medium text-text-primary">
+                입금 예정 금액
+              </dt>
+              <dd className="text-xl font-semibold text-text-primary">
+                {document.netAmountLabel}
+              </dd>
+            </div>
+          </div>
         </dl>
       </Card>
 
       {document.bankAccount ? (
         <Card>
-          <div className="border-b border-surface-border pb-lg">
-            <h3 className="text-lg font-semibold text-text-primary">입금 계좌</h3>
-          </div>
-          <dl className="mt-lg divide-y divide-surface-border">
+          <h3 className="text-lg font-semibold text-text-primary">입금 계좌</h3>
+          <dl className="mt-lg space-y-md">
             <DetailRow label="은행" value={document.bankAccount.bankName} />
             <DetailRow
               label="계좌번호"

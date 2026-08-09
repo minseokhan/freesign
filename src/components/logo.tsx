@@ -9,7 +9,9 @@ type LogoProps = {
  * "매듭" 글자로 구성된 인라인 SVG. 높이는 className으로 제어(예: h-6).
  *
  * 글자는 폰트에 따라 실제 너비가 달라지므로 textLength로 폭을 고정해
- * 어떤 폴백 폰트에서도 viewBox 밖으로 넘치지 않게 한다.
+ * 어떤 폴백 폰트에서도 viewBox 밖으로 넘치지 않게 한다. 단 lengthAdjust는
+ * 자간만 조절하는 'spacing'이어야 한다 — 'spacingAndGlyphs'는 글리프 자체를
+ * 가로로 늘여 글자가 눌린 것처럼 보인다.
  */
 export function Logo({ className }: LogoProps) {
   return (
@@ -49,7 +51,7 @@ export function Logo({ className }: LogoProps) {
         fontWeight="800"
         letterSpacing="-1"
         textLength="62"
-        lengthAdjust="spacingAndGlyphs"
+        lengthAdjust="spacing"
       >
         매듭
       </text>
