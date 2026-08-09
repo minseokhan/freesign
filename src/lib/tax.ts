@@ -8,7 +8,7 @@ export interface WithholdingBreakdown {
 }
 
 const INCOME_TAX_RATES = {
-  wt_3_3: BigInt(4),
+  wt_3_3: BigInt(3),
   wt_8_8: BigInt(8),
   none: BigInt(0)
 } satisfies Record<WithholdingType, bigint>;
@@ -29,7 +29,7 @@ export function calcWithholding(amount: number, type: WithholdingType): Withhold
   const net = amountWon - withholding;
 
   return {
-    incomeTax: Number(incomeTax),
+    incomeTax: incomeTax,
     localTax: Number(localTax),
     withholding: Number(withholding),
     net: Number(net)
