@@ -29,7 +29,7 @@ export function calcWithholding(amount: number, type: WithholdingType): Withhold
   const net = amountWon - withholding;
 
   return {
-    incomeTax: incomeTax,
+    incomeTax: Number(incomeTax),
     localTax: Number(localTax),
     withholding: Number(withholding),
     net: Number(net)
