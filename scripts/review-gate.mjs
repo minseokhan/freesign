@@ -13,7 +13,7 @@
 //   node --experimental-strip-types scripts/review-gate.mjs
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 import { decideGate } from "../src/lib/review/verdict.ts";
 
@@ -75,4 +75,10 @@ try {
 }
 
 console.log(`심각도 게이트: ${event} 제출 · ${counts}`);
+
+// 잡 요약에도 남긴다. 체크가 빨갛게 떴을 때 로그를 펼치지 않고 이유를 볼 수 있게.
+if (process.env.GITHUB_STEP_SUMMARY) {
+  appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${body}\n`);
+}
+
 process.exit(blocking ? 1 : 0);
