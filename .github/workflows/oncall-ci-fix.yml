@@ -1,0 +1,290 @@
+name: Oncall CI Fix
+
+# 사람이 시켜서가 아니라 **CI가 깨진 사실 자체가 트리거**다 (사고 대응).
+# ci.yml이 실패로 끝나면 이 워크플로가 깨어나 실패 잡 로그를 읽고 → 근본 원인을 찾고 →
+# 수정 브랜치와 PR을 연다. 출력은 언제나 PR이고, **자동 머지는 하지 않는다.**
+#
+# 잡을 셋으로 쪼갠 이유가 곧 안전장치다.
+#   gate     — 깨어날지 코드가 판정 (봇·포크·oncall 브랜치·연쇄 트리거 skip = 무한루프 차단)
+#   diagnose — 에이전트. `contents: read`라 **푸시도 머지도 물리적으로 불가능**하다
+#   open-pr  — LLM 없는 결정적 스크립트만. 여기만 `contents: write`를 갖고, 머지는 호출하지 않는다
+#
+# workflow_run은 **기본 브랜치의 워크플로 파일**로 돈다. 즉 게이트를 우회하는 수정은 main에
+# 머지되기 전엔 효력이 없다 — 이것도 의도한 성질이다.
+#
+# ── 시크릿 ────────────────────────────────────────────────────────────
+#   CLAUDE_CODE_OAUTH_TOKEN (필수) — 없으면 gate에서 조용히 skip. review-code.yml과 공용.
+#   ONCALL_PAT (권장, repo scope) — 수정 브랜치를 미는 토큰.
+#     GITHUB_TOKEN으로 민 브랜치·PR은 GitHub이 **새 워크플로 런을 트리거하지 않아** PR에
+#     CI·Code Review 체크가 하나도 붙지 않는다. 체크 없는 PR은 사람 게이트가 아니라 요식이므로
+#     PAT으로 밀어 체크가 정상적으로 붙게 한다. 없으면 GITHUB_TOKEN으로 폴백하고(PR은 열리되
+#     체크 없음) 그 사실을 PR 본문에 경고로 적는다.
+#     ※ PAT을 쓰면 PR 작성자가 토큰 소유자(사람)로 뜬다. 커밋 author는 봇으로 남고 브랜치·제목이
+#        `oncall`이라 식별은 된다. 봇 아이덴티티까지 지키려면 GitHub App 토큰으로 바꾸면 된다.
+#     ※ 체크가 붙어도 루프는 돌지 않는다 — 이 PR의 CI가 또 실패해도 head_branch가
+#        `oncall/ci-fix-*`라 gate가 깨어나지 않는다 (decideOncall 테스트로 박제).
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+# 같은 브랜치에 연속으로 실패가 쌓여도 사고 대응은 하나씩. 진행 중인 수정을 취소하지는 않는다
+# (중간에 끊긴 수정은 아무것도 안 남기지만, 완주하면 PR이 남는다).
+concurrency:
+  group: oncall-ci-fix-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  # job-level `if`는 secrets 컨텍스트를 읽을 수 없다(허용: github·needs·vars·inputs).
+  # secrets를 읽을 수 있는 step env로 판정해 job output으로 넘긴다.
+  # (ci.yml의 e2e-gate · review-code.yml의 gate와 같은 패턴)
+  gate:
+    name: Should oncall respond?
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      enabled: ${{ steps.decide.outputs.enabled }}
+      branch: ${{ steps.decide.outputs.branch }}
+    steps:
+      # workflow_run에서 ref를 주지 않으면 **기본 브랜치**가 나온다. 게이트 판정 코드는
+      # 반드시 신뢰된 기본 브랜치 것이어야 하므로 여기서는 ref를 지정하지 않는다.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - id: decide
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_EVENT: ${{ github.event.workflow_run.event }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          HEAD_REPO: ${{ github.event.workflow_run.head_repository.full_name }}
+          ACTOR: ${{ github.event.workflow_run.actor.login }}
+          TRIGGERING_ACTOR: ${{ github.event.workflow_run.triggering_actor.login }}
+        run: node --experimental-strip-types scripts/oncall-gate.mjs
+
+  diagnose:
+    name: Diagnose and fix
+    runs-on: ubuntu-latest
+    needs: gate
+    if: ${{ needs.gate.outputs.enabled == 'true' }}
+    timeout-minutes: 30
+    permissions:
+      # contents는 read 그대로 둘 것. 이 잡은 브랜치를 밀 수도, 머지할 수도 없다 —
+      # "출력은 무조건 PR"이 프롬프트 약속이 아니라 권한 경계가 되는 지점이다.
+      contents: read
+      actions: read # 실패 잡 로그 다운로드에 필요
+      id-token: write # 액션의 기본 GitHub App 인증에 필요
+    outputs:
+      verify: ${{ steps.verify.outputs.status }}
+    env:
+      # ci.yml의 lint-build-test와 같은 더미 값. **프로덕션 시크릿은 이 잡에 주지 않는다** —
+      # 에이전트가 원격 DB·배포에 손댈 수단 자체를 두지 않는 것이 prod read-only의 실체다.
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
+      ANTHROPIC_API_KEY: ci-anthropic-key
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      ONCALL_LOG_PATH: oncall-failed.log
+    steps:
+      # 여기서는 **깨진 커밋**을 체크아웃한다 (고칠 대상). gate에서 같은 레포·사람 커밋임을
+      # 이미 확인했으므로 신뢰 수준은 ci.yml과 같다.
+      - name: Checkout failed commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 20 # 에이전트가 `git log`로 최근 변경을 볼 수 있을 만큼만
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # 에이전트에게는 **실패한 잡의 로그만** 준다. 성공 로그까지 넣으면 토큰만 태우고
+      # 원인에서 멀어진다. 넣기 전에 시크릿 패턴을 지운다(PR 본문에서 한 번 더 지운다).
+      - name: Collect failed job logs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -o pipefail
+          gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --log-failed \
+            | node --experimental-strip-types scripts/oncall-log.mjs > "$ONCALL_LOG_PATH"
+          if [ ! -s "$ONCALL_LOG_PATH" ]; then
+            echo "실패 잡 로그가 비어 있습니다 (만료·권한). 대응할 근거가 없어 중단합니다." >&2
+            exit 1
+          fi
+          echo "실패 로그 $(wc -l < "$ONCALL_LOG_PATH")줄 확보."
+
+      - name: Run /oncall-ci-fix
+        uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 생략하면 액션이 Claude GitHub App으로 인증하려 하고, 앱이 없으면 실패한다.
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          # GH_TOKEN을 env로 주지 않는다 — 에이전트가 `gh`로 PR·코멘트를 만들 길을 막는다.
+          # 브랜치 이름은 프롬프트에 넣지 않는다 — 사람이 정하는 자유 문자열이라 프롬프트
+          # 주입 표면이 되고, 진단에 필요한 정보는 로그와 git 히스토리에 다 있다.
+          prompt: "/oncall-ci-fix 실패 잡 로그: oncall-failed.log (런 #${{ github.event.workflow_run.id }}, 커밋 ${{ github.event.workflow_run.head_sha }})"
+          show_full_output: "true"
+          claude_args: |
+            --max-turns 60
+            --allowedTools "Bash,Read,Grep,Glob,Edit,Write"
+
+      # 수정이 실제로 통하는지는 LLM의 자기보고가 아니라 여기서 정한다. ci.yml의 게이트와
+      # 같은 순서로 다시 돌려 결과를 PR 본문에 박는다.
+      # (GITHUB_TOKEN으로 만든 PR에는 CI가 자동으로 붙지 않으므로 이 재검증이 유일한 근거다.)
+      - name: Verify fix
+        id: verify
+        run: |
+          set +e
+          npm audit --audit-level=high --omit=dev && \
+            npm run lint && \
+            npm run build && \
+            npm test
+          if [ $? -eq 0 ]; then
+            echo "status=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=fail" >> "$GITHUB_OUTPUT"
+          fi
+
+      # 워킹트리 diff만 넘긴다. 커밋·푸시는 이 잡의 권한으로 불가능하다.
+      # oncall-* 산출물은 .gitignore에 있어 패치에 섞이지 않는다.
+      - name: Collect patch
+        run: |
+          git add -A
+          git diff --cached --binary > oncall.patch
+          git diff --cached --name-only > oncall-files.txt
+          echo "변경 파일 $(wc -l < oncall-files.txt)개."
+
+      - name: Upload incident artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: oncall-incident
+          path: |
+            oncall.patch
+            oncall-files.txt
+            oncall-report.json
+            oncall-failed.log
+          if-no-files-found: error
+          retention-days: 14
+
+  open-pr:
+    name: Open fix PR
+    runs-on: ubuntu-latest
+    needs: [gate, diagnose]
+    if: ${{ needs.gate.outputs.enabled == 'true' && needs.diagnose.result == 'success' }}
+    permissions:
+      # 브랜치 푸시에 필요. 머지 API도 열리지만 **이 잡은 `gh pr merge`·auto-merge를
+      # 어디서도 호출하지 않는다** — 여기 도는 것은 LLM이 아니라 아래 셸·스크립트뿐이다.
+      contents: write
+      pull-requests: write
+    env:
+      ONCALL_BRANCH: ${{ needs.gate.outputs.branch }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      # ref를 주지 않아 **기본 브랜치**가 나온다 — 검증·본문 생성 스크립트는 깨진 커밋 것이
+      # 아니라 신뢰된 것을 쓴다.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          # 여기서 넘긴 토큰이 .git/config에 남아 뒤의 `git push`에 쓰인다. PAT으로 밀어야
+          # PR에 CI·리뷰 체크가 붙는다 (GITHUB_TOKEN 푸시는 워크플로를 트리거하지 않음).
+          token: ${{ secrets.ONCALL_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+
+      - name: Download incident artifacts
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: oncall-incident
+          path: incident
+
+      # 마지막 관문. 하네스 자가수정(.github·.claude·.githooks)이면 PR을 열지 않고 실패하고,
+      # 리포트가 없으면 근거 없는 수정이라 열지 않는다(fail-closed). 본문은 여기서 마스킹된다.
+      - name: Build PR body
+        id: body
+        env:
+          ONCALL_FILES_PATH: incident/oncall-files.txt
+          ONCALL_REPORT_PATH: incident/oncall-report.json
+          ONCALL_BODY_PATH: incident/oncall-body.md
+          ONCALL_RUN_ID: ${{ github.event.workflow_run.id }}
+          ONCALL_RUN_URL: ${{ github.event.workflow_run.html_url }}
+          ONCALL_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          ONCALL_HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          ONCALL_VERIFY_STATUS: ${{ needs.diagnose.outputs.verify }}
+          # step-level env는 secrets를 읽을 수 있다(job-level `if`만 못 읽는다).
+          # 값이 아니라 존재 여부만 넘긴다.
+          ONCALL_CI_ATTACHED: ${{ secrets.ONCALL_PAT != '' }}
+        run: |
+          set +e
+          node --experimental-strip-types scripts/oncall-pr-body.mjs
+          code=$?
+          set -e
+          if [ "$code" = "2" ]; then
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          [ "$code" = "0" ] || exit "$code"
+          echo "proceed=true" >> "$GITHUB_OUTPUT"
+
+      # 같은 커밋의 사고에는 같은 브랜치 이름이 나온다. 재실행해도 PR이 겹쳐 열리지 않는다.
+      - name: Check for existing fix branch
+        id: dedupe
+        if: ${{ steps.body.outputs.proceed == 'true' }}
+        run: |
+          if git ls-remote --exit-code --heads origin "$ONCALL_BRANCH" >/dev/null 2>&1; then
+            echo "$ONCALL_BRANCH 가 이미 있습니다 — 같은 사고에 PR을 다시 열지 않습니다."
+            echo "## oncall — 중복 생략" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "\`$ONCALL_BRANCH\` 브랜치가 이미 있습니다." >> "$GITHUB_STEP_SUMMARY"
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Commit fix and open PR
+        if: ${{ steps.body.outputs.proceed == 'true' && steps.dedupe.outputs.fresh == 'true' }}
+        env:
+          # push는 checkout이 심어 둔 자격증명을, PR 생성은 이 GH_TOKEN을 쓴다. 둘 다 PAT이어야
+          # PR에 체크가 붙으므로 같은 폴백 식을 쓴다.
+          GH_TOKEN: ${{ secrets.ONCALL_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$ONCALL_BRANCH" "$HEAD_SHA"
+          git apply --index incident/oncall.patch
+          git commit -m "fix(ci): oncall 자동 수정 — 런 #${RUN_ID} 실패 대응"
+          git push origin "$ONCALL_BRANCH"
+          url=$(gh pr create \
+            --base "$HEAD_BRANCH" \
+            --head "$ONCALL_BRANCH" \
+            --title "fix(ci): CI 실패 자동 수정 (런 #${RUN_ID})" \
+            --body-file incident/oncall-body.md)
+          # 라벨은 PR 생성 **뒤에** 따로 붙인다. `--label`로 같이 넘기면 라벨이 지워졌을 때
+          # PR 생성 자체가 실패한다 — 사고 대응 PR이 장식 하나 때문에 안 열려서는 안 된다.
+          gh pr edit "$url" --add-label oncall || echo "oncall 라벨 부착 실패(무시): 라벨이 없거나 권한 부족."
+          # 여기서 끝. 자동 머지 금지 — `gh pr merge`·auto-merge는 호출하지 않는다.
+          echo "## oncall — PR 생성" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url (머지는 사람이 합니다)" >> "$GITHUB_STEP_SUMMARY"

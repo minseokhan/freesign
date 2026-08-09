@@ -33,6 +33,12 @@ e2e/.auth/
 review-verdict.json
 findings.json
 
+# oncall(CI 실패 자동 수정) 실행 산출물 — 수정 패치에 섞이면 안 된다
+oncall-report.json
+oncall-failed.log
+oncall.patch
+oncall-files.txt
+
 # lighthouse-loop 실행 산출물 (생성물 — 도구만 추적)
 scripts/lighthouse-loop/reports/
 scripts/lighthouse-loop/journal.jsonl
