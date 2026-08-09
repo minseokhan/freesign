@@ -4,6 +4,7 @@ import {
   aggregate,
   decideGate,
   decideVerdict,
+  parseVerdictJson,
   mergeFindings,
   rankBySeverity,
   tally,
@@ -76,6 +77,33 @@ describe("decideGate", () => {
       event: "REQUEST_CHANGES",
       blocking: true,
     });
+  });
+});
+
+describe("parseVerdictJson", () => {
+  const clean = '{"verdict":"Approve","tally":{"critical":0,"major":0,"minor":1,"nit":0}}';
+  const expected = { critical: 0, major: 0, minor: 1, nit: 0 };
+
+  it("깨끗한 JSON을 그대로 읽는다", () => {
+    expect(parseVerdictJson(clean).tally).toEqual(expected);
+  });
+
+  // 실제 CI 사고: 스킬이 `> review-verdict.json 2>&1` 로 저장해 Node 경고가 파일에 섞였다.
+  it("앞에 붙은 Node 경고를 건너뛴다", () => {
+    const noisy = `(node:10051) [MODULE_TYPELESS_PACKAGE_JSON] Warning: ...\n${clean}`;
+    expect(parseVerdictJson(noisy).tally).toEqual(expected);
+  });
+
+  it("뒤에 붙은 노이즈도 건너뛴다", () => {
+    expect(parseVerdictJson(`${clean}\n(Use --trace-warnings ...)`).tally).toEqual(expected);
+  });
+
+  it("JSON 객체가 없으면 던진다", () => {
+    expect(() => parseVerdictJson("EXIT: 1\n에러만 있음")).toThrow();
+  });
+
+  it("객체처럼 보이지만 깨진 JSON이면 던진다", () => {
+    expect(() => parseVerdictJson('{"tally": ')).toThrow();
   });
 });
 

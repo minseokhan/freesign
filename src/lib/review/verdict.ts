@@ -111,6 +111,20 @@ export function decideVerdict(t: Tally): Verdict {
   return "Approve";
 }
 
+// 판정 파일 파서. 스킬이 `> review-verdict.json 2>&1` 로 저장하면 Node 경고
+// (MODULE_TYPELESS_PACKAGE_JSON)가 JSON 앞뒤에 섞여 들어와 파싱이 깨진다 — CI에서 실제로
+// 이 때문에 게이트가 집계를 못 읽고 fail-closed 됐다. 첫 '{' ~ 마지막 '}' 만 잘라 읽는다.
+export function parseVerdictJson(text: string): { tally?: Tally } {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+
+  if (start < 0 || end < start) {
+    throw new Error("JSON 객체를 찾지 못했습니다");
+  }
+
+  return JSON.parse(text.slice(start, end + 1));
+}
+
 // 심각도 게이트 판정. `blocking`은 "머지를 막아야 한다"는 신호이고,
 // 승인이어도 **머지는 하지 않는다** — 자동화는 사람이 머지 버튼을 누를 수 있게만 해 준다.
 export function decideGate(t: Tally): Gate {
