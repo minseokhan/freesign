@@ -30,6 +30,15 @@ OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐
 
 5. **[알려진 함정 2026-08-03] `npm run db:gen-types`는 컨테이너 런타임이 필요하다** — `supabase gen types`가 Docker/Podman을 요구하도록 바뀌어(`LegacyContainerRuntimeNotFoundError`) 이 머신에서는 실행되지 않습니다. 스크립트가 embedded-postgres에 로컬 마이그레이션을 적용한 뒤 CLI를 호출하는 구조라 원격 접속과는 무관하며, **Docker를 깔기 전까지는 `src/types/database.ts`를 손으로 갱신**해야 합니다. 값은 Supabase MCP `generate_typescript_types`(원격 스키마 기준)로 받아 대조하면 추측 없이 정확합니다. 단 MCP 출력은 신버전 생성기 형식(`Args: never`, `__InternalSupabase.PostgrestVersion`)이라 **통째로 덮어쓰면 안 됩니다** — 현재 파일은 구버전 형식(`Args: Record<PropertyKey, never>`)이고, 섞으면 무인자 RPC 호출 타입이 전부 바뀝니다. 필요한 항목만 기존 형식에 맞춰 추가할 것.
 
+6. **[추가 2026-08-09] PR 리뷰 자동 승인 경로가 아직 한 번도 성공하지 못했습니다** — 심각도 게이트(`scripts/review-gate.mjs`)는 배포됐고 차단 경로(critical → `CHANGES_REQUESTED`)는 PR #16·#17에서 실증됐지만, **승인 경로는 GitHub 설정 때문에 422로 막혀 있습니다.** 지금도 `can_approve_pull_request_reviews: false`입니다(2026-08-09 확인). fail-closed라 위험은 없지만 "minor 이하는 자동 승인"이 실제로는 동작하지 않습니다.
+   ```bash
+   gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow -F can_approve_pull_request_reviews=true
+   gh pr close 16 17 18   # 게이트 검증용 테스트 PR·브랜치 정리 (승인 재검증 후)
+   ```
+   배경과 실패 로그 분석은 `docs/archive/REVIEW_AUTOMATION_PLAN.md` §7.5.
+
+7. **[추가 2026-08-09] `ci.yml`의 Playwright E2E 잡은 여전히 항상 스킵됩니다** — Actions 시크릿에 `ANTHROPIC_API_KEY`·`CLAUDE_CODE_OAUTH_TOKEN`만 있고 `E2E_TEST_EMAIL`·`E2E_TEST_PASSWORD`가 없습니다. fail-closed 패턴이라 조용히 스킵될 뿐 CI는 초록입니다 — **E2E가 CI에서 돈다고 믿으면 안 됩니다.**
+
 > 재스캔 high 4건(6-1절)·6절 (1)~(4) 판단·`TSA_URL` 프로덕션 확정(4절)·배포 후 브라우저 확인(8절)은 전부 끝났습니다.
 >
 > 관찰 항목 하나: 레이트리밋 fail-open 로그(`[rate-limit] rpc error (fail-open)`)가 실제로 얼마나 찍히는지. 잦으면 6절 (2) 재검토 신호입니다.
@@ -565,3 +574,6 @@ fail-open이 적용되는 버킷은 5개입니다(`src/lib/rate-limit.ts:12-18`)
 - [x] 배포 후 브라우저 확인 — 분석 이벤트 수신 · 서명 링크 정상 렌더 · 서명 완결까지 (2026-07-31, 8절)
 - [ ] 8/1 06:00(KST) 이후 Vercel 함수 로그에서 일일 크론 실제 실행 1회 확인
 - [ ] (사업 판단 후) Polar 프로덕션 전환 — 4절 체크리스트. **`set_billing_webhook_secret` 빠뜨리지 말 것**
+- [ ] 결제 켜기 전 `src/lib/legal.ts`의 `LEGAL` placeholder 기입 (0절 3번)
+- [ ] `can_approve_pull_request_reviews=true` 토글 + PR #18로 승인 경로 재검증 → 테스트 PR #16·#17·#18 정리 (0절 6번)
+- [ ] `E2E_TEST_EMAIL`·`E2E_TEST_PASSWORD` Actions 시크릿 등록 (0절 7번, 없으면 E2E 영구 스킵)
