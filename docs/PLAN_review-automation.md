@@ -206,3 +206,53 @@ permissions:
    팀 공유 관점에선 API 키가 맞고(토큰은 발급자 개인 구독에 묶임), 비용은 API 과금으로 잡힌다.
 2. `SR-05`(zod 서버 소유 필드)를 warn으로 둘지 아예 1차에서 뺄지.
 3. 4단계까지만 먼저 실행할지, 8단계까지 한 번에 갈지.
+
+## 7. 심각도 게이트 — 자동 승인 / 머지 차단 (2026-08-09 추가)
+
+**요구**: nit·minor만 있으면 auto-approve(머지는 하지 않음). critical·major가 하나라도 있으면
+승인도 머지도 없음.
+
+### 7.1 왜 판정을 LLM에서 뺐나
+
+기존 4단계는 LLM이 `verdict`를 보고 `event`를 골라 `gh api`로 게시했다. 규칙은 단순하지만
+승인 여부를 프롬프트 준수에 맡기는 구조라, "critical이 있는데 승인" 같은 사고가 원리적으로 가능하다.
+그래서 게시를 두 겹으로 쪼갰다:
+
+| 층 | 주체 | 게시물 |
+|---|---|---|
+| 지적 | LLM (스킬 4단계) | 인라인 코멘트 + 요약, `event: COMMENT` (CI 한정) |
+| 판정 | 코드 (`scripts/review-gate.mjs`) | 승인/차단 리뷰 1건, `APPROVE` 또는 `REQUEST_CHANGES` |
+
+판정 함수는 `src/lib/review/verdict.ts`의 `decideGate(tally)` — `decideVerdict`를 재사용해
+`Approve`가 아니면 `blocking: true`. 테스트는 `verdict.test.ts`의 `describe("decideGate")`.
+CI에서는 PR에 리뷰가 2건 달린다(상세 COMMENT + 판정). 로컬 대화형 실행은 기존대로 LLM이
+event까지 게시한다 — 게이트 스텝이 없기 때문.
+
+### 7.2 fail-closed
+
+게이트는 `if: always()`로 리뷰 스텝 실패·타임아웃과 무관하게 돈다. 스킬이 남긴
+`review-verdict.json`의 `tally`를 읽고, **파일이 없거나 집계가 없으면 승인하지 않고 exit 1**.
+리뷰가 완주하지 못하면 승인은 절대 나오지 않는다.
+
+### 7.3 "절대 머지하지 않는다"의 근거 3겹
+
+1. 잡 권한이 `contents: read` — 머지 API(`PUT /pulls/{n}/merge`)는 `contents: write`를 요구하므로
+   호출 자체가 불가능하다.
+2. 레포 설정 `allow_auto_merge: false` — auto-merge 기능이 꺼져 있다.
+3. 스킬·게이트 스크립트 모두 `gh pr merge`를 호출하지 않고, 금지를 명시해 뒀다.
+
+### 7.4 한계 — 지금은 "차단 신호"까지다
+
+이 레포는 **private + 무료(User) 플랜**이라 브랜치 보호·룰셋 API가 403이다
+(`Upgrade to GitHub Pro or make this repository public`). 따라서 REQUEST_CHANGES와 빨간 체크는
+**권고이지 강제가 아니다** — 사람이 무시하고 머지 버튼을 누를 수 있다.
+
+Pro로 올리거나 public으로 전환하면 다음을 켜서 강제로 바꾼다:
+- 필수 상태 체크에 `/review-code` 잡 추가 (critical·major면 exit 1이라 빨강)
+- "Require a pull request before merging" + "Require approvals ≥ 1"
+- "Dismiss stale pull request approvals when new commits are pushed"
+
+주의: 같은 리뷰어(여기선 `github-actions[bot]`)의 **최신 리뷰가 이전 리뷰를 덮는다.** 승인 후
+새 커밋에서 critical이 나오면 게이트가 REQUEST_CHANGES를 다시 제출하므로 승인은 자동으로 무효화된다.
+별도 dismiss 호출이 필요 없는 이유다. 다만 `GITHUB_TOKEN`으로 제출한 승인이 브랜치 보호의
+"필수 승인 수"를 채우는지는 Pro 전환 후 실제로 확인해야 한다.

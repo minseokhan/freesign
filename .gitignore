@@ -29,6 +29,10 @@ e2e/.auth/
 # Vercel
 .vercel
 
+# /review-code 실행 산출물 (심각도 게이트가 읽는 판정 파일 · 중간 findings)
+review-verdict.json
+findings.json
+
 # lighthouse-loop 실행 산출물 (생성물 — 도구만 추적)
 scripts/lighthouse-loop/reports/
 scripts/lighthouse-loop/journal.jsonl

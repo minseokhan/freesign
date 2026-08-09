@@ -54,6 +54,8 @@ jobs:
     if: ${{ needs.gate.outputs.enabled == 'true' }}
     timeout-minutes: 20
     permissions:
+      # contents는 read 그대로 둘 것. 머지 API(PUT /pulls/{n}/merge)는 contents: write를
+      # 요구하므로, 이 권한이 read인 한 이 잡은 스스로 머지할 수 없다 — 자동 머지 금지의 하드 보장.
       contents: read
       pull-requests: write # 스킬이 인라인 리뷰를 게시한다 (read로는 부족)
       issues: read
@@ -64,6 +66,13 @@ jobs:
         with:
           # 스킬이 .claude/skills/review-code/ 를 읽어야 하므로 체크아웃이 선행되어야 한다.
           fetch-depth: 1
+
+      # 스킬의 집계 CLI와 아래 심각도 게이트가 `node --experimental-strip-types`를 쓴다.
+      # 러너 기본 node 버전에 맡기지 않고 ci.yml과 같은 22로 고정한다.
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
 
       - name: Run /review-code
         uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1
@@ -88,3 +97,18 @@ jobs:
           claude_args: |
             --max-turns 40
             --allowedTools "Bash,Read,Grep,Glob,Write,Task,Workflow"
+
+      # 승인·차단은 LLM이 아니라 코드가 정한다. 스킬은 인라인 지적을 COMMENT로만 게시하고
+      # 심각도 집계를 review-verdict.json에 남기며, 판정은 여기서 decideGate로 내린다.
+      #   critical·major 0건 → APPROVE (머지는 하지 않음)
+      #   하나라도 있으면    → REQUEST_CHANGES + exit 1 (체크 실패)
+      # 리뷰 스텝이 실패·타임아웃해도 반드시 돌도록 always(). 판정 파일이 없으면 fail-closed로
+      # 승인하지 않는다 — 즉 리뷰가 완주하지 못하면 승인은 절대 나오지 않는다.
+      - name: Severity gate
+        if: ${{ always() }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REVIEW_VERDICT_PATH: review-verdict.json
+        run: node --experimental-strip-types scripts/review-gate.mjs

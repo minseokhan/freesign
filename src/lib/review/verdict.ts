@@ -23,6 +23,12 @@ export interface MergedFinding extends Finding {
 
 export type Tally = Record<Severity, number>;
 
+// PR에 제출할 리뷰 이벤트와 머지 차단 여부. `merge`에 해당하는 값은 없다 — 자동 머지는 없다.
+export interface Gate {
+  event: "APPROVE" | "REQUEST_CHANGES";
+  blocking: boolean;
+}
+
 export interface Aggregate {
   verdict: Verdict;
   tally: Tally;
@@ -103,6 +109,13 @@ export function decideVerdict(t: Tally): Verdict {
   if (t.critical > 0) return "Blocked";
   if (t.major > 0) return "Changes Requested";
   return "Approve";
+}
+
+// 심각도 게이트 판정. `blocking`은 "머지를 막아야 한다"는 신호이고,
+// 승인이어도 **머지는 하지 않는다** — 자동화는 사람이 머지 버튼을 누를 수 있게만 해 준다.
+export function decideGate(t: Tally): Gate {
+  const blocking = decideVerdict(t) !== "Approve"; // critical·major가 하나라도 있으면 참
+  return { event: blocking ? "REQUEST_CHANGES" : "APPROVE", blocking };
 }
 
 export function aggregate(findings: Finding[], opts: MergeOpts = DEFAULT_MERGE): Aggregate {

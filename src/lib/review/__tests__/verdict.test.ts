@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   aggregate,
+  decideGate,
   decideVerdict,
   mergeFindings,
   rankBySeverity,
@@ -38,6 +39,43 @@ describe("decideVerdict", () => {
 
   it("approves an empty tally", () => {
     expect(decideVerdict({ critical: 0, major: 0, minor: 0, nit: 0 })).toBe("Approve");
+  });
+});
+
+describe("decideGate", () => {
+  it("지적이 없으면 자동 승인하고 차단하지 않는다", () => {
+    expect(decideGate({ critical: 0, major: 0, minor: 0, nit: 0 })).toEqual({
+      event: "APPROVE",
+      blocking: false,
+    });
+  });
+
+  it("minor·nit만 있으면 개수와 무관하게 자동 승인한다", () => {
+    expect(decideGate({ critical: 0, major: 0, minor: 12, nit: 30 })).toEqual({
+      event: "APPROVE",
+      blocking: false,
+    });
+  });
+
+  it("major가 1건이라도 있으면 승인하지 않고 차단한다", () => {
+    expect(decideGate({ critical: 0, major: 1, minor: 0, nit: 0 })).toEqual({
+      event: "REQUEST_CHANGES",
+      blocking: true,
+    });
+  });
+
+  it("critical이 1건이라도 있으면 승인하지 않고 차단한다", () => {
+    expect(decideGate({ critical: 1, major: 0, minor: 0, nit: 0 })).toEqual({
+      event: "REQUEST_CHANGES",
+      blocking: true,
+    });
+  });
+
+  it("critical·major에 minor·nit가 섞여도 차단이 이긴다", () => {
+    expect(decideGate({ critical: 2, major: 3, minor: 9, nit: 9 })).toEqual({
+      event: "REQUEST_CHANGES",
+      blocking: true,
+    });
   });
 });
 

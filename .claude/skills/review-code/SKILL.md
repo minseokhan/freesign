@@ -158,11 +158,16 @@ return { findings: confirmed }
 워크플로우가 돌려준 `findings`를 스크래치 파일 `findings.json`에 저장한 뒤:
 
 ```bash
-cat findings.json | node --experimental-strip-types src/lib/review/verdict.ts
+cat findings.json | node --experimental-strip-types src/lib/review/verdict.ts > review-verdict.json
+cat review-verdict.json
 ```
 
 이 CLI가 **병합 → severity 정렬 → 집계 → 판정**을 수행해 `{ verdict, tally, findings }` JSON을 반환한다.
 (로직은 `src/lib/review/verdict.ts`, 테스트는 `src/lib/review/__tests__/verdict.test.ts`.)
+
+**`--ci`에서는 반드시 레포 루트 `review-verdict.json`에 저장할 것.** 워크플로의 심각도 게이트
+스텝(`scripts/review-gate.mjs`)이 이 파일의 `tally`만 보고 승인/차단을 결정한다. 파일이 없거나
+집계가 없으면 fail-closed로 **승인 없이 체크가 실패**한다. 지적이 0건이어도 파일은 남겨야 한다.
 
 **병합(mergeFindings)**: ① 같은 `(file, line)`을 차원 무관하게 하나로(→ `dimensions[]`에 축 합침, 최고 심각도 채택), ② 인접 라인(±2)이면서 title 유사(토큰 자카드≥0.3)면 하나로 — finder들이 같은 이슈를 살짝 다른 라인/축으로 잡는 노이즈를 줄인다. 서로 다른 주제(유사도 낮음)는 안 합침. 반환 finding에는 `dimensions: string[]`가 붙는다.
 > 한계: 한국어 활용형 차이로 유사도가 낮게 나오면 진짜 같은 이슈도 인접 코멘트 2개로 남을 수 있다(형태소 분석 미도입). 임계값을 낮추면 서로 다른 이슈를 오병합할 위험이 커지므로 0.3 고정.
@@ -184,6 +189,10 @@ gh api repos/{owner}/{repo}/pulls/{pr}/reviews \
 > 실무상 comments 배열이 여러 개면 `--input -` 로 JSON payload를 stdin 전달하는 편이 안전하다.
 
 **event 매핑**: Approve→`APPROVE` · Changes Requested/Blocked→`REQUEST_CHANGES`.
+**`--ci`에서는 예외 — 항상 `event: COMMENT`로만 게시한다.** 승인·차단은 워크플로의 심각도 게이트
+스텝이 `decideGate`로 판정해 별도 리뷰로 제출한다(LLM이 승인 여부를 정하지 않게 하려는 것).
+**절대 머지하지 말 것**: `gh pr merge`·auto-merge 활성화는 어떤 판정에서도 금지다. 승인은 사람이
+머지 버튼을 누를 수 있게 해 줄 뿐이다.
 **폴백**: 자기 PR이라 APPROVE/REQUEST_CHANGES가 거부되면(422) `event: COMMENT`로 재시도.
 **앵커**: `path`+`line`은 diff에 등장한 라인이어야 게시된다. diff 밖 라인을 가리키는 finding은 인라인에서 제외하고 요약의 "주요 지적"에만 넣는다.
 
