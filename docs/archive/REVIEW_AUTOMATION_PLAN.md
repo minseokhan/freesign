@@ -1,10 +1,10 @@
 # 계획: 코드리뷰 자동화 2층 (pre-commit + GitHub Actions)
 
-작성 2026-08-07 · 아카이브 2026-08-09. 상태: **1~8단계 구현·배포 완료 · 차단 경로 실검증 통과**
+작성 2026-08-07 · 아카이브 2026-08-09. 상태: **전 단계 완료 · 승인·차단 양 경로 실검증 통과**
 
-> ⚠️ **잔여 1건은 여기 있지 않다** — 자동 승인(APPROVE) 경로는 아직 한 번도 성공한 적이 없다.
-> 레포 설정 `can_approve_pull_request_reviews`가 여전히 `false`라서 게이트가 422로 막힌다(§7.5 ②).
-> 살아 있는 항목이므로 `docs/SECURITY_NEXT_STEPS.md` 0절로 옮겼다.
+> ✅ **아카이브 시점의 잔여 1건(자동 승인 경로)은 같은 날 해소됐다.** 레포 설정
+> `can_approve_pull_request_reviews`를 `true`로 바꾼 뒤 재검증에서 APPROVE가 실제로 게시됐다(§7.6).
+> `docs/SECURITY_NEXT_STEPS.md` 0절에 남아 있다면 함께 지울 것.
 
 최종 검증(PR #16, 런 31278798057): 의도한 결함 5개를 전부 잡고
 `Blocked` / `CHANGES_REQUESTED` + 인라인 7건 게시. 7분 50초.
@@ -285,3 +285,29 @@ gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow \
 
 **얻은 교훈**: fail-closed는 설계대로 동작했지만 — 승인은 한 번도 새어나가지 않았다 —
 "막혔다"만으로는 옳게 막힌 건지 알 수 없다. 게이트가 낸 실패는 **로그에서 사유를 확인**해야 한다.
+
+### 7.6 재검증 통과 (2026-08-09)
+
+`can_approve_pull_request_reviews`를 켜고 §7.5의 파싱 수정을 반영한 뒤 두 경로를 다시 돌렸다.
+
+| PR | 심은 것 | 리뷰 판정 | 게이트 제출 | 체크 | 머지 |
+|---|---|---|---|---|---|
+| #17 | service_role·IDOR·서버소유필드 | Blocked 🔴3·🟠1 | `CHANGES_REQUESTED` | 실패 | 안 됨 |
+| #18 | (실제 개선안) | Approve 🟡1 | `APPROVED` | 통과 | 안 됨 |
+
+`reviewDecision`이 각각 `CHANGES_REQUESTED`/`APPROVED`로 잡혔고, #18은 `mergeStateStatus: CLEAN`
+(= 머지 가능)인데도 머지되지 않았다 — **승인과 머지가 분리돼 있다는 증거**다.
+검증 후 두 PR은 닫고 브랜치를 삭제했다.
+
+곁가지: 같은 코드에 대한 재리뷰가 🔴3 → 🔴3·🟠1로 달라졌다. LLM 리뷰는 비결정적이라
+같은 diff에서도 집계가 흔들린다(판정은 양쪽 다 차단이라 결과는 같았다). 이 축을
+필수 체크로 승격할 때 감안할 것.
+
+### 7.7 draft PR 제외와 잡 요약 (2026-08-09)
+
+- **draft PR은 리뷰하지 않는다.** 트리거에 `ready_for_review`를 추가하고 게이트 잡에 `IS_DRAFT`
+  분기를 뒀다. 작업 중인 draft에 푸시할 때마다 리뷰가 도는 걸 막는다 — 실측 비용이
+  **리뷰 1건당 $1.66**(PR #18, Sonnet 5)이라 푸시 5번이면 $8이다.
+- **게이트 판정을 `$GITHUB_STEP_SUMMARY`에도 남긴다.** 체크가 빨갈 때 로그를 펼치지 않고 이유를 본다.
+  fail-closed 경로에서도 남도록 `writeSummary()`로 뽑았다 — 첫 구현은 `process.exit(1)` 뒤에 있어서
+  정작 실패했을 때만 요약이 비었고, 이 결함을 **PR #18의 리뷰가 스스로 잡아냈다**(minor, verify 2표).

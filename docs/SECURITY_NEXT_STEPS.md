@@ -30,7 +30,14 @@ OWASP 스캔 47건의 **코드 수정은 전부 끝났고 main에 push까지 됐
 
 5. **[알려진 함정 2026-08-03] `npm run db:gen-types`는 컨테이너 런타임이 필요하다** — `supabase gen types`가 Docker/Podman을 요구하도록 바뀌어(`LegacyContainerRuntimeNotFoundError`) 이 머신에서는 실행되지 않습니다. 스크립트가 embedded-postgres에 로컬 마이그레이션을 적용한 뒤 CLI를 호출하는 구조라 원격 접속과는 무관하며, **Docker를 깔기 전까지는 `src/types/database.ts`를 손으로 갱신**해야 합니다. 값은 Supabase MCP `generate_typescript_types`(원격 스키마 기준)로 받아 대조하면 추측 없이 정확합니다. 단 MCP 출력은 신버전 생성기 형식(`Args: never`, `__InternalSupabase.PostgrestVersion`)이라 **통째로 덮어쓰면 안 됩니다** — 현재 파일은 구버전 형식(`Args: Record<PropertyKey, never>`)이고, 섞으면 무인자 RPC 호출 타입이 전부 바뀝니다. 필요한 항목만 기존 형식에 맞춰 추가할 것.
 
-6. **[추가 2026-08-09] PR 리뷰 자동 승인 경로가 아직 한 번도 성공하지 못했습니다** — 심각도 게이트(`scripts/review-gate.mjs`)는 배포됐고 차단 경로(critical → `CHANGES_REQUESTED`)는 PR #16·#17에서 실증됐지만, **승인 경로는 GitHub 설정 때문에 422로 막혀 있습니다.** 지금도 `can_approve_pull_request_reviews: false`입니다(2026-08-09 확인). fail-closed라 위험은 없지만 "minor 이하는 자동 승인"이 실제로는 동작하지 않습니다.
+6. ~~**[추가 2026-08-09] PR 리뷰 자동 승인 경로가 아직 한 번도 성공하지 못했습니다**~~
+   → **해소됨 (2026-08-09).** `can_approve_pull_request_reviews`를 켜고 재검증했습니다:
+   PR #18(minor 1건)에 `APPROVED` 게시 + 체크 통과 + **자동 머지 없음**, PR #17(critical 3·major 1)은
+   `CHANGES_REQUESTED` + 체크 실패. 검증용 PR #17·#18은 닫고 브랜치를 삭제했습니다.
+   같은 날 발견한 두 번째 원인(판정 파일이 Node 경고로 오염돼 파싱 실패)도 함께 고쳤습니다(`acef6fe`).
+   아래는 당시 기록입니다.
+
+   ~~원문:~~ — 심각도 게이트(`scripts/review-gate.mjs`)는 배포됐고 차단 경로(critical → `CHANGES_REQUESTED`)는 PR #16·#17에서 실증됐지만, **승인 경로는 GitHub 설정 때문에 422로 막혀 있습니다.** 지금도 `can_approve_pull_request_reviews: false`입니다(2026-08-09 확인). fail-closed라 위험은 없지만 "minor 이하는 자동 승인"이 실제로는 동작하지 않습니다.
    ```bash
    gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow -F can_approve_pull_request_reviews=true
    gh pr close 16 17 18   # 게이트 검증용 테스트 PR·브랜치 정리 (승인 재검증 후)

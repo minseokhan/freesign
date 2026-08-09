@@ -13,7 +13,7 @@
 //   node --experimental-strip-types scripts/review-gate.mjs
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 import { decideGate, parseVerdictJson } from "../src/lib/review/verdict.ts";
 
@@ -24,9 +24,23 @@ const repo = process.env.GITHUB_REPOSITORY;
 const pr = process.env.PR_NUMBER;
 const headSha = process.env.HEAD_SHA;
 
+// 잡 요약에도 남긴다. 체크가 빨갛게 떴을 때 로그를 펼치지 않고 이유를 볼 수 있게.
+// 요약 기록이 실패해도 게이트 판정은 그대로여야 하므로 삼킨다 — 승인해 놓고 체크만
+// 빨개지는 어긋난 상태를 만들지 않기 위해서다.
+function writeSummary(text) {
+  if (!process.env.GITHUB_STEP_SUMMARY) return;
+
+  try {
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${text}\n`);
+  } catch (err) {
+    console.error(`잡 요약 기록 실패(무시): ${err.message}`);
+  }
+}
+
 function fail(reason) {
   console.error(`심각도 게이트 fail-closed: ${reason}`);
   console.error("승인하지 않고 체크를 실패로 남깁니다.");
+  writeSummary(`## 심각도 게이트 — 판정 불가\n\n${reason}\n\n승인하지 않고 체크를 실패로 남깁니다.`);
   process.exit(1);
 }
 
@@ -75,4 +89,6 @@ try {
 }
 
 console.log(`심각도 게이트: ${event} 제출 · ${counts}`);
+writeSummary(body);
+
 process.exit(blocking ? 1 : 0);
