@@ -93,9 +93,11 @@ jobs:
       # 에이전트가 원격 DB·배포에 손댈 수단 자체를 두지 않는 것이 prod read-only의 실체다.
       NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
-      ANTHROPIC_API_KEY: ci-anthropic-key
       NEXT_PUBLIC_SITE_URL: http://localhost:3000
       ONCALL_LOG_PATH: oncall-failed.log
+      # ANTHROPIC_API_KEY는 여기 두지 말 것. claude-code-action이 OAuth 토큰보다 이 환경변수를
+      # 우선해서, ci.yml의 더미 값("ci-anthropic-key")이 깔려 있으면 401 Invalid API key로 죽는다
+      # (실측: 런 31325224222). 빌드에 필요하므로 아래 Verify fix 스텝에만 단다.
     steps:
       # 여기서는 **깨진 커밋**을 체크아웃한다 (고칠 대상). gate에서 같은 레포·사람 커밋임을
       # 이미 확인했으므로 신뢰 수준은 ci.yml과 같다.
@@ -150,6 +152,9 @@ jobs:
       # (GITHUB_TOKEN으로 만든 PR에는 CI가 자동으로 붙지 않으므로 이 재검증이 유일한 근거다.)
       - name: Verify fix
         id: verify
+        env:
+          # 빌드가 요구하는 더미 값. 에이전트 스텝 뒤라 액션 인증에 영향을 주지 않는다.
+          ANTHROPIC_API_KEY: ci-anthropic-key
         run: |
           set +e
           npm audit --audit-level=high --omit=dev && \
