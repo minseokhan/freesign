@@ -15,7 +15,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-import { decideGate } from "../src/lib/review/verdict.ts";
+import { decideGate, parseVerdictJson } from "../src/lib/review/verdict.ts";
 
 const SEVERITIES = ["critical", "major", "minor", "nit"];
 
@@ -34,7 +34,7 @@ if (!repo || !pr) fail("GITHUB_REPOSITORY 또는 PR_NUMBER가 비어 있습니�
 
 let tally;
 try {
-  tally = JSON.parse(readFileSync(verdictPath, "utf8")).tally;
+  tally = parseVerdictJson(readFileSync(verdictPath, "utf8")).tally;
 } catch (err) {
   fail(`${verdictPath}를 읽지 못했습니다 (${err.message}). 리뷰가 완주하지 못한 것으로 봅니다.`);
 }

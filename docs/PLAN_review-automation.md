@@ -256,3 +256,28 @@ Pro로 올리거나 public으로 전환하면 다음을 켜서 강제로 바꾼�
 새 커밋에서 critical이 나오면 게이트가 REQUEST_CHANGES를 다시 제출하므로 승인은 자동으로 무효화된다.
 별도 dismiss 호출이 필요 없는 이유다. 다만 `GITHUB_TOKEN`으로 제출한 승인이 브랜치 보호의
 "필수 승인 수"를 채우는지는 Pro 전환 후 실제로 확인해야 한다.
+
+### 7.5 첫 실검증에서 드러난 것 (PR #17·#18, 2026-08-09)
+
+게이트를 넣고 처음 돌린 두 PR은 **둘 다 fail-closed로 막혔다.** 리뷰 자체는 정확했는데
+(#17 critical 3건 정확 탐지 / #18 Approve 판정) 게이트가 각각 다른 지점에서 걸렸다:
+
+**① 판정 파일이 Node 경고로 오염됐다 (#17).** 스킬이 저장 명령에 `2>&1`을 붙여
+`MODULE_TYPELESS_PACKAGE_JSON` 경고가 JSON 앞에 섞였고, `JSON.parse`가
+`Unexpected token '(', "(node:1005"...`로 실패했다. → `parseVerdictJson`으로 첫 `{`~마지막 `}`만
+잘라 읽도록 보강하고, 스킬 명령에 `--no-warnings` + "`2>&1` 금지"를 못박았다.
+
+**② GITHUB_TOKEN은 기본적으로 PR을 승인할 수 없다 (#18).** 게이트가 집계를 정상적으로 읽고
+`APPROVE`까지 결정했는데 `gh api`가 **HTTP 422**로 튕겼다. 원인은 레포 설정
+`can_approve_pull_request_reviews: false` — Settings → Actions → General의
+**"Allow GitHub Actions to create and approve pull requests"** 가 GitHub 기본값으로 꺼져 있다.
+`COMMENT` 리뷰는 이 설정과 무관하게 되기 때문에, 스킬의 인라인 게시만으로는 절대 드러나지 않는다.
+
+```bash
+gh api repos/{owner}/{repo}/actions/permissions/workflow          # 현재 값 확인
+gh api -X PUT repos/{owner}/{repo}/actions/permissions/workflow \
+  -F can_approve_pull_request_reviews=true                        # 켜기
+```
+
+**얻은 교훈**: fail-closed는 설계대로 동작했지만 — 승인은 한 번도 새어나가지 않았다 —
+"막혔다"만으로는 옳게 막힌 건지 알 수 없다. 게이트가 낸 실패는 **로그에서 사유를 확인**해야 한다.

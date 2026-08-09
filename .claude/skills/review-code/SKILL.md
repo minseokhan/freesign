@@ -158,9 +158,12 @@ return { findings: confirmed }
 워크플로우가 돌려준 `findings`를 스크래치 파일 `findings.json`에 저장한 뒤:
 
 ```bash
-cat findings.json | node --experimental-strip-types src/lib/review/verdict.ts > review-verdict.json
+cat findings.json | node --no-warnings --experimental-strip-types src/lib/review/verdict.ts > review-verdict.json
 cat review-verdict.json
 ```
+> **저장 명령에 `2>&1`을 붙이지 말 것.** Node 경고(`MODULE_TYPELESS_PACKAGE_JSON`)가 JSON에 섞여
+> 판정 파일이 깨진다. 실제 CI에서 이것 때문에 게이트가 집계를 못 읽고 fail-closed 됐다.
+> (게이트가 앞뒤 노이즈를 잘라내도록 보강했지만, 원인 자체를 만들지 말 것.)
 
 이 CLI가 **병합 → severity 정렬 → 집계 → 판정**을 수행해 `{ verdict, tally, findings }` JSON을 반환한다.
 (로직은 `src/lib/review/verdict.ts`, 테스트는 `src/lib/review/__tests__/verdict.test.ts`.)
