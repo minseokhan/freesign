@@ -8,7 +8,7 @@ export interface WithholdingBreakdown {
 }
 
 const INCOME_TAX_RATES = {
-  wt_3_3: BigInt(3),
+  wt_3_3: BigInt(4),
   wt_8_8: BigInt(8),
   none: BigInt(0)
 } satisfies Record<WithholdingType, bigint>;
