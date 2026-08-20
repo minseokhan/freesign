@@ -411,6 +411,11 @@ function ruleServerOwnedInZod(file: ScanFile): RuleViolation[] {
 
 // ── 진입점 ────────────────────────────────────────────────────────────
 
+// 스캐너가 내보내는 규칙 ID. `.claude/rules.json`의 static_rule_ids가 이 목록과
+// 양방향으로 일치해야 한다(evals/harness/rules-sync.test.ts) — 정규식 층만 조용히
+// 규칙을 늘리거나 잃는 것을 막는다.
+export const STATIC_RULE_IDS: readonly string[] = ["SR-01", "SR-02", "SR-03", "SR-04", "SR-05"];
+
 const RULES = [
   ruleServiceRole,
   ruleGetSession,

@@ -4,9 +4,11 @@
 
 import { describe, it, expect } from "vitest";
 import { loadCases, CASES_DIR } from "../lib/cases.ts";
-import { REVIEW_SYSTEM_PROMPT } from "../lib/prompts.ts";
+import { buildReviewSystemPrompt } from "../lib/prompts.ts";
+import { loadProjectRules } from "../lib/rules-file.ts";
 
 const cases = loadCases(CASES_DIR);
+const REVIEW_SYSTEM_PROMPT = buildReviewSystemPrompt(loadProjectRules());
 const review = cases.filter((c) => c.track === "review");
 const qa = cases.filter((c) => c.track === "qa");
 
@@ -39,7 +41,7 @@ describe("review 트랙 균형", () => {
     }
   });
 
-  // 피험 모델은 REVIEW_SYSTEM_PROMPT 의 슬러그만 출력할 수 있고, judge 는 슬러그 일치를
+  // 피험 모델은 리뷰 루브릭의 슬러그만 출력할 수 있고, judge 는 슬러그 일치를
   // 요구한다(lib/prompts.ts). 루브릭에 없는 슬러그를 라벨로 달면 그 케이스는 모델 성능과
   // 무관하게 영구 fail 이 되는데, "rule 이 있는가"만 보면 이게 통과해 버린다(실제로 통과했다).
   it("모든 위반 케이스의 rule 은 리뷰 루브릭에 실재하는 슬러그다", () => {

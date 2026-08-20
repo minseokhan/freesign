@@ -3,19 +3,20 @@
 
 import { complete, SUBJECT_MODEL, JUDGE_MODEL } from "../lib/anthropic.ts";
 import {
-  REVIEW_SYSTEM_PROMPT,
+  buildReviewSystemPrompt,
   buildReviewSubjectUser,
   buildReviewJudgePrompt,
 } from "../lib/prompts.ts";
 import { parseJudgeVerdict } from "../lib/judge.ts";
+import type { RulesFile } from "../../../src/lib/review/rules.ts";
 import type { CaseResult, ParsedCase } from "../lib/types.ts";
 
 const JUDGE_SYSTEM = "너는 엄격하고 일관된 채점자다. 요구된 JSON 한 개로만 답한다.";
 
-export async function runReviewCase(c: ParsedCase): Promise<CaseResult> {
+export async function runReviewCase(c: ParsedCase, rules: RulesFile): Promise<CaseResult> {
   const subjectOutput = await complete({
     model: SUBJECT_MODEL,
-    system: REVIEW_SYSTEM_PROMPT,
+    system: buildReviewSystemPrompt(rules),
     user: buildReviewSubjectUser(c.body),
   });
 

@@ -28,6 +28,7 @@
 - 서버 인가는 `getUser()`(`getSession()` 아님). middleware는 토큰 갱신 전용(보안 경계 아님).
 - 컴포넌트는 `components/`, 타입은 `types/`, 순수 함수는 `lib/`(집계는 SQL, 변환만 JS)에 분리.
 - 그 밖의 보안·데이터 접근·상태 전이 규칙은 `docs/ARCHITECTURE.md`(데이터 모델 규칙·데이터 흐름·패턴)·`docs/ADR.md` 참조.
+- 위 CRITICAL 규칙의 **기계 판독 정본은 `.claude/rules.json`**이다. 정적 스캐너(`src/lib/review/static-rules.ts`)·리뷰 스킬 루브릭(`npm run review:rubric`)·하네스 eval 루브릭이 모두 여기서 파생하고, `evals/harness/rules-sync.test.ts`가 문서↔정본↔각 층의 드리프트를 `npm test`에서 막는다. **규칙을 고치면 두 곳(문서·rules.json)을 같이 고칠 것.**
 
 ## 개발 프로세스
 - CRITICAL: 새 기능 구현 시 반드시 테스트를 먼저 작성하고, 테스트가 통과하는 구현을 작성할 것 (TDD). `lib/tax.ts`·`lib/metrics.ts` 순수 함수와 상태 전이·보안 경계(RLS·소유권)는 특히 필수.

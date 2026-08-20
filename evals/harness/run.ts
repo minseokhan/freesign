@@ -5,17 +5,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadCases, CASES_DIR } from "./lib/cases.ts";
+import { loadProjectRules } from "./lib/rules-file.ts";
 import { aggregate, formatSummary } from "./lib/aggregate.ts";
 import { runReviewCase } from "./tracks/review.ts";
 import { runQaCase } from "./tracks/qa.ts";
+import type { RulesFile } from "../../src/lib/review/rules.ts";
 import type { CaseResult, ParsedCase } from "./lib/types.ts";
 
 const CLAUDE_MD = path.resolve(import.meta.dirname, "..", "..", "CLAUDE.md");
 const CONCURRENCY = 4;
 
-async function runCase(c: ParsedCase, claudeMd: string): Promise<CaseResult> {
+async function runCase(c: ParsedCase, claudeMd: string, rules: RulesFile): Promise<CaseResult> {
   try {
-    return c.track === "review" ? await runReviewCase(c) : await runQaCase(c, claudeMd);
+    return c.track === "review" ? await runReviewCase(c, rules) : await runQaCase(c, claudeMd);
   } catch (err) {
     // 호출·파싱 실패는 해당 케이스 fail로 처리(게이트를 뚫고 나가지 않도록).
     return {
@@ -49,9 +51,10 @@ export async function mapPool<T, R>(
 async function main() {
   const cases = loadCases(CASES_DIR);
   const claudeMd = fs.readFileSync(CLAUDE_MD, "utf8");
+  const rules = loadProjectRules();
 
   console.log(`골든셋 ${cases.length}건 채점 시작 (동시 ${CONCURRENCY}) …`);
-  const results = await mapPool(cases, CONCURRENCY, (c) => runCase(c, claudeMd));
+  const results = await mapPool(cases, CONCURRENCY, (c) => runCase(c, claudeMd, rules));
   for (const r of results) {
     console.log(`  ${r.verdict === "pass" ? "✓" : "✗"} [${r.track}] ${r.id}`);
   }

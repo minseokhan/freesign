@@ -9,13 +9,15 @@
 
 | 트랙 | 피험(subject) | 무엇을 재나 | 채점 |
 |------|---------------|-------------|------|
-| **review** | 경량 리뷰어 (Sonnet, CRITICAL **요약**을 시스템 프롬프트로) | 코드가 CRITICAL 경계를 어기면 잡는가, 정상 코드에 오탐하지 않는가 | Opus (LLM-as-judge) |
+| **review** | 경량 리뷰어 (Sonnet, `.claude/rules.json`에서 파생한 CRITICAL 루브릭을 시스템 프롬프트로) | 코드가 CRITICAL 경계를 어기면 잡는가, 정상 코드에 오탐하지 않는가 | Opus (LLM-as-judge) |
 | **qa** | 응답자 (Sonnet, **라이브 `CLAUDE.md` 전문**을 컨텍스트로) | 규약·예외처리 gotcha 질문에 사실대로 답하는가, 틀린 전제를 반박하는가 | Opus (LLM-as-judge) |
 
 - review 골든셋: **위반 4건 + 정상 1건**. 정상 1건은 오탐(false positive) 방지 앵커다.
 - qa 골든셋: 각 케이스에 `must`/`must_not` 사실 라벨. 그중 1건은 **틀린 전제를 심은 반박 가드**(`guard: false-premise`) — 계약(contracts)은 soft-delete가 아니라 물리 삭제라는 예외를 응답자가 바로잡아야 pass.
 
-두 트랙의 컨텍스트 주입 방식이 다른 것은 의도적이다. review는 CRITICAL을 **박제한 요약 루브릭**을 재고, qa는 **살아있는 문서 자체**가 정답을 지지하는지 재기 때문이다.
+두 트랙의 컨텍스트 주입 방식이 다른 것은 의도적이다. review는 규칙 정본(`.claude/rules.json`)에서 파생한 **요약 루브릭**을 재고, qa는 **살아있는 문서 자체**가 정답을 지지하는지 재기 때문이다.
+
+루브릭을 손으로 적지 않는 이유: 문서에 CRITICAL을 추가하고 루브릭에 옮기는 걸 잊으면 eval이 그 경계를 영영 재지 않는다. `rules-sync.test.ts`가 정본↔문서↔정적 스캐너↔골든셋↔파생 루브릭의 드리프트를 키 없이 막는다.
 
 ## 원칙: 작게 시작, 라벨은 사람이 박제한다
 

@@ -9,9 +9,11 @@ vi.mock("../lib/anthropic.ts", () => ({
 
 import { complete } from "../lib/anthropic.ts";
 import { runReviewCase } from "./review.ts";
+import { loadProjectRules } from "../lib/rules-file.ts";
 import type { ParsedCase } from "../lib/types.ts";
 
 const mockComplete = vi.mocked(complete);
+const rules = loadProjectRules();
 
 const violationCase: ParsedCase = {
   id: "review-01",
@@ -29,7 +31,7 @@ describe("runReviewCase", () => {
       .mockResolvedValueOnce('{"violations":[{"rule":"write-boundary","evidence":"..."}]}')
       .mockResolvedValueOnce('{"verdict":"pass","reason":"위반을 정확히 지목"}');
 
-    const res = await runReviewCase(violationCase);
+    const res = await runReviewCase(violationCase, rules);
 
     expect(res).toMatchObject({ id: "review-01", track: "review", verdict: "pass" });
     expect(mockComplete).toHaveBeenCalledTimes(2);
@@ -45,7 +47,7 @@ describe("runReviewCase", () => {
       .mockResolvedValueOnce('{"violations":[]}')
       .mockResolvedValueOnce('{"verdict":"fail","reason":"위반을 놓침"}');
 
-    const res = await runReviewCase(violationCase);
+    const res = await runReviewCase(violationCase, rules);
     expect(res.verdict).toBe("fail");
     expect(res.reason).toContain("놓침");
   });

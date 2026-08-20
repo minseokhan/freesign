@@ -1,0 +1,161 @@
+{
+  "generated_from": ["CLAUDE.md", "AGENTS.md"],
+  "generated_at": "2026-08-20",
+  "stack": ["Next.js", "Supabase", "Vitest", "Playwright"],
+  "axis_notes": {
+    "correctness": "금액·세금은 집계를 SQL에서, 변환만 JS에서 한다. 반올림·통화·콤마 포맷이 검증이나 스냅샷과 어긋나는지 본다. catch에서 실패를 조용히 삼키거나 성공으로 처리하는지, null·빈 배열·0·음수·중복 제출 경계가 처리되는지 함께 본다."
+  },
+  "rules": [
+    {
+      "slug": "read-boundary",
+      "severity": "critical",
+      "axis": "architecture",
+      "rule": "읽기는 RSC에서 Supabase를 직접 조회한다(RLS가 user_id를 스코프).",
+      "detail": "읽기를 내부 /api fetch로 우회하지 말 것.",
+      "ok_patterns": ["RSC에서 supabase.from(...).select(...)로 직접 읽는 것 (RLS가 스코프 — 정상)"],
+      "source_excerpt": "읽기는 RSC에서 Supabase 직접 조회",
+      "eval_cases": ["review-01"]
+    },
+    {
+      "slug": "write-boundary",
+      "severity": "critical",
+      "axis": "architecture",
+      "rule": "쓰기는 Server Action에서만 한다(revalidatePath로 갱신).",
+      "detail": "클라이언트 컴포넌트·RSC에서 직접 insert·update·delete 금지.",
+      "ok_patterns": ["Server Action('use server') 안에서의 insert·update·delete (정상)"],
+      "source_excerpt": "쓰기는 Server Actions에서만",
+      "eval_cases": ["review-02"]
+    },
+    {
+      "slug": "secret-boundary",
+      "severity": "critical",
+      "axis": "security",
+      "rule": "시크릿·외부 API(Claude·서명 해시·PDF·XLSX·service_role)는 app/api 라우트 핸들러나 서버 전용 모듈에서만 호출한다.",
+      "detail": "클라이언트 컴포넌트 직접 호출 금지. service_role 키는 요청 경로에서 절대 금지(CLI 시드 전용).",
+      "ok_patterns": [
+        "app/api 라우트나 server-only 모듈에서 Claude·PDF·해시를 호출하는 것 (정상)",
+        "scripts/ 시드 CLI의 service_role 사용 (요청 경로가 아님 — 정상)"
+      ],
+      "source_excerpt": "`service_role` 키는 요청 경로에서 절대 금지",
+      "static_rule_ids": ["SR-01", "SR-03"],
+      "eval_cases": ["review-03"]
+    },
+    {
+      "slug": "rls-scope",
+      "severity": "critical",
+      "axis": "security",
+      "rule": "모든 사용자 데이터 테이블은 RLS USING과 WITH CHECK 둘 다 (user_id = (select auth.uid()))로 스코프한다.",
+      "detail": "하나라도 빠지면 결함. USING만 있으면 읽기는 막아도 남의 user_id로 쓰는 것을 못 막는다.",
+      "ok_patterns": ["SELECT·DELETE 정책에 WITH CHECK가 없는 것 (그 명령엔 WITH CHECK가 성립하지 않음 — 정상)"],
+      "source_excerpt": "WITH CHECK (user_id = (select auth.uid()))",
+      "static_rule_ids": ["SR-04"]
+    },
+    {
+      "slug": "zod-allowlist",
+      "severity": "critical",
+      "axis": "security",
+      "rule": "Server Action은 client 입력 전용 zod allowlist(도메인 필드만)로 받는다.",
+      "detail": "user_id는 항상 getUser()에서. 서버 소유 필드(status·paid_at·doc_hash·signature_meta·is_demo·contract_snapshot·금액 스냅샷·pdf 경로)는 client 입력 금지. FK 참조(invoice→contract/client)는 소유권 재조회 검증 후 insert(FK는 RLS를 우회한다).",
+      "ok_patterns": [
+        "user_id를 getUser()에서 얻어 insert에 넣는 것 (client 입력이 아니라 서버 취득 — 정상)",
+        "FK(client_id·contract_id)를 insert 전에 소유 테이블에서 .eq(\"id\", ...)로 재조회 검증하는 것 (요구되는 방식 — 정상). 읽기는 RLS로 이미 스코프되므로 명시적 user_id 필터가 없다는 이유로 위반이라 하지 말 것",
+        "status·paid_at 등 서버 소유 필드를 서버 코드에서 직접 세팅하는 것 (정상). 위반은 그 필드를 client 입력 스키마·요청 본문으로 받을 때만이다"
+      ],
+      "source_excerpt": "client 입력 전용 zod allowlist",
+      "static_rule_ids": ["SR-05"],
+      "eval_cases": ["review-04", "review-05"]
+    },
+    {
+      "slug": "provider-boundary",
+      "severity": "critical",
+      "axis": "architecture",
+      "rule": "전자서명·결제는 services/의 v1 전용 Provider 인터페이스 뒤로만 접근한다.",
+      "detail": "AI 계약서 초안·PDF 추출 결과는 항상 비권위적 검토 보조로 취급하고 면책을 노출한다. AI는 필수 게이트가 아니라 보강이며 실패 시 골격·수기 입력으로 폴백한다.",
+      "ok_patterns": ["AI 결과를 '초안'으로 표시하고 실패 시 골격 폴백을 두는 것 (정상)"],
+      "source_excerpt": "v1 전용 Provider 인터페이스",
+      "eval_cases": ["review-06", "qa-03"]
+    },
+    {
+      "slug": "webhook-secret-boundary",
+      "severity": "critical",
+      "axis": "security",
+      "rule": "세션 없는 경계(webhook·크론)의 멀티유저 쓰기는 시크릿 게이트 SECURITY DEFINER RPC로만 한다.",
+      "detail": "anon 클라이언트(lib/supabase/anon.ts) → p_*_secret 인자를 받는 DEFINER 함수 → 내부에서 billing_config·cron_config 대조(fail-closed). 여기서도 service_role 금지 (ADR-010·011).",
+      "ok_patterns": ["p_*_secret 시크릿 인자를 받는 DEFINER 함수가 여러 사용자 행을 쓰는 것 (ADR-010·011이 요구하는 방식 — 정상)"],
+      "source_excerpt": "세션 없는 경계(webhook·크론)의 멀티유저 쓰기는 시크릿 게이트 DEFINER RPC로만",
+      "eval_cases": ["qa-06"]
+    },
+    {
+      "slug": "definer-rpc-scope",
+      "severity": "critical",
+      "axis": "security",
+      "rule": "세션 있는 경계의 파괴적 DEFINER RPC는 대상을 인자로 받지 않는다.",
+      "detail": "계정 삭제처럼 RLS를 우회해 지우는 함수는 auth.uid()로 대상을 정한다. p_user_id를 받으면 로그인한 누구나 남의 계정을 지울 수 있다 — 앱이 옳게 넘겨줘도 PostgREST로 직접 호출 가능하다. 실행권은 authenticated에만 (ADR-012).",
+      "ok_patterns": ["세션 없는 경계의 시크릿 게이트 DEFINER가 인자를 받는 것 (위반은 '삭제 대상 식별자'를 인자로 받을 때다)"],
+      "source_excerpt": "세션 있는 경계의 파괴적 DEFINER RPC는 대상을 인자로 받지 않는다",
+      "eval_cases": ["review-07"]
+    },
+    {
+      "slug": "cron-review-gate",
+      "severity": "critical",
+      "axis": "architecture",
+      "rule": "크론은 클라이언트에게 직접 발송·발행하지 않는다.",
+      "detail": "크론 산출물은 항상 소유자 검토 대기 상태(pending_review·인보이스 draft)이고, 실제 발송·발행은 세션 있는 Server Action에서만. 독촉 발송·반복 인보이스 스케줄은 추가로 assertProFeature()를 통과해야 한다(청구서 발송은 무료 — ADR-013).",
+      "ok_patterns": ["크론이 pending_review·draft 산출물만 만들고 멈추는 것 (정상)"],
+      "source_excerpt": "크론은 클라이언트에게 직접 발송·발행하지 않는다",
+      "eval_cases": ["qa-05"]
+    },
+    {
+      "slug": "tdd-first",
+      "severity": "critical",
+      "axis": "process",
+      "rule": "새 기능은 테스트를 먼저 쓰고, 그 테스트를 통과하는 구현을 쓴다.",
+      "detail": "순수 함수(lib/tax.ts·lib/metrics.ts)와 상태 전이·보안 경계(RLS·소유권)는 특히 필수.",
+      "source_excerpt": "테스트를 먼저 작성"
+    },
+    {
+      "slug": "event-log-order",
+      "severity": "major",
+      "axis": "correctness",
+      "rule": "상태 전이(계약 status·인보이스 결제)는 도메인 UPDATE 후 이벤트 INSERT를 순차로 기록한다.",
+      "detail": "status 변경을 쓰기 순서 앞쪽에 두면 부분 실패 시 미완 상태가 남는다.",
+      "source_excerpt": "append-only 이벤트 로그에 함께 기록"
+    },
+    {
+      "slug": "soft-delete-helper",
+      "severity": "major",
+      "axis": "correctness",
+      "rule": "deleted_at IS NULL 필터는 RLS가 아니라 공용 쿼리 헬퍼에서 건다.",
+      "detail": "단 계약(contracts)은 예외로 물리 삭제(ADR-008): 딸린 인보이스는 contract_id를 SET NULL로 끊고 invoices.contract_snapshot에 삭제 시점 요약을 남긴다. 인보이스·클라이언트는 soft-delete 유지.",
+      "ok_patterns": ["계약을 물리 삭제하는 코드 (ADR-008이 정한 예외 — 정상)"],
+      "source_excerpt": "`deleted_at IS NULL` 필터는 RLS가 아니라",
+      "eval_cases": ["qa-01", "qa-04"]
+    },
+    {
+      "slug": "storage-private",
+      "severity": "major",
+      "axis": "security",
+      "rule": "Storage는 private 버킷 + {user_id}/... 경로를 쓰고, DB에는 key만 저장하며 읽기는 단기 signed URL로 한다.",
+      "detail": "public URL 노출·경로 user_id 누락은 결함.",
+      "source_excerpt": "Storage는 private 버킷"
+    },
+    {
+      "slug": "auth-getuser",
+      "severity": "major",
+      "axis": "security",
+      "rule": "서버 인가는 getUser()로 한다(getSession() 아님).",
+      "detail": "middleware는 토큰 갱신 전용이며 보안 경계가 아니다.",
+      "ok_patterns": ["middleware.ts에서 토큰 갱신 목적의 getSession() (정상)"],
+      "source_excerpt": "서버 인가는 `getUser()`",
+      "static_rule_ids": ["SR-02"],
+      "eval_cases": ["qa-02"]
+    },
+    {
+      "slug": "layer-separation",
+      "severity": "major",
+      "axis": "architecture",
+      "rule": "컴포넌트는 components/, 타입은 types/, 순수 함수는 lib/에 둔다(집계는 SQL, 변환만 JS).",
+      "source_excerpt": "컴포넌트는 `components/`, 타입은 `types/`, 순수 함수는 `lib/`"
+    }
+  ]
+}

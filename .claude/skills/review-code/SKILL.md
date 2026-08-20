@@ -19,6 +19,17 @@ description: 변경 diff를 security·correctness·architecture 3축 서브에�
 - **PR이 없으면 (폴백)**: `git diff HEAD` 로 로컬 diff, `git diff --name-only HEAD` 로 파일 목록. 게시하지 않고 **터미널에 4줄 인라인 포맷 + 요약**을 출력하고 그 사실을 사용자에게 알린다. (원하면 임시 PR 생성 옵션 제안)
 - diff가 비어 있으면 리뷰할 것이 없다고 알리고 종료.
 
+**루브릭 로드 (필수)**: 리뷰 규칙은 이 파일에 적지 않는다. 규칙 정본은 `.claude/rules.json`이고,
+축별 프롬프트 조각은 CLI가 생성한다:
+
+```bash
+npm run review:rubric --silent > rubric.json   # scripts/review-rubric.mjs — {security, correctness, architecture}
+```
+> 규칙을 프롬프트에 손으로 옮기면 정본과 갈라진다. 실제로 보안 개선에서 추가한 CRITICAL 3개
+> (`webhook-secret-boundary`·`definer-rpc-scope`·`cron-review-gate`)가 이 스킬에만 빠져 있었고,
+> 그 경계를 깨는 PR을 리뷰가 통과시킬 수 있었다. 지금은 `evals/harness/rules-sync.test.ts`가
+> 정본↔각 층의 드리프트를 `npm test`에서 막는다.
+
 ### 2. 병렬 리뷰 실행
 
 **인자에 `--ci`가 있거나 `$GITHUB_ACTIONS`가 설정돼 있으면 Workflow 툴을 쓰지 말 것.**
@@ -31,7 +42,8 @@ CI에서는 대신 **`Task` 서브에이전트를 한 메시지에서 병렬로*
 때까지 블로킹하므로 런이 먼저 끝나지 않는다.
 
 1. finder 3개(`security`·`correctness`·`architecture`)를 **한 메시지에 Task 3개**로 동시 실행.
-   각 프롬프트는 아래 `DIMENSIONS[].rules` + `finderPrompt(d)`와 동일하게 구성하고,
+   각 프롬프트는 아래 `DIMENSIONS[].intro` + **`rubric.json`의 해당 축 문자열**(규칙 본문) +
+   `finderPrompt(d)`와 동일하게 구성하고,
    결과를 `{ findings: [...] }` JSON으로만 반환하도록 지시한다(스키마 강제가 없으므로
    "JSON 외 텍스트 금지"를 명시).
 2. 돌아온 findings를 모아, 각 건을 **한 메시지에 Task N개**로 동시 verify(`verifyPrompt(f)`).
@@ -42,7 +54,7 @@ CI에서는 대신 **`Task` 서브에이전트를 한 메시지에서 병렬로*
 
 #### 대화형: Workflow 병렬 리뷰
 아래 스크립트를 **Workflow 툴에 inline `script`로 전달**한다. (이 스킬 호출 자체가 Workflow opt-in 성립.)
-`args`에 `{ pr, paths, diff }`를 넘긴다. `diff`가 매우 크면(수천 줄) 스크래치 파일에 저장 후 경로만 넘기고 finder가 Read 하도록 프롬프트를 조정한다.
+`args`에 `{ pr, paths, diff, rubric }`를 넘긴다(`rubric`은 위에서 만든 `rubric.json` 객체). `diff`가 매우 크면(수천 줄) 스크래치 파일에 저장 후 경로만 넘기고 finder가 Read 하도록 프롬프트를 조정한다.
 
 워크플로우는 **verify를 통과한 raw findings 배열**만 반환한다 (집계·판정은 3단계에서 검증된 모듈이 담당).
 
@@ -56,40 +68,17 @@ export const meta = {
 // args가 문자열로 도착할 수 있으므로 정규화 (객체/문자열 모두 안전)
 const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
 
-// MVP 3축. 확장 시 { key, label, rules } 항목만 추가 (docs/PLAN §3.2: perf/test/cross-file/privacy).
+// 축 목록과 시선만 여기서 정한다. **규칙 본문은 `.claude/rules.json`에서 파생해 args.rubric으로 받는다.**
+// 규칙을 이 파일에 직접 적으면 정본과 갈라진다(확장 시: rules.json에 axis를 단 규칙을 추가할 것).
 const DIMENSIONS = [
-  {
-    key: 'security', label: '보안',
-    rules: `당신은 매듭(한국형 프리랜서 계약/청구 SaaS)의 **보안 전문 리뷰어**다.
-아래 CRITICAL 위반만 찾아라(성능·스타일 무시).
-- RLS: 사용자 데이터 테이블은 USING + WITH CHECK 둘 다 (user_id=(select auth.uid()))로 스코프. 하나라도 빠지면 결함.
-- user_id 출처: Server Action의 user_id는 항상 getUser()에서. getSession()을 인가에 쓰면 결함.
-- service_role 키가 요청 경로(src/app, 라우트 핸들러, Server Action)에 등장하면 CRITICAL(시드/CLI 전용).
-- zod allowlist: Server Action은 도메인 필드만 담은 zod로 입력받아야 함. user_id·status·paid_at·doc_hash·signature_meta·is_demo·금액 스냅샷·pdf 경로 등 서버 소유 필드가 client 입력 스키마에 있으면 결함.
-- FK 참조(invoice→contract/client)는 insert 전 소유권 서버 재조회 검증(FK는 RLS 우회). 검증 없이 client FK id 사용은 결함.
-- 시크릿·외부 API(Claude·서명해시·PDF·XLSX·service_role)는 서버 전용에서만. 'use client'에서 직접 호출은 결함.
-- Storage: private 버킷 + {user_id}/ 경로, DB엔 key만, 읽기는 단기 signed URL. public URL 노출·경로 user_id 누락은 결함.`,
-  },
-  {
-    key: 'correctness', label: '정합성',
-    rules: `당신은 매듭의 **정합성/상태전이 전문 리뷰어**다. 특정 입력/상태에서 잘못된 결과나 부분 실패만 찾아라.
-- 상태 전이(계약 status·인보이스 결제)는 도메인 UPDATE 후 이벤트 INSERT를 순차로. status 변경을 쓰기 앞쪽에 두면 부분 실패 시 미완 상태가 남아 결함.
-- 서버 소유 필드(status·paid_at·doc_hash·signature_meta·is_demo·금액 스냅샷·pdf 경로)를 client 입력으로 덮으면 결함.
-- soft delete: deleted_at IS NULL 필터는 공용 쿼리 헬퍼 경유. 직접 쿼리에서 누락은 삭제 데이터 노출.
-- 금액/세금: 집계는 SQL·변환만 JS. 반올림·통화·콤마 포맷이 검증을 깨거나 스냅샷과 어긋나는지.
-- 에러: catch에서 조용히 삼키거나 실패를 성공으로 처리하는지. null/빈배열/0/음수/중복제출 경계.`,
-  },
-  {
-    key: 'architecture', label: '아키텍처',
-    rules: `당신은 매듭의 **아키텍처/경계 전문 리뷰어**다. 구조 규칙 위반만 찾아라.
-- 읽기=RSC에서 Supabase 직접 조회(RLS). 읽기를 내부 /api fetch로 우회하면 결함.
-- 쓰기=Server Action에서만(+revalidatePath). 클라이언트 직접 mutate는 결함.
-- 시크릿·외부 API는 app/api 라우트 또는 서버 전용 모듈에서만. 클라이언트 컴포넌트 직접 호출 금지.
-- 전자서명·결제는 services/ v1 Provider 인터페이스 뒤로만. 구현 직접 호출은 결함.
-- AI 계약서는 항상 '초안'·면책 노출, 실패 시 골격 폴백(필수 게이트 금지).
-- 분리: 컴포넌트=components/, 타입=types/, 순수함수=lib/. 레이어 혼입은 결함. middleware는 토큰 갱신 전용.`,
-  },
-]
+  { key: 'security', label: '보안', intro: '당신은 매듭(한국형 프리랜서 계약/청구 SaaS)의 **보안 전문 리뷰어**다. 아래 규칙 위반만 찾아라(성능·스타일 무시).' },
+  { key: 'correctness', label: '정합성', intro: '당신은 매듭의 **정합성/상태전이 전문 리뷰어**다. 아래 규칙 위반과, 특정 입력/상태에서 잘못된 결과·부분 실패만 찾아라.' },
+  { key: 'architecture', label: '아키텍처', intro: '당신은 매듭의 **아키텍처/경계 전문 리뷰어**다. 아래 구조 규칙 위반만 찾아라.' },
+].map((d) => ({ ...d, rules: `${d.intro}\n\n${(A.rubric || {})[d.key] || ''}` }))
+
+if (DIMENSIONS.some((d) => !(A.rubric || {})[d.key])) {
+  throw new Error('rubric이 비었다 — `npm run review:rubric`으로 .claude/rules.json에서 생성해 args.rubric으로 넘길 것')
+}
 
 const FINDING_ITEM = {
   type: 'object', additionalProperties: false,

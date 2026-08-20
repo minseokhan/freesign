@@ -1,14 +1,17 @@
 import { describe, it, expect } from "vitest";
 import {
-  REVIEW_SYSTEM_PROMPT,
+  buildReviewSystemPrompt,
   buildReviewSubjectUser,
   buildQaSubjectSystem,
   buildReviewJudgePrompt,
   buildQaJudgePrompt,
 } from "./prompts.ts";
+import { loadProjectRules } from "./rules-file.ts";
 import type { ParsedCase } from "./types.ts";
 
-describe("REVIEW_SYSTEM_PROMPT", () => {
+const REVIEW_SYSTEM_PROMPT = buildReviewSystemPrompt(loadProjectRules());
+
+describe("buildReviewSystemPrompt", () => {
   it("핵심 CRITICAL 경계를 담는다", () => {
     expect(REVIEW_SYSTEM_PROMPT).toContain("Server Action");
     expect(REVIEW_SYSTEM_PROMPT).toContain("service_role");

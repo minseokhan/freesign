@@ -1,40 +1,31 @@
 // 프롬프트 빌더 — 순수 문자열 조립. 모델 호출은 tracks/ 에서.
 //
 // 두 트랙의 컨텍스트 주입 방식이 다르다(의도적):
-//  - review: CLAUDE.md의 CRITICAL 규칙을 "요약"해 baked 시스템 프롬프트로. 경량 리뷰어 루브릭.
+//  - review: 규칙 정본(.claude/rules.json)에서 파생한 CRITICAL 루브릭. 경량 리뷰어용 요약.
 //  - qa: 런타임에 읽은 "라이브 CLAUDE.md 전문"을 컨텍스트로. 문서 자체가 정답 근거.
+//
+// review 루브릭을 손으로 적지 않는 이유: 문서에 CRITICAL을 추가하고 여기 옮기는 걸 잊으면
+// eval이 그 경계를 영영 재지 않는다(실제로 DEFINER RPC 관련 규칙에서 그렇게 갈라졌다).
 
+import { buildEvalRubric, type RulesFile } from "../../../src/lib/review/rules.ts";
 import type { ParsedCase } from "./types.ts";
 
 /**
  * review 트랙 피험 모델(경량 리뷰어)의 시스템 프롬프트.
- * CLAUDE.md의 CRITICAL 규칙 요약 = 리뷰 루브릭. 라이브 문서가 아니라 박제된 요약이다.
+ * 루브릭 본문은 `.claude/rules.json`의 CRITICAL 규칙에서 파생한다 — 손으로 적은 사본이 아니다.
  */
-export const REVIEW_SYSTEM_PROMPT = `너는 매듭(Maedeup, Next.js 15 + Supabase) 코드의 경량 아키텍처 리뷰어다.
+export function buildReviewSystemPrompt(rules: RulesFile): string {
+  return `너는 매듭(Maedeup, Next.js 15 + Supabase) 코드의 경량 아키텍처 리뷰어다.
 아래 CRITICAL 경계 규칙 위반만 잡는다. 스타일·성능·취향은 지적하지 않는다.
 
-[read-boundary] 읽기는 RSC에서 Supabase 직접 조회(RLS 스코프). 읽기를 내부 /api fetch로 우회 금지.
-[write-boundary] 쓰기는 Server Action에서만. 클라이언트 컴포넌트/RSC에서 직접 insert·update·delete 금지.
-[secret-boundary] Claude·서명 해시·PDF·XLSX·service_role 등 시크릿/외부 API는 app/api 라우트나 서버 전용 모듈에서만. service_role 키는 요청 경로에서 절대 금지(CLI 시드 전용). 클라이언트 직접 호출 금지.
-[zod-allowlist] Server Action은 client 입력 전용 zod allowlist(도메인 필드만) 수신. user_id는 항상 getUser()에서. 서버 소유 필드(status·paid_at·doc_hash·signature_meta·is_demo·금액 스냅샷·pdf 경로)는 client 입력 금지. FK 참조는 소유권 재조회 검증 후 insert.
-[provider-boundary] 전자서명·결제는 services/ 의 Provider 인터페이스 뒤로만 접근. AI 계약서 결과는 항상 "초안" 취급, 실패 시 골격 폴백(필수 게이트 아님).
-[definer-rpc-scope] SECURITY DEFINER 함수는 RLS를 우회한다. 세션 있는 경계의 파괴적 RPC(계정 삭제 등)는 대상을 클라이언트 인자(p_user_id 등)로 받지 말고 auth.uid()로 정해야 한다. 앱이 옳게 넘겨준다는 주석은 근거가 아니다 — PostgREST로 직접 호출 가능하다.
+${buildEvalRubric(rules)}
 
-[정상 패턴 — 위반으로 보고하지 말 것]
-아래는 CLAUDE.md가 오히려 요구하는 올바른 코드다. 절대 위반으로 지목하지 말 것:
-- user_id를 getUser()에서 얻어 insert에 넣는 것 (client 입력이 아니라 서버에서 취득 → 정상).
-- FK(client_id·contract_id 등)를 insert 전에 소유권 재조회로 검증하는 것 (요구되는 방식 → 정상).
-  읽기(select)는 RLS로 이미 user_id 스코프되므로, 소유 테이블에서 .eq("id", ...)로 재조회하는 것만으로 소유권이 검증된다.
-  명시적 user_id 필터가 없다는 이유로 위반이라 하지 말 것.
-- status·paid_at 등 서버 소유 필드를 서버 코드에서 직접(하드코딩) 세팅하는 것 (정상).
-  위반은 오직 그 서버 소유 필드를 "client 입력"(zod 스키마 필드·요청 본문)으로 받을 때만이다.
-- 세션 없는 경계(webhook·크론)의 DEFINER 함수가 p_*_secret 시크릿 인자를 받아 여러 사용자 행을 쓰는 것
-  (ADR-010·011이 요구하는 방식 → 정상). definer-rpc-scope 위반은 "삭제 대상 식별자"를 인자로 받을 때다.
 어떤 규칙 위반인지 확신이 서지 않으면 위반으로 보고하지 말고 {"violations": []} 를 반환한다.
 
 판정은 반드시 아래 JSON 한 개로만 답한다. 산문 금지.
 {"violations": [{"rule": "<위 슬러그 중 하나>", "evidence": "<근거 한 줄>"}]}
 위반이 없으면 {"violations": []} 를 반환한다.`;
+}
 
 /** review 피험 모델에게 줄 유저 메시지(리뷰 대상 코드). */
 export function buildReviewSubjectUser(code: string): string {
