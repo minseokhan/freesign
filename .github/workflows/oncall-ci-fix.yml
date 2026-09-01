@@ -133,7 +133,7 @@ jobs:
           echo "실패 로그 $(wc -l < "$ONCALL_LOG_PATH")줄 확보."
 
       - name: Run /oncall-ci-fix
-        uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1
+        uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10 # v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # 생략하면 액션이 Claude GitHub App으로 인증하려 하고, 앱이 없으면 실패한다.

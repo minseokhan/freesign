@@ -81,7 +81,7 @@ jobs:
           node-version: 22
 
       - name: Run /review-code
-        uses: anthropics/claude-code-action@6b082c41935b4c8a3b8b0ef85ba4ba4d9eeb8975 # v1
+        uses: anthropics/claude-code-action@a874e9ecd7bb36efdad65429c6b35815f5a08f10 # v1
         env:
           # 스킬은 Bash에서 `gh pr diff` · `gh api .../reviews` 를 쓴다.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
