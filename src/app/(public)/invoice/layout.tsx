@@ -22,7 +22,7 @@ export default function PublicInvoiceLayout({
     <div className="min-h-screen bg-surface-page">
       <header className="border-b border-surface-border bg-white">
         <div className="mx-auto flex max-w-3xl items-center px-lg py-lg">
-          <Logo className="h-6" />
+          <Logo className="h-9" />
         </div>
       </header>
       <main className="mx-auto w-full max-w-3xl px-lg py-2xl">{children}</main>

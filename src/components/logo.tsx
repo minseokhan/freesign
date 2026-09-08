@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 type LogoProps = {
@@ -5,56 +7,20 @@ type LogoProps = {
 };
 
 /**
- * 매듭 워드마크. 두 고리가 맞물린 심볼(액센트 블루 + currentColor) +
- * "매듭" 글자로 구성된 인라인 SVG. 높이는 className으로 제어(예: h-6).
+ * 매듭 워드마크. 브랜드 원본 이미지(public/brand/logo-light.png)를 그대로 쓴다.
  *
- * 글자는 폰트에 따라 실제 너비가 달라지므로 textLength로 폭을 고정해
- * 어떤 폴백 폰트에서도 viewBox 밖으로 넘치지 않게 한다. 단 lengthAdjust는
- * 자간만 조절하는 'spacing'이어야 한다 — 'spacingAndGlyphs'는 글리프 자체를
- * 가로로 늘여 글자가 눌린 것처럼 보인다.
+ * 원본은 764×326에 사방 49px 여백이 포함돼 있어, 글자 자체는 지정한 높이의
+ * 약 70%로만 보인다. 호출부에서 높이를 정할 때 이 여백을 감안할 것.
  */
 export function Logo({ className }: LogoProps) {
   return (
-    <svg
-      viewBox="0 0 116 40"
-      role="img"
-      aria-label="매듭"
-      className={cn("h-6 w-auto text-brand-primary", className)}
-    >
-      <title>매듭</title>
-      <rect
-        x="3"
-        y="3"
-        width="20"
-        height="20"
-        rx="7"
-        fill="none"
-        stroke="#4e61f6"
-        strokeWidth="5.5"
-      />
-      <rect
-        x="15"
-        y="15"
-        width="20"
-        height="20"
-        rx="7"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="5.5"
-      />
-      <text
-        x="52"
-        y="30"
-        fill="currentColor"
-        fontFamily="Pretendard, sans-serif"
-        fontSize="30"
-        fontWeight="800"
-        letterSpacing="-1"
-        textLength="62"
-        lengthAdjust="spacing"
-      >
-        매듭
-      </text>
-    </svg>
+    <Image
+      src="/brand/logo-light.png"
+      alt="매듭"
+      width={764}
+      height={326}
+      priority
+      className={cn("h-9 w-auto", className)}
+    />
   );
 }

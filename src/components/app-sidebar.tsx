@@ -58,7 +58,7 @@ export function AppSidebar({ plan }: { plan: Plan }) {
           href="/dashboard"
           className="inline-flex self-start rounded-sm px-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
         >
-          <Logo className="h-7" />
+          <Logo className="h-10" />
         </Link>
         <nav aria-label="대시보드 내비게이션" className="flex flex-col gap-xs">
           {items.map((item) => {

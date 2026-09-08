@@ -56,7 +56,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <section className="w-full max-w-sm rounded-[14px] border border-slate-200 bg-white p-6 shadow-[0_1px_2px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.10)]">
         <div className="space-y-2">
-          <Logo className="h-7" />
+          <Logo className="h-10" />
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             로그인
           </h1>

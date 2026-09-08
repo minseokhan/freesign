@@ -185,7 +185,7 @@ export default async function InvoicesPage({
       {totalCount === 0 ? (
         <Card className="flex min-h-80 flex-col items-center justify-center gap-lg text-center">
           <div aria-hidden="true">
-            <Logo className="h-8" />
+            <Logo className="h-12" />
           </div>
           <div>
             <h3 className="text-lg font-semibold text-text-primary">

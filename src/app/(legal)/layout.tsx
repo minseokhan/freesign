@@ -15,7 +15,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
             href="/"
             className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
           >
-            <Logo className="h-6" />
+            <Logo className="h-9" />
           </Link>
         </div>
       </header>

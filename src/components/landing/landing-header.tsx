@@ -20,7 +20,7 @@ export function LandingHeader({ isAuthenticated }: LandingHeaderProps) {
           href="/"
           className="inline-flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-ring focus-visible:ring-offset-2"
         >
-          <Logo className="h-7" />
+          <Logo className="h-10" />
         </Link>
         <Link
           href={cta.href}
